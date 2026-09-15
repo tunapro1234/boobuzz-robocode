@@ -20,6 +20,7 @@ import java.util.Objects;
 public final class HalLocalizer implements Localizer {
 
     private MotionState motionState = MotionState.zero();
+    private RobotState lastState;
     private Pose rawPose;
     private Pose previousRawPose;
     private long previousTimeMs;
@@ -34,6 +35,7 @@ public final class HalLocalizer implements Localizer {
     public void feed(RobotState state) {
         Objects.requireNonNull(state, "state");
         Pose sample = Objects.requireNonNull(state.pinpoint(), "state.pinpoint");
+        lastState = state;
         rawPose = sample;
 
         if (pendingPose != null) {
@@ -90,10 +92,10 @@ public final class HalLocalizer implements Localizer {
         offsetHeading = 0.0;
         pendingPose = null;
         hasPreviousSample = false;
-        if (rawPose == null) {
+        if (lastState == null) {
             motionState = MotionState.zero();
         } else {
-            motionState = MotionState.ofVelocity(rawPose, Velocity.zero());
+            motionState = MotionState.ofVelocity(lastState.pinpoint(), Velocity.zero());
         }
     }
 
