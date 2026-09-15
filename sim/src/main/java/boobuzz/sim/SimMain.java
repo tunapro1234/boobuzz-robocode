@@ -46,10 +46,7 @@ public final class SimMain {
                         a.drive[0], a.drive[1], a.drive[2]);
             }
 
-            RobotFactory.EngineKind engineKind = "pedro".equals(a.engine)
-                    ? RobotFactory.EngineKind.PEDRO
-                    : RobotFactory.EngineKind.C1;
-            RobotLoop loop = RobotFactory.create(hal, mechanism, engineKind, fixedDrive);
+            RobotLoop loop = RobotFactory.create(hal, mechanism, fixedDrive);
             System.out.printf("engine: %s%n", loop.engine().name());
 
             long wallStart = System.nanoTime();
@@ -89,7 +86,6 @@ public final class SimMain {
         double x = 0, y = 0, h = 0;
         int connectTimeoutMs = 5000;
         double[] drive = null;
-        String engine = "c1";
         String pathId = null;
 
         static Args parse(String[] argv) {
@@ -107,27 +103,16 @@ public final class SimMain {
                     case "--y" -> a.y = Double.parseDouble(next(argv, ++i, key));
                     case "--h" -> a.h = Double.parseDouble(next(argv, ++i, key));
                     case "--drive" -> a.drive = triple(next(argv, ++i, key));
-                    case "--engine" -> a.engine = engine(next(argv, ++i, key));
                     case "--path" -> a.pathId = next(argv, ++i, key);
                     case "--connect-timeout" ->
                             a.connectTimeoutMs = Integer.parseInt(next(argv, ++i, key));
                     default -> throw new IllegalArgumentException("bilinmeyen argüman: " + key);
                 }
             }
-            if (a.pathId != null && !"pedro".equals(a.engine)) {
-                throw new IllegalArgumentException("--path yalnizca --engine pedro ile kullanilir");
-            }
             if (a.pathId != null && a.drive != null) {
                 throw new IllegalArgumentException("--path ile --drive birlikte kullanilamaz");
             }
             return a;
-        }
-
-        private static String engine(String value) {
-            if (!"c1".equals(value) && !"pedro".equals(value)) {
-                throw new IllegalArgumentException("--engine c1|pedro bekliyor: " + value);
-            }
-            return value;
         }
 
         private static double[] triple(String value) {

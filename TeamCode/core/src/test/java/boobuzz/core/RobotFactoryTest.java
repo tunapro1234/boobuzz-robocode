@@ -30,12 +30,10 @@ public class RobotFactoryTest {
     }
 
     @Test
-    public void engineSecimleriTekFabrikadanKurulur() {
+    public void tekEngineFabrikadanKurulur() {
         StubHal hal = new StubHal();
         assertEquals("cplx_engine_1",
-                RobotFactory.create(hal, mechanism, RobotFactory.EngineKind.C1).engine().name());
-        assertEquals("cplx_engine_1",
-                RobotFactory.create(hal, mechanism, RobotFactory.EngineKind.PEDRO).engine().name());
+                RobotFactory.create(hal, mechanism).engine().name());
     }
 
     private static final class StubHal implements Hal {

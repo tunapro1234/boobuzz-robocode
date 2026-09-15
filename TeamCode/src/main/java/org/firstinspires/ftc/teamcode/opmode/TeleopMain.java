@@ -18,8 +18,7 @@ public class TeleopMain extends LinearOpMode {
     public void runOpMode() {
         Mechanism mechanism = Mechanism.loadDefault();
         RealHal hal = new RealHal(hardwareMap, gamepad1, mechanism, new Pose(0, 0, 0));
-        RobotLoop robot = RobotFactory.create(
-                hal, mechanism, RobotFactory.EngineKind.PEDRO);
+        RobotLoop robot = RobotFactory.create(hal, mechanism);
 
         telemetry.addLine("RealHal + ortak core hazir. Start'a bas.");
         telemetry.update();
