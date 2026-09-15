@@ -133,6 +133,9 @@ public final class SimMain {
             if (a.pathId != null && !"pedro".equals(a.engine)) {
                 throw new IllegalArgumentException("--path yalnizca --engine pedro ile kullanilir");
             }
+            if (a.pathId != null && a.drive != null) {
+                throw new IllegalArgumentException("--path ile --drive birlikte kullanilamaz");
+            }
             return a;
         }
 

@@ -13,7 +13,12 @@ import boobuzz.core.mechanism.Mechanism;
 import com.pedropathing.follower.Follower;
 import com.pedropathing.math.Pose;
 
-/** C1 manuel surusu koruyup GoTo/FollowPath/Hold'u Pedro'ya veren engine. */
+/**
+ * C1 manuel surusu koruyup GoTo/FollowPath/Hold'u Pedro'ya veren engine.
+ *
+ * <p>{@link Drive.GoTo#constraints()} Faz 2.5'te uygulanmaz; GoTo hedefi Pedro
+ * {@code hold(Pose)} ile tutulur. Kisit destegi olcumden sonra eklenmelidir.
+ */
 public final class PedroDriveEngine implements RobotEngine {
 
     private final C1DriveEngine manualEngine;
@@ -103,25 +108,18 @@ public final class PedroDriveEngine implements RobotEngine {
         if (left instanceof Drive.GoTo a && right instanceof Drive.GoTo b) {
             return samePose(a.target(), b.target()) && a.constraints().equals(b.constraints());
         }
-        return left instanceof Drive.Hold || left instanceof Drive.Velocity a
-                && right instanceof Drive.Velocity b && a.equals(b);
+        if (left instanceof Drive.Hold) {
+            return true;
+        }
+        if (left instanceof Drive.Velocity a && right instanceof Drive.Velocity b) {
+            return a.equals(b);
+        }
+        return false;
     }
 
     private static boolean samePose(Pose a, Pose b) {
         return Double.doubleToLongBits(a.x()) == Double.doubleToLongBits(b.x())
                 && Double.doubleToLongBits(a.y()) == Double.doubleToLongBits(b.y())
                 && Double.doubleToLongBits(a.heading()) == Double.doubleToLongBits(b.heading());
-    }
-
-    public HalLocalizer localizer() {
-        return localizer;
-    }
-
-    public HalDrivetrain drivetrain() {
-        return drivetrain;
-    }
-
-    public Follower follower() {
-        return follower;
     }
 }

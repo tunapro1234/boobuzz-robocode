@@ -34,10 +34,6 @@ public class PedroDriveEngineTest {
         RobotAction pedro = new PedroDriveEngine(mechanism).act(intent);
 
         assertEquals(c1, pedro);
-        for (String name : mechanism.wheelMotorNames()) {
-            assertEquals(Double.doubleToLongBits(c1.motor(name)),
-                    Double.doubleToLongBits(pedro.motor(name)));
-        }
     }
 
     @Test

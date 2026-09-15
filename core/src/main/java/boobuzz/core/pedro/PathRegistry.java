@@ -40,8 +40,4 @@ public final class PathRegistry {
         }
         throw new IllegalArgumentException("bilinmeyen Pedro yolu: " + id);
     }
-
-    public Map<String, Path> paths() {
-        return paths;
-    }
 }
