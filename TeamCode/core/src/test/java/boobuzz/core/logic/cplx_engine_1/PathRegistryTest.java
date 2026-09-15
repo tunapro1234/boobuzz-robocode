@@ -28,7 +28,7 @@ public class PathRegistryTest {
         try (InputStream in = getClass().getResourceAsStream("/mechanism-test.yaml")) {
             Mechanism mechanism = MechanismLoader.load(in, "mechanism-test.yaml");
             HalLocalizer localizer = new HalLocalizer();
-            HalDrivetrain drivetrain = new HalDrivetrain(mechanism);
+            HalDrivetrain drivetrain = new HalDrivetrain(DriveSubsystem.wheelNames(mechanism));
             follower = PedroConstants.createFollower(mechanism, localizer, drivetrain);
             registry = new PathRegistry();
         } catch (Exception e) {

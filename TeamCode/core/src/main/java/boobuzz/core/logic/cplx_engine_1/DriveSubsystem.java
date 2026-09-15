@@ -35,16 +35,12 @@ public final class DriveSubsystem implements Subsystem {
     private boolean hasPreviousState;
     private double deltaTimeSeconds;
 
-    private DriveSubsystem(Mechanism mechanism, PathRegistry paths) {
+    public DriveSubsystem(Mechanism mechanism, PathRegistry paths) {
         this.motorNames = wheelNames(mechanism);
         this.paths = paths;
         localizer = new HalLocalizer();
         drivetrain = new HalDrivetrain(motorNames);
         follower = PedroConstants.createFollower(mechanism, localizer, drivetrain);
-    }
-
-    public static DriveSubsystem pedro(Mechanism mechanism, PathRegistry paths) {
-        return new DriveSubsystem(mechanism, paths);
     }
 
     @Override
@@ -93,12 +89,6 @@ public final class DriveSubsystem implements Subsystem {
     public Pose pose() {
         return localizer.pose();
     }
-
-    Drive activeCommand() { return activeDrive; }
-
-    Follower.Mode followerMode() { return follower.mode(); }
-
-    double deltaTimeSeconds() { return deltaTimeSeconds; }
 
     private void rejectUnsupportedRequests(Intent intent) {
         if (intent.newRequests().isEmpty()) {

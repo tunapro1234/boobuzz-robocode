@@ -2,15 +2,11 @@ package boobuzz.core.logic.cplx_engine_1;
 
 import boobuzz.core.hal.RobotAction;
 import boobuzz.core.logic.cplx_engine_1.HalDrivetrain;
-import boobuzz.core.hal.Mechanism;
-import boobuzz.core.hal.MechanismLoader;
 
 import com.pedropathing.drivetrain.DrivePowers;
 
 import org.junit.Before;
 import org.junit.Test;
-
-import java.io.InputStream;
 
 import static org.junit.Assert.assertEquals;
 
@@ -21,11 +17,7 @@ public class HalDrivetrainTest {
 
     @Before
     public void setUp() {
-        try (InputStream in = getClass().getResourceAsStream("/mechanism-test.yaml")) {
-            drivetrain = new HalDrivetrain(MechanismLoader.load(in, "mechanism-test.yaml"));
-        } catch (Exception e) {
-            throw new AssertionError(e);
-        }
+        drivetrain = new HalDrivetrain(new String[] {"fl", "fr", "bl", "br"});
     }
 
     @Test

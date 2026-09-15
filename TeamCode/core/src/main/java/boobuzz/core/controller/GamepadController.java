@@ -31,7 +31,6 @@ public final class GamepadController implements Controller {
     private static final double DEADBAND = 0.05;
 
     private final GamepadSource gamepads;
-    private final double driveScale;
 
     private boolean fieldOriented = true;
     private double headingOffset = 0.0;
@@ -39,12 +38,7 @@ public final class GamepadController implements Controller {
     private boolean prevReset;
 
     public GamepadController(GamepadSource gamepads) {
-        this(gamepads, 1.0);
-    }
-
-    public GamepadController(GamepadSource gamepads, double driveScale) {
         this.gamepads = gamepads;
-        this.driveScale = driveScale;
     }
 
     @Override
@@ -64,9 +58,9 @@ public final class GamepadController implements Controller {
         }
         prevReset = g.y();
 
-        double forward = deadband(-g.ly()) * driveScale;
-        double left = deadband(-g.lx()) * driveScale;
-        double omega = deadband(-g.rx()) * driveScale; // CCW, her iki modda da robot cerceveli
+        double forward = deadband(-g.ly());
+        double left = deadband(-g.lx());
+        double omega = deadband(-g.rx()); // CCW, her iki modda da robot cerceveli
 
         double vx = forward;
         double vy = left;
@@ -99,8 +93,4 @@ public final class GamepadController implements Controller {
         return sign * (Math.abs(value) - DEADBAND) / (1.0 - DEADBAND);
     }
 
-    /** Telemetri ve testler icin. */
-    public boolean fieldOriented() { return fieldOriented; }
-
-    public double headingOffset() { return headingOffset; }
 }

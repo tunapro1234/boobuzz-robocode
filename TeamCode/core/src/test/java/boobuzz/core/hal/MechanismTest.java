@@ -38,9 +38,6 @@ public class MechanismTest {
     @Test
     public void drivetrainOlculeriOkunur() {
         Mechanism.Drivetrain d = testMechanism().drivetrain();
-        assertEquals("mecanum", d.type());
-        assertEquals(13.0, d.trackWidth(), 1e-9);
-        assertEquals(11.0, d.wheelBase(), 1e-9);
         assertEquals(4.0, d.wheelDiameter(), 1e-9);
     }
 
@@ -57,8 +54,6 @@ public class MechanismTest {
     @Test
     public void fizikVerisiOkunur() {
         Mechanism.Physics physics = testMechanism().physics();
-        assertEquals(12.0, physics.batteryV(), 1e-9);
-        assertEquals(0.1, physics.motorTauSeconds(), 1e-9);
         assertEquals(0.7346, physics.strafeEfficiency(), 1e-9);
         assertEquals(1.0, physics.efficiency().get("fl"), 1e-9);
     }
@@ -84,13 +79,6 @@ public class MechanismTest {
                           fl: {drives: wheel, pos: [0, 0]}
                         """));
         assertTrue(e.getMessage().contains("free_rpm"));
-    }
-
-    @Test
-    public void robotAyakIziOkunur() {
-        Mechanism m = testMechanism();
-        assertEquals(18.0, m.robot().width(), 1e-9);
-        assertEquals(18.0, m.robot().length(), 1e-9);
     }
 
     @Test

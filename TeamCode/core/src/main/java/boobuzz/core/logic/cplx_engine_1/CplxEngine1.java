@@ -18,11 +18,7 @@ public final class CplxEngine1 implements RobotEngine {
     private final List<Subsystem> subsystems;
 
     public CplxEngine1(Mechanism mechanism) {
-        this(mechanism, new PathRegistry());
-    }
-
-    public CplxEngine1(Mechanism mechanism, PathRegistry paths) {
-        drive = DriveSubsystem.pedro(mechanism, paths);
+        drive = new DriveSubsystem(mechanism, new PathRegistry());
         subsystems = List.of(drive);
     }
 

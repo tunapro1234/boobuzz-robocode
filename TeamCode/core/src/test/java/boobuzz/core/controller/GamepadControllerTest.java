@@ -13,7 +13,6 @@ import com.pedropathing.math.Pose;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 /** Field-oriented surus: donusum L3'te biter, Drive tipi robot cerceveli kalir. */
@@ -45,7 +44,11 @@ public class GamepadControllerTest {
 
     @Test
     public void varsayilanFieldOrientedAcik() {
-        assertTrue(new GamepadController(new Pad()).fieldOriented());
+        Pad pad = new Pad();
+        pad.state = forwardStick();
+        Drive.Manual d = driveOf(new GamepadController(pad).decide(at(Math.PI / 2)));
+        assertEquals(0.0, d.vx(), EPS);
+        assertEquals(-1.0, d.vy(), EPS);
     }
 
     @Test
@@ -74,7 +77,6 @@ public class GamepadControllerTest {
         pad.state = new GamepadState(0, -1, 0, 0,
                 false, true, false, false, false, false, 0, 0, GamepadState.Dpad.NONE);
         Drive.Manual d = driveOf(c.decide(at(Math.PI / 2)));
-        assertFalse(c.fieldOriented());
         assertEquals(1.0, d.vx(), EPS);
         assertEquals(0.0, d.vy(), EPS);
     }
@@ -83,19 +85,18 @@ public class GamepadControllerTest {
     public void toggleKenardaTetiklenirBasiliTutmaSaymaz() {
         Pad pad = new Pad();
         GamepadController c = new GamepadController(pad);
-        GamepadState bHeld = new GamepadState(0, 0, 0, 0,
+        GamepadState bHeld = new GamepadState(0, -1, 0, 0,
                 false, true, false, false, false, false, 0, 0, GamepadState.Dpad.NONE);
         pad.state = bHeld;
-        c.decide(at(0));
-        assertFalse(c.fieldOriented());
-        c.decide(at(0));
-        c.decide(at(0));
-        assertFalse("basili tutmak modu geri cevirmemeli", c.fieldOriented());
+        assertEquals(1.0, driveOf(c.decide(at(Math.PI / 2))).vx(), EPS);
+        assertEquals(1.0, driveOf(c.decide(at(Math.PI / 2))).vx(), EPS);
+        assertEquals(1.0, driveOf(c.decide(at(Math.PI / 2))).vx(), EPS);
         pad.state = GamepadState.neutral();
         c.decide(at(0));
         pad.state = bHeld;
-        c.decide(at(0));
-        assertTrue(c.fieldOriented());
+        Drive.Manual toggledBack = driveOf(c.decide(at(Math.PI / 2)));
+        assertEquals(0.0, toggledBack.vx(), EPS);
+        assertEquals(-1.0, toggledBack.vy(), EPS);
     }
 
     @Test
@@ -105,7 +106,6 @@ public class GamepadControllerTest {
         pad.state = new GamepadState(0, -1, 0, 0,
                 false, false, false, true, false, false, 0, 0, GamepadState.Dpad.NONE);
         Drive.Manual d = driveOf(c.decide(at(Math.PI / 2)));
-        assertEquals(Math.PI / 2, c.headingOffset(), EPS);
         // Sifirlamadan sonra ayni tick'te bile robot cercevesi = saha cercevesi.
         assertEquals(1.0, d.vx(), EPS);
         assertEquals(0.0, d.vy(), EPS);

@@ -32,11 +32,4 @@ public record RobotState(long t,
         vel = Map.copyOf(vel);
     }
 
-    public int enc(String name) {
-        return enc.getOrDefault(name, 0);
-    }
-
-    public double vel(String name) {
-        return vel.getOrDefault(name, 0.0);
-    }
 }

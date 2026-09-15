@@ -59,7 +59,6 @@ public final class MechanismLoader {
             Map<String, Object> motor = mapOf(entry.getValue());
             double[] position = doubles(motor.get("pos"), new double[] {0.0, 0.0});
             motors.put(entry.getKey(), new Mechanism.Motor(
-                    entry.getKey(),
                     str(motor.get("drives"), "unknown"),
                     coordinate(position, 0),
                     coordinate(position, 1),
@@ -73,20 +72,12 @@ public final class MechanismLoader {
 
         Map<String, Object> drivetrainNode = mapOf(root.get("drivetrain"));
         Mechanism.Drivetrain drivetrain = new Mechanism.Drivetrain(
-                str(drivetrainNode.get("type"), "mecanum"),
-                num(drivetrainNode.get("track_width"), 0.0),
-                num(drivetrainNode.get("wheel_base"), 0.0),
                 num(drivetrainNode.get("wheel_diameter"), 0.0));
-
-        Map<String, Object> robotNode = mapOf(root.get("robot"));
-        Mechanism.Footprint robot = new Mechanism.Footprint(
-                num(robotNode.get("width"), 0.0),
-                num(robotNode.get("length"), 0.0));
 
         Mechanism.Pinpoint pinpoint = pinpoint(root, origin);
         Mechanism.Physics physics = physics(root);
         return new Mechanism(motorNames, new ArrayList<>(mapOf(root.get("servos")).keySet()),
-                motors, drivetrain, robot, pinpoint, physics);
+                motors, drivetrain, pinpoint, physics);
     }
 
     private static Mechanism.Pinpoint pinpoint(Map<String, Object> root, String origin) {
@@ -114,8 +105,6 @@ public final class MechanismLoader {
             efficiency.put(entry.getKey(), num(entry.getValue(), 1.0));
         }
         return new Mechanism.Physics(
-                num(node.get("battery_v"), 0.0),
-                num(node.get("motor_tau_s"), 0.0),
                 efficiency,
                 num(node.get("strafe_eff"), 0.0),
                 num(node.get("zero_power_decel_forward_in_s2"), 0.0),

@@ -11,7 +11,6 @@ public record Mechanism(
         List<String> servoNames,
         Map<String, Motor> motors,
         Drivetrain drivetrain,
-        Footprint robot,
         Pinpoint pinpoint,
         Physics physics) {
 
@@ -19,13 +18,6 @@ public record Mechanism(
         motorNames = List.copyOf(motorNames);
         servoNames = List.copyOf(servoNames);
         motors = Map.copyOf(motors);
-        physics = new Physics(
-                physics.batteryV(),
-                physics.motorTauSeconds(),
-                Map.copyOf(physics.efficiency()),
-                physics.strafeEfficiency(),
-                physics.zeroPowerDecelForwardInchesPerSecondSquared(),
-                physics.zeroPowerDecelLateralInchesPerSecondSquared());
     }
 
     /** Sunucunun bildirdigi donanim adlariyla mekanizma semasini dogrular. */
@@ -74,18 +66,14 @@ public record Mechanism(
     }
 
     /** Motor konumu: +forward ileri, +left sol. */
-    public record Motor(String name, String drives, double forward, double left, double freeRpm) {}
+    public record Motor(String drives, double forward, double left, double freeRpm) {}
 
-    public record Drivetrain(String type, double trackWidth, double wheelBase,
-                             double wheelDiameter) {}
-
-    public record Footprint(double width, double length) {}
+    public record Drivetrain(double wheelDiameter) {}
 
     public record Pinpoint(double xPodOffsetMm, double yPodOffsetMm,
                            String xPodDirection, String yPodDirection, String podType) {}
 
-    public record Physics(double batteryV, double motorTauSeconds,
-                          Map<String, Double> efficiency, double strafeEfficiency,
+    public record Physics(Map<String, Double> efficiency, double strafeEfficiency,
                           double zeroPowerDecelForwardInchesPerSecondSquared,
                           double zeroPowerDecelLateralInchesPerSecondSquared) {}
 

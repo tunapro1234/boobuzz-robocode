@@ -7,8 +7,6 @@ import boobuzz.core.logic.RobotEngine;
 import boobuzz.core.hal.Hal;
 import boobuzz.core.hal.RobotAction;
 import boobuzz.core.hal.RobotState;
-import boobuzz.core.hal.NullProbe;
-import boobuzz.core.hal.Probe;
 
 /**
  * Tick. Bes satir, sirasi sabit (docs/mimari.md §1).
@@ -22,19 +20,12 @@ public final class RobotLoop {
     private final Hal hal;
     private final RobotEngine engine;
     private final Controller controller;
-    private final Probe probe;
-
     private long ticks;
 
     public RobotLoop(Hal hal, RobotEngine engine, Controller controller) {
-        this(hal, engine, controller, NullProbe.INSTANCE);
-    }
-
-    public RobotLoop(Hal hal, RobotEngine engine, Controller controller, Probe probe) {
         this.hal = hal;
         this.engine = engine;
         this.controller = controller;
-        this.probe = probe;
     }
 
     /** Bir tick kosar. */
@@ -47,10 +38,6 @@ public final class RobotLoop {
         RobotAction action = engine.act(intent);         // ASAGI
         hal.write(action);
 
-        probe.publish("state", state, now);
-        probe.publish("feedback", feedback, now);
-        probe.publish("intent", intent, now);
-        probe.publish("action", action, now);
         ticks++;
     }
 

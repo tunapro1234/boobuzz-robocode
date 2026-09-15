@@ -28,10 +28,6 @@ public final class HalDrivetrain implements Drivetrain {
     private DrivePowers drivePowers = DrivePowers.zero();
     private boolean manual;
 
-    public HalDrivetrain(Mechanism mechanism) {
-        this(DriveSubsystem.wheelNames(mechanism));
-    }
-
     HalDrivetrain(String[] motorNames) {
         this.motorNames = motorNames.clone();
     }

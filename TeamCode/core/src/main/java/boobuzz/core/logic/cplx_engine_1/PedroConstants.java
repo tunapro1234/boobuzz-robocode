@@ -15,9 +15,9 @@ public final class PedroConstants {
     private PedroConstants() {}
 
     // Pedro 3.0 icin muhafazakar baslangic kontrolculeri; AutoTune ile yenilenecek.
-    public static final double HEADING_KP = 1.0;
-    public static final double FORWARD_TRANSLATIONAL_KP = 0.10;
-    public static final double STRAFE_TRANSLATIONAL_KP = 0.10;
+    private static final double HEADING_KP = 1.0;
+    private static final double FORWARD_TRANSLATIONAL_KP = 0.10;
+    private static final double STRAFE_TRANSLATIONAL_KP = 0.10;
 
     /** Her follower icin durum tasimayan ayarlardan yeni bir config uretir. */
     public static ForesightConfig createForesightConfig(Mechanism mechanism) {
