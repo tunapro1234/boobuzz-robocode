@@ -25,8 +25,6 @@ public final class HalDrivetrain implements Drivetrain {
 
     private final String[] motorNames;
     private final double[] wheelPowers = new double[4];
-    private DrivePowers drivePowers = DrivePowers.zero();
-    private boolean manual;
 
     HalDrivetrain(String[] motorNames) {
         this.motorNames = motorNames.clone();
@@ -34,16 +32,10 @@ public final class HalDrivetrain implements Drivetrain {
 
     @Override
     public void drive(DrivePowers powers, boolean manual) {
-        drivePowers = powers;
-        this.manual = manual;
-
-        double forward = powers.forward();
-        double strafe = powers.strafe();
-        double turn = powers.turn();
-        wheelPowers[FL] = clip(forward - strafe - turn);
-        wheelPowers[FR] = clip(forward + strafe + turn);
-        wheelPowers[BL] = clip(forward + strafe - turn);
-        wheelPowers[BR] = clip(forward - strafe + turn);
+        double[] mixed = mecanum(powers);
+        for (int i = 0; i < wheelPowers.length; i++) {
+            wheelPowers[i] = RobotAction.clamp(mixed[i], -1.0, 1.0);
+        }
     }
 
     /**
@@ -52,8 +44,8 @@ public final class HalDrivetrain implements Drivetrain {
      */
     @Override
     public double maxScaling(DrivePowers current, DrivePowers delta) {
-        double[] base = unnormalized(current);
-        double[] change = unnormalized(delta);
+        double[] base = mecanum(current);
+        double[] change = mecanum(delta);
         for (double power : base) {
             if (Math.abs(power) > 1.0) {
                 return 0.0;
@@ -73,35 +65,24 @@ public final class HalDrivetrain implements Drivetrain {
                 scale = negative;
             }
         }
-        return clip01(scale);
+        return RobotAction.clamp(scale, 0.0, 1.0);
     }
 
     @Override
     public void stop() {
-        stop(false);
-    }
-
-    @Override
-    public void stop(boolean brake) {
-        drivePowers = DrivePowers.zero();
-        manual = false;
         for (int i = 0; i < wheelPowers.length; i++) {
             wheelPowers[i] = 0.0;
         }
     }
 
     @Override
+    public void stop(boolean brake) {
+        stop();
+    }
+
+    @Override
     public Map<String, Object> debug() {
-        Map<String, Object> out = new LinkedHashMap<>();
-        out.put("forward", drivePowers.forward());
-        out.put("strafe", drivePowers.strafe());
-        out.put("turn", drivePowers.turn());
-        out.put("manual", manual);
-        out.put("fl", wheelPowers[FL]);
-        out.put("fr", wheelPowers[FR]);
-        out.put("bl", wheelPowers[BL]);
-        out.put("br", wheelPowers[BR]);
-        return out;
+        return Map.of();
     }
 
     @Override
@@ -121,7 +102,19 @@ public final class HalDrivetrain implements Drivetrain {
         return RobotAction.ofMotors(motors);
     }
 
-    private static double[] unnormalized(DrivePowers powers) {
+    static double[] normalizedMecanum(DrivePowers powers) {
+        double[] wheelPowers = mecanum(powers);
+        double peak = 1.0;
+        for (double power : wheelPowers) {
+            peak = Math.max(peak, Math.abs(power));
+        }
+        for (int i = 0; i < wheelPowers.length; i++) {
+            wheelPowers[i] = RobotAction.clamp(wheelPowers[i] / peak, -1.0, 1.0);
+        }
+        return wheelPowers;
+    }
+
+    private static double[] mecanum(DrivePowers powers) {
         double forward = powers.forward();
         double strafe = powers.strafe();
         double turn = powers.turn();
@@ -130,13 +123,5 @@ public final class HalDrivetrain implements Drivetrain {
                 forward + strafe + turn,
                 forward + strafe - turn,
                 forward - strafe + turn};
-    }
-
-    private static double clip(double value) {
-        return Math.max(-1.0, Math.min(1.0, value));
-    }
-
-    private static double clip01(double value) {
-        return Math.max(0.0, Math.min(1.0, value));
     }
 }

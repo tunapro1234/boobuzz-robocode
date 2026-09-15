@@ -62,11 +62,12 @@ public final class RealHal implements Hal {
     @Override
     public void write(RobotAction action) {
         for (String name : mechanism.motorNames()) {
-            hardware.motors.get(name).setPower(clip(action.motor(name), -1.0, 1.0));
+            hardware.motors.get(name).setPower(
+                    RobotAction.clamp(action.motor(name), -1.0, 1.0));
         }
         for (String name : mechanism.servoNames()) {
             Servo servo = hardware.servos.get(name);
-            servo.setPosition(clip(action.servo(name), 0.0, 1.0));
+            servo.setPosition(RobotAction.clamp(action.servo(name), 0.0, 1.0));
         }
     }
 
@@ -103,7 +104,4 @@ public final class RealHal implements Hal {
         return GamepadState.Dpad.NONE;
     }
 
-    private static double clip(double value, double min, double max) {
-        return Math.max(min, Math.min(max, value));
-    }
 }

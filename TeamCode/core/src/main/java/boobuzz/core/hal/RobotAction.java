@@ -28,6 +28,10 @@ public record RobotAction(Map<String, Double> motors, Map<String, Double> servos
         return new RobotAction(motors, Collections.emptyMap());
     }
 
+    public static double clamp(double value, double min, double max) {
+        return Math.max(min, Math.min(max, value));
+    }
+
     public double motor(String name) {
         return motors.getOrDefault(name, 0.0);
     }

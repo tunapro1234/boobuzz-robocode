@@ -9,6 +9,7 @@ import boobuzz.core.hal.RobotState;
 import boobuzz.core.logic.Subsystem;
 import boobuzz.core.hal.Mechanism;
 
+import com.pedropathing.drivetrain.DrivePowers;
 import com.pedropathing.follower.Follower;
 import com.pedropathing.math.Pose;
 
@@ -112,17 +113,9 @@ public final class DriveSubsystem implements Subsystem {
             omega = manual.omega();
         }
 
-        double[] powers = {
-                vx - vy - omega,
-                vx + vy + omega,
-                vx + vy - omega,
-                vx - vy + omega};
-        double peak = 1.0;
-        for (double power : powers) {
-            peak = Math.max(peak, Math.abs(power));
-        }
+        double[] powers = HalDrivetrain.normalizedMecanum(new DrivePowers(vx, vy, omega));
         for (int i = 0; i < powers.length; i++) {
-            out.motor(motorNames[i], powers[i] / peak);
+            out.motor(motorNames[i], powers[i]);
         }
     }
 
