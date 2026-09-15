@@ -36,12 +36,7 @@ public final class MechanismLoader {
         if (in == null) {
             throw new Mechanism.MechanismException("classpath'te mechanism.yaml bulunamadi");
         }
-        try (in) {
-            return load(in, "classpath:/mechanism.yaml");
-        } catch (IOException e) {
-            throw new Mechanism.MechanismException(
-                    "mechanism.yaml kapatilamadi: " + e.getMessage());
-        }
+        return load(in, "classpath:/mechanism.yaml");
     }
 
     @SuppressWarnings("unchecked")
@@ -57,11 +52,12 @@ public final class MechanismLoader {
         List<String> motorNames = new ArrayList<>();
         for (Map.Entry<String, Object> entry : motorsNode.entrySet()) {
             Map<String, Object> motor = mapOf(entry.getValue());
-            double[] position = doubles(motor.get("pos"), new double[] {0.0, 0.0});
+            double[] position = requireDoubles(
+                    motor.get("pos"), 2, origin, entry.getKey() + ".pos");
             motors.put(entry.getKey(), new Mechanism.Motor(
-                    str(motor.get("drives"), "unknown"),
-                    coordinate(position, 0),
-                    coordinate(position, 1),
+                    requireStr(motor.get("drives"), origin, entry.getKey() + ".drives"),
+                    position[0],
+                    position[1],
                     requireNum(motor.get("free_rpm"), origin,
                             entry.getKey() + ".free_rpm")));
             motorNames.add(entry.getKey());
@@ -72,10 +68,11 @@ public final class MechanismLoader {
 
         Map<String, Object> drivetrainNode = mapOf(root.get("drivetrain"));
         Mechanism.Drivetrain drivetrain = new Mechanism.Drivetrain(
-                num(drivetrainNode.get("wheel_diameter"), 0.0));
+                requireNum(drivetrainNode.get("wheel_diameter"), origin,
+                        "drivetrain.wheel_diameter"));
 
         Mechanism.Pinpoint pinpoint = pinpoint(root, origin);
-        Mechanism.Physics physics = physics(root);
+        Mechanism.Physics physics = physics(root, origin, motorNames);
         return new Mechanism(motorNames, new ArrayList<>(mapOf(root.get("servos")).keySet()),
                 motors, drivetrain, pinpoint, physics);
     }
@@ -98,17 +95,22 @@ public final class MechanismLoader {
                 requireStr(node.get("pod_type"), origin, "sensors.pinpoint.pod_type"));
     }
 
-    private static Mechanism.Physics physics(Map<String, Object> root) {
+    private static Mechanism.Physics physics(Map<String, Object> root, String origin,
+                                             List<String> motorNames) {
         Map<String, Object> node = mapOf(root.get("physics"));
+        Map<String, Object> efficiencyNode = mapOf(node.get("efficiency"));
         Map<String, Double> efficiency = new LinkedHashMap<>();
-        for (Map.Entry<String, Object> entry : mapOf(node.get("efficiency")).entrySet()) {
-            efficiency.put(entry.getKey(), num(entry.getValue(), 1.0));
+        for (String name : motorNames) {
+            efficiency.put(name, requireNum(
+                    efficiencyNode.get(name), origin, "physics.efficiency." + name));
         }
         return new Mechanism.Physics(
                 efficiency,
-                num(node.get("strafe_eff"), 0.0),
-                num(node.get("zero_power_decel_forward_in_s2"), 0.0),
-                num(node.get("zero_power_decel_lateral_in_s2"), 0.0));
+                requireNum(node.get("strafe_eff"), origin, "physics.strafe_eff"),
+                requireNum(node.get("zero_power_decel_forward_in_s2"), origin,
+                        "physics.zero_power_decel_forward_in_s2"),
+                requireNum(node.get("zero_power_decel_lateral_in_s2"), origin,
+                        "physics.zero_power_decel_lateral_in_s2"));
     }
 
     @SuppressWarnings("unchecked")
@@ -116,49 +118,31 @@ public final class MechanismLoader {
         return node instanceof Map ? (Map<String, Object>) node : Collections.emptyMap();
     }
 
-    private static String str(Object node, String fallback) {
-        return node == null ? fallback : String.valueOf(node);
-    }
-
-    private static double num(Object node, double fallback) {
-        if (node instanceof Number number) {
-            return number.doubleValue();
-        }
-        if (node instanceof String text && !text.isBlank()) {
-            return Double.parseDouble(text.trim());
-        }
-        return fallback;
-    }
-
     private static double requireNum(Object node, String origin, String field) {
-        if (node == null) {
+        if (!(node instanceof Number number)) {
             throw new Mechanism.MechanismException(
-                    origin + ": '" + field + "' zorunlu alan, eksik");
+                    origin + ": '" + field + "' sayisal ve zorunlu olmali");
         }
-        return num(node, 0.0);
+        return number.doubleValue();
     }
 
     private static String requireStr(Object node, String origin, String field) {
-        String value = str(node, null);
-        if (value == null || value.isBlank()) {
+        if (!(node instanceof String value) || value.isBlank()) {
             throw new Mechanism.MechanismException(
-                    origin + ": '" + field + "' zorunlu alan, eksik");
+                    origin + ": '" + field + "' metin ve zorunlu olmali");
         }
         return value;
     }
 
-    private static double[] doubles(Object node, double[] fallback) {
-        if (!(node instanceof List<?> list)) {
-            return fallback;
+    private static double[] requireDoubles(Object node, int size, String origin, String field) {
+        if (!(node instanceof List<?> list) || list.size() != size) {
+            throw new Mechanism.MechanismException(
+                    origin + ": '" + field + "' " + size + " sayi icermeli");
         }
-        double[] values = new double[list.size()];
+        double[] values = new double[size];
         for (int i = 0; i < values.length; i++) {
-            values[i] = num(list.get(i), 0.0);
+            values[i] = requireNum(list.get(i), origin, field + "[" + i + "]");
         }
         return values;
-    }
-
-    private static double coordinate(double[] position, int index) {
-        return position.length > index ? position[index] : 0.0;
     }
 }

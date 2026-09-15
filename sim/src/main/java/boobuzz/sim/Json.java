@@ -32,12 +32,6 @@ final class Json {
         if (v instanceof Number n) {
             return n.doubleValue();
         }
-        if (v instanceof String s && !s.isBlank()) {
-            return Double.parseDouble(s.trim());
-        }
-        if (v instanceof Boolean b) {
-            return b ? 1.0 : 0.0;
-        }
         return fallback;
     }
 
@@ -74,7 +68,7 @@ final class Json {
             }
             first = false;
             out.append('"').append(escape(e.getKey())).append("\":");
-            double v = e.getValue() == null ? 0.0 : e.getValue();
+            double v = e.getValue();
             if (!Double.isFinite(v)) {
                 throw new SimProtocolException("sonlu olmayan deger: " + e.getKey() + "=" + v);
             }

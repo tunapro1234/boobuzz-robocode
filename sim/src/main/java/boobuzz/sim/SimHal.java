@@ -200,18 +200,8 @@ public final class SimHal implements Hal, Closeable {
     }
 
     private static GamepadState readGamepad(Map<String, Object> g) {
-        if (g.isEmpty()) {
-            return GamepadState.neutral();
-        }
-        String dpad = Json.str(g, "dpad");
-        GamepadState.Dpad d;
-        try {
-            d = (dpad == null || dpad.isBlank() || "none".equalsIgnoreCase(dpad))
-                    ? GamepadState.Dpad.NONE
-                    : GamepadState.Dpad.valueOf(dpad.trim().toUpperCase(java.util.Locale.ROOT));
-        } catch (IllegalArgumentException e) {
-            throw new SimProtocolException("bilinmeyen dpad degeri: " + dpad);
-        }
+        GamepadState.Dpad d = GamepadState.Dpad.valueOf(
+                Json.str(g, "dpad").toUpperCase(java.util.Locale.ROOT));
         return new GamepadState(
                 Json.num(g, "lx", 0), Json.num(g, "ly", 0),
                 Json.num(g, "rx", 0), Json.num(g, "ry", 0),
