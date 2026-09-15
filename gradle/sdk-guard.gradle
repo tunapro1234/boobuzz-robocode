@@ -8,7 +8,7 @@ def guard = tasks.register('sdkGuard') {
     description = 'Kaynaklarda FTC SDK / Android referansi arar, bulursa build kirilir.'
     group = 'verification'
 
-    def javaFiles = fileTree(dir: projectDir, includes: ['src/**/*.java'])
+    def javaFiles = sourceSets.main.java.asFileTree + sourceSets.test.java.asFileTree
     inputs.files(javaFiles).withPathSensitivity(PathSensitivity.RELATIVE)
     def marker = layout.buildDirectory.file('sdk-guard.ok')
     outputs.file(marker)
