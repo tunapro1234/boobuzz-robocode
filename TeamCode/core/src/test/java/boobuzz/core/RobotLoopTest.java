@@ -5,7 +5,7 @@ import boobuzz.core.contract.Drive;
 import boobuzz.core.contract.Feedback;
 import boobuzz.core.controller.GamepadController;
 import boobuzz.core.contract.Intent;
-import boobuzz.core.logic.engine.C1DriveEngine;
+import boobuzz.core.logic.engine.PedroDriveEngine;
 import boobuzz.core.hal.GamepadState;
 import boobuzz.core.hal.Hal;
 import boobuzz.core.hal.RobotAction;
@@ -58,7 +58,7 @@ public class RobotLoopTest {
     @Test
     public void tickZamaniHaldenAlir() {
         FakeHal hal = new FakeHal();
-        RobotLoop loop = new RobotLoop(hal, new C1DriveEngine(mechanism()),
+        RobotLoop loop = new RobotLoop(hal, new PedroDriveEngine(mechanism()),
                 fb -> Intent.of(new Drive.Manual(1, 0, 0)));
 
         for (int i = 0; i < 10; i++) {
@@ -102,7 +102,7 @@ public class RobotLoopTest {
         FakeHal hal = new FakeHal();
         hal.pad = new GamepadState(0, -1.0, 0, 0,
                 false, false, false, false, false, false, 0, 0, GamepadState.Dpad.NONE);
-        RobotLoop loop = new RobotLoop(hal, new C1DriveEngine(mechanism()),
+        RobotLoop loop = new RobotLoop(hal, new PedroDriveEngine(mechanism()),
                 new GamepadController(hal));
         loop.tick();
 

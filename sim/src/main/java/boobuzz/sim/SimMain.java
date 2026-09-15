@@ -16,7 +16,7 @@ import java.nio.file.Path;
  * java -cp ... boobuzz.sim.SimMain --mechanism ../mechanism.yaml --steps 500 --dt 20
  * </pre>
  *
- * <p>RobotLoop'u SimHal + C1DriveEngine + GamepadController ile kosturur,
+ * <p>RobotLoop'u SimHal + PedroDriveEngine + GamepadController ile kosturur,
  * N adim sonra {@code bye} gonderir.
  */
 public final class SimMain {
