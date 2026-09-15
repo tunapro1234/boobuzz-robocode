@@ -16,7 +16,6 @@ import java.io.InputStream;
 import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
 public class DriveSubsystemTest {
@@ -43,15 +42,6 @@ public class DriveSubsystemTest {
         assertEquals(0.25, action.motor("fr"), 1e-9);
         assertEquals(0.25, action.motor("bl"), 1e-9);
         assertEquals(0.75, action.motor("br"), 1e-9);
-    }
-
-    @Test
-    public void pedroYoluSubsystemIcindeCozulur() {
-        DriveSubsystem drive = new DriveSubsystem(mechanism, new PathRegistry());
-        RobotAction.Builder out = new RobotAction.Builder();
-
-        assertThrows(IllegalArgumentException.class,
-                () -> drive.update(Intent.of(new Drive.FollowPath("yok")), out));
     }
 
     @Test

@@ -2,7 +2,6 @@ package boobuzz.core.controller;
 
 import boobuzz.core.contract.Drive;
 import boobuzz.core.contract.Feedback;
-import boobuzz.core.controller.GamepadController;
 import boobuzz.core.contract.Intent;
 import boobuzz.core.contract.WorldSnapshot;
 import boobuzz.core.hal.GamepadSource;

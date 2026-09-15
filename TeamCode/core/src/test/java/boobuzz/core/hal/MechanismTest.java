@@ -1,7 +1,5 @@
 package boobuzz.core.hal;
 
-import boobuzz.core.hal.Mechanism;
-
 import org.junit.Test;
 
 import java.io.ByteArrayInputStream;

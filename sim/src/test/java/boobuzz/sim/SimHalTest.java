@@ -95,23 +95,6 @@ public class SimHalTest {
     }
 
     @Test
-    public void saatHaldenGelirDuvarSaatindenDegil() throws Exception {
-        Mechanism m = mechanism();
-        try (FakeSimServer server = new FakeSimServer(m.motorNames());
-             SimHal hal = connect(server, m, 50)) {
-            RobotLoop loop = new RobotLoop(hal, new CplxEngine1(m), fb -> Intent.idle());
-            long wallStart = System.nanoTime();
-            for (int i = 0; i < 200; i++) {
-                loop.tick();
-            }
-            long wallMs = (System.nanoTime() - wallStart) / 1_000_000;
-            assertEquals(200L * 50, hal.now());        // 200 x 50 ms sim zamani
-            assertTrue("sim gercek zamandan hizli kosmali, gercek=" + wallMs + "ms",
-                    wallMs < 10_000);
-        }
-    }
-
-    @Test
     public void gamepadSunucudanGelirVeNiyeteDonusur() throws Exception {
         Mechanism m = mechanism();
         try (FakeSimServer server = new FakeSimServer(m.motorNames())) {

@@ -1,8 +1,6 @@
 package boobuzz.core;
 
-import boobuzz.core.controller.Controller;
 import boobuzz.core.contract.Drive;
-import boobuzz.core.contract.Feedback;
 import boobuzz.core.controller.GamepadController;
 import boobuzz.core.contract.Intent;
 import boobuzz.core.logic.cplx_engine_1.CplxEngine1;
@@ -23,7 +21,6 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 
 public class RobotLoopTest {
 
@@ -69,22 +66,6 @@ public class RobotLoopTest {
         assertEquals(200, hal.now());
         assertEquals(10, hal.written.size());
         assertEquals(1.0, hal.written.get(9).motor("fl"), 1e-9);
-    }
-
-    @Test
-    public void gamepadControllerStickleriDogruCevirir() {
-        FakeHal hal = new FakeHal();
-        // Stick yukari itilince ly negatif olur; ileri surus beklenir.
-        hal.pad = new GamepadState(0, -1.0, 0, 0,
-                false, false, false, false, false, false, 0, 0, GamepadState.Dpad.NONE);
-
-        Controller controller = new GamepadController(hal);
-        Intent intent = controller.decide(null);
-        assertTrue(intent.drive() instanceof Drive.Manual);
-        Drive.Manual m = (Drive.Manual) intent.drive();
-        assertEquals(1.0, m.vx(), 1e-9);
-        assertEquals(0.0, m.vy(), 1e-9);
-        assertEquals(0.0, m.omega(), 1e-9);
     }
 
     @Test
