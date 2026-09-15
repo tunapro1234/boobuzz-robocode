@@ -6,7 +6,7 @@ import com.pedropathing.math.Pose;
  * Surus niyeti. docs/mimari.md §6.
  *
  * <p>Isaret duzeni Pedro ile ayni: {@code vx} ILERI, {@code vy} SOL, {@code omega} CCW.
- * {@code SmokeTeleop}'un {@code follower.manual(-ly, -lx, -rx)} cagrisi da budur.
+ * {@code GamepadController} ham stickleri once {@code (-ly, -lx, -rx)} ile bu duzene cevirir.
  */
 public sealed interface Drive {
 

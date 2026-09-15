@@ -11,8 +11,8 @@ import com.pedropathing.math.Pose;
 /**
  * L3 - surucu girdisini niyete cevirir.
  *
- * <p>Esleme {@code SmokeTeleop} ile ayni: sol stick surus, sag stick X donus,
- * stick'ler ters isaretli (yukari itmek negatif deger verir).
+ * <p>Sol stick surusu, sag stick X donusu belirler; stick eksenleri ters
+ * isaretlidir (yukari itmek negatif deger verir).
  *
  * <p>Olu bolge (deadband) burada, HAL'de degil: gamepad donanimi merkeze tam
  * donmez ve bu her iki tarafta da (sim, robot) ayni problemdir.
