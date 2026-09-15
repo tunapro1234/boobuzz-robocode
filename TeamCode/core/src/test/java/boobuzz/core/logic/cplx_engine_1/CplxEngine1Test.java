@@ -1,8 +1,7 @@
-package boobuzz.core.logic.engine;
+package boobuzz.core.logic.cplx_engine_1;
 
 import boobuzz.core.contract.Drive;
 import boobuzz.core.contract.Intent;
-import boobuzz.core.logic.engine.PedroDriveEngine;
 import boobuzz.core.hal.RobotAction;
 import boobuzz.core.hal.Mechanism;
 
@@ -14,7 +13,7 @@ import java.io.InputStream;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
 
-public class PedroDriveEngineTest {
+public class CplxEngine1Test {
 
     private Mechanism mechanism;
 
@@ -30,7 +29,7 @@ public class PedroDriveEngineTest {
     @Test
     public void manualMecanumGucunuDogruUretir() {
         Intent intent = Intent.of(new Drive.Manual(0.8, -0.6, 0.35));
-        RobotAction pedro = new PedroDriveEngine(mechanism).act(intent);
+        RobotAction pedro = new CplxEngine1(mechanism).act(intent);
 
         assertEquals(1.05 / 1.75, pedro.motor("fl"), 1e-9);
         assertEquals(0.55 / 1.75, pedro.motor("fr"), 1e-9);
@@ -40,7 +39,7 @@ public class PedroDriveEngineTest {
 
     @Test
     public void bilinmeyenYolAcikHataVerir() {
-        PedroDriveEngine engine = new PedroDriveEngine(mechanism);
+        CplxEngine1 engine = new CplxEngine1(mechanism);
         assertThrows(IllegalArgumentException.class,
                 () -> engine.act(Intent.of(new Drive.FollowPath("yok"))));
     }

@@ -32,9 +32,9 @@ public class RobotFactoryTest {
     @Test
     public void engineSecimleriTekFabrikadanKurulur() {
         StubHal hal = new StubHal();
-        assertEquals("PedroDrive",
+        assertEquals("cplx_engine_1",
                 RobotFactory.create(hal, mechanism, RobotFactory.EngineKind.C1).engine().name());
-        assertEquals("PedroDrive",
+        assertEquals("cplx_engine_1",
                 RobotFactory.create(hal, mechanism, RobotFactory.EngineKind.PEDRO).engine().name());
     }
 

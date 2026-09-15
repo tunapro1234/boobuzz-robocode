@@ -1,4 +1,4 @@
-package boobuzz.core.logic.engine;
+package boobuzz.core.logic;
 
 import boobuzz.core.contract.Feedback;
 import boobuzz.core.contract.Intent;
@@ -7,12 +7,7 @@ import boobuzz.core.hal.RobotState;
 
 /**
  * L2. Iki yonlu: {@link #sense} yukari algi, {@link #act} asagi icra.
- * Tamami takilip cikarilabilir bir birimdir.
- *
- * <pre>{@code RobotEngine engine = new C3VisionEngine(hal);  // C2'ye donmek TEK SATIR}</pre>
- *
- * <p>Amac bu: world model bozulursa C3'e, vision bozulursa C2'ye, her sey bozulursa
- * C1'e donersin - yarisma sabahi, tek satirla. Gecen sezon boyle bir geri donus yoktu.
+ * Robot ve sim ayni engine uygulamasini bu arayuz uzerinden calistirir.
  */
 public interface RobotEngine {
 

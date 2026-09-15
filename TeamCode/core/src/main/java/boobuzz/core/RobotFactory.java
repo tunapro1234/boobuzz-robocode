@@ -5,8 +5,8 @@ import boobuzz.core.controller.GamepadController;
 import boobuzz.core.contract.Drive;
 import boobuzz.core.contract.Intent;
 import boobuzz.core.hal.Hal;
-import boobuzz.core.logic.engine.PedroDriveEngine;
-import boobuzz.core.logic.engine.RobotEngine;
+import boobuzz.core.logic.cplx_engine_1.CplxEngine1;
+import boobuzz.core.logic.RobotEngine;
 import boobuzz.core.hal.Mechanism;
 
 import java.util.Objects;
@@ -30,7 +30,7 @@ public final class RobotFactory {
         Objects.requireNonNull(engineKind, "engineKind");
 
         RobotEngine engine = switch (engineKind) {
-            case C1, PEDRO -> new PedroDriveEngine(mechanism);
+            case C1, PEDRO -> new CplxEngine1(mechanism);
         };
         Controller controller = fixedDrive == null
                 ? new GamepadController(hal)

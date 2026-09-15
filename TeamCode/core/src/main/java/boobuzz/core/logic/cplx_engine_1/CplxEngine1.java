@@ -1,35 +1,34 @@
-package boobuzz.core.logic.engine;
+package boobuzz.core.logic.cplx_engine_1;
 
 import boobuzz.core.contract.Feedback;
 import boobuzz.core.contract.Intent;
 import boobuzz.core.contract.WorldSnapshot;
 import boobuzz.core.hal.RobotAction;
 import boobuzz.core.hal.RobotState;
+import boobuzz.core.logic.RobotEngine;
 import boobuzz.core.logic.Subsystem;
-import boobuzz.core.logic.drive.DriveSubsystem;
-import boobuzz.core.logic.drive.PathRegistry;
 import boobuzz.core.hal.Mechanism;
 
 import java.util.List;
 
-/** C1 manuel surusu koruyup GoTo/FollowPath/Hold'u Pedro'ya veren engine. */
-public final class PedroDriveEngine implements RobotEngine {
+/** Manuel surus ile Pedro GoTo/FollowPath/Hold komutlarini calistiran tek engine. */
+public final class CplxEngine1 implements RobotEngine {
 
     private final DriveSubsystem drive;
     private final List<Subsystem> subsystems;
 
-    public PedroDriveEngine(Mechanism mechanism) {
+    public CplxEngine1(Mechanism mechanism) {
         this(mechanism, new PathRegistry());
     }
 
-    public PedroDriveEngine(Mechanism mechanism, PathRegistry paths) {
+    public CplxEngine1(Mechanism mechanism, PathRegistry paths) {
         drive = DriveSubsystem.pedro(mechanism, paths);
         subsystems = List.of(drive);
     }
 
     @Override
     public String name() {
-        return "PedroDrive";
+        return "cplx_engine_1";
     }
 
     @Override
