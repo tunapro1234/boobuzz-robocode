@@ -1,4 +1,4 @@
-package boobuzz.core;
+package boobuzz.core.mechanism;
 
 import boobuzz.core.mechanism.Mechanism;
 

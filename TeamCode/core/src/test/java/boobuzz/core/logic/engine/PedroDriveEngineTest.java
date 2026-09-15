@@ -1,4 +1,4 @@
-package boobuzz.core.pedro;
+package boobuzz.core.logic.engine;
 
 import boobuzz.core.contract.Drive;
 import boobuzz.core.contract.Intent;

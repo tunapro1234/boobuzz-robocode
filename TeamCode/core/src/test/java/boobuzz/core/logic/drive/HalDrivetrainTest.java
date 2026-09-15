@@ -1,4 +1,4 @@
-package boobuzz.core.pedro;
+package boobuzz.core.logic.drive;
 
 import boobuzz.core.hal.RobotAction;
 import boobuzz.core.logic.drive.HalDrivetrain;
