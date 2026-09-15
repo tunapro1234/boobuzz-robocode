@@ -33,11 +33,12 @@ public final class Mechanism {
     private final Map<String, Sensor> sensors;
     private final Drivetrain drivetrain;
     private final Footprint robot;
+    private final Pinpoint pinpoint;
 
     private Mechanism(List<String> motorNames, List<String> servoNames,
                       Map<String, Motor> motors, Map<String, Servo> servos,
                       Map<String, Frame> frames, Map<String, Sensor> sensors,
-                      Drivetrain drivetrain, Footprint robot) {
+                      Drivetrain drivetrain, Footprint robot, Pinpoint pinpoint) {
         this.motorNames = List.copyOf(motorNames);
         this.servoNames = List.copyOf(servoNames);
         this.motors = Map.copyOf(motors);
@@ -46,6 +47,7 @@ public final class Mechanism {
         this.sensors = Map.copyOf(sensors);
         this.drivetrain = drivetrain;
         this.robot = robot;
+        this.pinpoint = pinpoint;
     }
 
     // ---------------------------------------------------------------- yukleme
@@ -58,6 +60,19 @@ public final class Mechanism {
 
     public static Mechanism load(InputStream in, String origin) {
         return parse(new java.io.InputStreamReader(in, StandardCharsets.UTF_8), origin);
+    }
+
+    /** Core jar'a root kaynaktan paketlenen ortak robot mekanizmasini yukler. */
+    public static Mechanism loadDefault() {
+        InputStream in = Mechanism.class.getResourceAsStream("/mechanism.yaml");
+        if (in == null) {
+            throw new MechanismException("classpath'te mechanism.yaml bulunamadi");
+        }
+        try (in) {
+            return load(in, "classpath:/mechanism.yaml");
+        } catch (IOException e) {
+            throw new MechanismException("mechanism.yaml kapatilamadi: " + e.getMessage());
+        }
     }
 
     @SuppressWarnings("unchecked")
@@ -139,6 +154,20 @@ public final class Mechanism {
                     str(s.get("parent"), "robot"),
                     doubles(s.get("xyz"), new double[] {0, 0, 0})));
         }
+        Pinpoint pinpoint = null;
+        if (sensorsNode.containsKey("pinpoint")) {
+            Map<String, Object> p = mapOf(sensorsNode.get("pinpoint"));
+            pinpoint = new Pinpoint(
+                    requireNum(p.get("x_pod_offset_mm"), origin,
+                            "sensors.pinpoint.x_pod_offset_mm"),
+                    requireNum(p.get("y_pod_offset_mm"), origin,
+                            "sensors.pinpoint.y_pod_offset_mm"),
+                    requireStr(p.get("x_pod_direction"), origin,
+                            "sensors.pinpoint.x_pod_direction"),
+                    requireStr(p.get("y_pod_direction"), origin,
+                            "sensors.pinpoint.y_pod_direction"),
+                    requireStr(p.get("pod_type"), origin, "sensors.pinpoint.pod_type"));
+        }
 
         // --- drivetrain
         Map<String, Object> dt = mapOf(root.get("drivetrain"));
@@ -158,7 +187,7 @@ public final class Mechanism {
                 num(robotNode.get("width"), 0.0), num(robotNode.get("length"), 0.0));
 
         return new Mechanism(motorNames, servoNames, motors, servos, frames, sensors,
-                drivetrain, robot);
+                drivetrain, robot, pinpoint);
     }
 
     private static void validateFrames(Map<String, Frame> frames, String origin) {
@@ -213,6 +242,13 @@ public final class Mechanism {
 
     public Drivetrain drivetrain() { return drivetrain; }
 
+    public Pinpoint pinpoint() {
+        if (pinpoint == null) {
+            throw new MechanismException("mechanism.yaml'da sensors.pinpoint yok");
+        }
+        return pinpoint;
+    }
+
     /** Ayak izi; duvar kirpma ve cizim icin. */
     public Footprint robot() { return robot; }
 
@@ -255,6 +291,9 @@ public final class Mechanism {
     public record Sensor(String name, String parent, double[] xyz) {}
 
     public record Drivetrain(String type, double trackWidth, double wheelBase, double wheelDiameter) {}
+
+    public record Pinpoint(double xPodOffsetMm, double yPodOffsetMm,
+                           String xPodDirection, String yPodDirection, String podType) {}
 
     public record Footprint(double width, double length) {}
 
@@ -304,6 +343,14 @@ public final class Mechanism {
             throw new MechanismException(origin + ": '" + what + "' zorunlu alan, eksik");
         }
         return num(node, 0.0);
+    }
+
+    private static String requireStr(Object node, String origin, String what) {
+        String value = str(node, null);
+        if (value == null || value.isBlank()) {
+            throw new MechanismException(origin + ": '" + what + "' zorunlu alan, eksik");
+        }
+        return value;
     }
 
     private static double angle(double value, boolean degrees) {

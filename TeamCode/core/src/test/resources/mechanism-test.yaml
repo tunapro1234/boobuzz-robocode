@@ -20,4 +20,6 @@ motors:                                   # ad = protokol anahtari
 servos: {}
 sensors:
   imu: {parent: robot}
-  pinpoint: {parent: robot, xyz: [0, 0, 0]}
+  pinpoint: {parent: robot, x_pod_offset_mm: 161.0, y_pod_offset_mm: 0.0,
+             x_pod_direction: FORWARD, y_pod_direction: REVERSED,
+             pod_type: goBILDA_4_BAR_POD}

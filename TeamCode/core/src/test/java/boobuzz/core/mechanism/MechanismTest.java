@@ -52,11 +52,26 @@ public class MechanismTest {
     }
 
     @Test
+    public void pinpointAyarlariTekKaynaktanOkunur() {
+        Mechanism.Pinpoint p = testMechanism().pinpoint();
+        assertEquals(161.0, p.xPodOffsetMm(), 1e-9);
+        assertEquals(0.0, p.yPodOffsetMm(), 1e-9);
+        assertEquals("FORWARD", p.xPodDirection());
+        assertEquals("REVERSED", p.yPodDirection());
+        assertEquals("goBILDA_4_BAR_POD", p.podType());
+    }
+
+    @Test
     public void projedekiGercekDosyaOkunabiliyor() throws Exception {
         Path p = Path.of("..", "..", "mechanism.yaml").toAbsolutePath().normalize();
         assertTrue("mechanism.yaml bulunamadi: " + p, Files.exists(p));
         Mechanism m = Mechanism.load(p);
         assertEquals(4, m.wheelMotorNames().size());
+    }
+
+    @Test
+    public void gercekDosyaCoreJarKaynaklarindanOkunabiliyor() {
+        assertEquals(4, Mechanism.loadDefault().wheelMotorNames().size());
     }
 
     @Test

@@ -1,54 +1,70 @@
 package org.firstinspires.ftc.teamcode.hal;
 
-import com.pedropathing.algorithm.Foresight;
-import com.pedropathing.algorithm.ForesightConfig;
-import com.pedropathing.follower.Follower;
+import boobuzz.core.mechanism.Mechanism;
+
 import com.pedropathing.math.Pose;
-import com.pedropathing.revhub.drivetrains.Mecanum;
-import com.pedropathing.revhub.drivetrains.MecanumConfig;
-import com.pedropathing.revhub.localizers.PinpointConfig;
-import com.pedropathing.revhub.localizers.PinpointLocalizer;
 import com.qualcomm.hardware.gobilda.GoBildaPinpointDriver;
+import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.HardwareMap;
+import com.qualcomm.robotcore.hardware.Servo;
+import com.qualcomm.robotcore.hardware.VoltageSensor;
 
+import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
+import org.firstinspires.ftc.robotcore.external.navigation.Pose2D;
 
-/**
- * Robot donanimi. Tek yerden Follower kuruyor.
- * Motor isimleri ve odometri offsetleri robot yapilinca guncellenecek.
- */
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+/** Yalniz FTC cihazlarini bulur ve {@code mechanism.yaml} ile yapilandirir. */
 public final class Hardware {
 
-    public final Follower follower;
+    final Map<String, DcMotorEx> motors;
+    final Map<String, Servo> servos;
+    final GoBildaPinpointDriver pinpoint;
+    final List<VoltageSensor> voltageSensors;
 
-    public Hardware(HardwareMap hardwareMap, Pose startPose) {
-        Mecanum drivetrain = new Mecanum(hardwareMap, new MecanumConfig(cfg -> {
-            cfg.frontLeftName.set("fl");
-            cfg.backLeftName.set("bl");
-            cfg.frontRightName.set("fr");
-            cfg.backRightName.set("br");
-            cfg.frontLeftDirection.set(DcMotorSimple.Direction.REVERSE);
-            cfg.backLeftDirection.set(DcMotorSimple.Direction.REVERSE);
-            cfg.frontRightDirection.set(DcMotorSimple.Direction.FORWARD);
-            cfg.backRightDirection.set(DcMotorSimple.Direction.FORWARD);
-        }));
+    public Hardware(HardwareMap hardwareMap, Mechanism mechanism, Pose startPose) {
+        Map<String, DcMotorEx> foundMotors = new LinkedHashMap<>();
+        for (String name : mechanism.motorNames()) {
+            DcMotorEx motor = hardwareMap.get(DcMotorEx.class, name);
+            Mechanism.Motor config = mechanism.motor(name);
+            if ("wheel".equals(config.drives())) {
+                motor.setDirection(config.left() >= 0.0
+                        ? DcMotorSimple.Direction.REVERSE
+                        : DcMotorSimple.Direction.FORWARD);
+                motor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+                motor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+            }
+            foundMotors.put(name, motor);
+        }
+        motors = Map.copyOf(foundMotors);
 
-        PinpointLocalizer localizer = new PinpointLocalizer(hardwareMap, new PinpointConfig(cfg -> {
-            cfg.name.set("pinpoint");
-            cfg.podType.set(GoBildaPinpointDriver.GoBildaOdometryPods.goBILDA_4_BAR_POD);
-            // Gecen sezonun OLCULMUS degerleri (Pedro 2.x Constants.java'dan tasindi):
-            //   forwardPodY(161) strafePodX(0), forward FORWARD, strafe REVERSED, birim MM.
-            // Pedro 3 karsiligi: xPod = ileri pod, yPod = yanal pod.
-            // YENI ROBOTTA YENIDEN OLCULECEK - su anki sasi degil.
-            cfg.xPodDirection.set(GoBildaPinpointDriver.EncoderDirection.FORWARD);
-            cfg.yPodDirection.set(GoBildaPinpointDriver.EncoderDirection.REVERSED);
-            cfg.offsetUnits.set(DistanceUnit.MM);
-            cfg.xPodOffset.set(161.0);
-            cfg.yPodOffset.set(0.0);
-        }));
+        Map<String, Servo> foundServos = new LinkedHashMap<>();
+        for (String name : mechanism.servoNames()) {
+            foundServos.put(name, hardwareMap.get(Servo.class, name));
+        }
+        servos = Map.copyOf(foundServos);
 
-        follower = new Follower(localizer, drivetrain, new Foresight(new ForesightConfig(cfg -> {})));
-        follower.setPose(startPose);
+        Mechanism.Pinpoint config = mechanism.pinpoint();
+        pinpoint = hardwareMap.get(GoBildaPinpointDriver.class, "pinpoint");
+        pinpoint.setOffsets(config.xPodOffsetMm(), config.yPodOffsetMm(), DistanceUnit.MM);
+        pinpoint.setEncoderResolution(GoBildaPinpointDriver.GoBildaOdometryPods.valueOf(
+                config.podType()));
+        pinpoint.setEncoderDirections(
+                GoBildaPinpointDriver.EncoderDirection.valueOf(config.xPodDirection()),
+                GoBildaPinpointDriver.EncoderDirection.valueOf(config.yPodDirection()));
+        pinpoint.recalibrateIMU();
+        Pose pose = startPose == null ? new Pose(0.0, 0.0, 0.0) : startPose;
+        pinpoint.setPosition(new Pose2D(DistanceUnit.INCH, pose.x(), pose.y(),
+                AngleUnit.RADIANS, pose.heading()));
+
+        voltageSensors = List.copyOf(hardwareMap.getAll(VoltageSensor.class));
+        if (voltageSensors.isEmpty()) {
+            throw new IllegalStateException("FTC HardwareMap voltaj sensoru icermiyor");
+        }
     }
 }

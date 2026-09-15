@@ -1,10 +1,14 @@
 package org.firstinspires.ftc.teamcode.opmode;
 
-import org.firstinspires.ftc.teamcode.hal.Hardware;
-
+import boobuzz.core.RobotLoop;
+import boobuzz.core.controller.GamepadController;
+import boobuzz.core.logic.engine.PedroDriveEngine;
+import boobuzz.core.mechanism.Mechanism;
 import com.pedropathing.math.Pose;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+
+import org.firstinspires.ftc.teamcode.hal.RealHal;
 
 /**
  * Pedro 3.0 stack'inin ayakta oldugunu dogrulayan minimal teleop.
@@ -15,23 +19,19 @@ public class SmokeTeleop extends LinearOpMode {
 
     @Override
     public void runOpMode() {
-        Hardware robot = new Hardware(hardwareMap, new Pose(0, 0, 0));
+        Mechanism mechanism = Mechanism.loadDefault();
+        RealHal hal = new RealHal(hardwareMap, gamepad1, mechanism, new Pose(0, 0, 0));
+        RobotLoop robot = new RobotLoop(
+                hal, new PedroDriveEngine(mechanism), new GamepadController(hal));
 
-        telemetry.addLine("Pedro 3.0 hazir. Start'a bas.");
+        telemetry.addLine("RealHal + ortak core hazir. Start'a bas.");
         telemetry.update();
         waitForStart();
 
         while (opModeIsActive()) {
-            robot.follower.update();
-            robot.follower.manual(
-                    -gamepad1.left_stick_y,
-                    -gamepad1.left_stick_x,
-                    -gamepad1.right_stick_x);
-
-            Pose pose = robot.follower.pose();
-            telemetry.addData("x", "%.1f", pose.x());
-            telemetry.addData("y", "%.1f", pose.y());
-            telemetry.addData("heading", "%.1f", Math.toDegrees(pose.heading()));
+            robot.tick();
+            telemetry.addData("engine", robot.engine().name());
+            telemetry.addData("ticks", robot.ticks());
             telemetry.update();
         }
     }

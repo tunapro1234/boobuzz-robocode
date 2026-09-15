@@ -9,6 +9,12 @@ java {
     targetCompatibility = JavaVersion.VERSION_17
 }
 
+// Tek kaynak root mechanism.yaml'dir; core jar uzerinden robot APK'sina da girer.
+sourceSets.main.resources {
+    srcDir rootProject.projectDir
+    include 'mechanism.yaml'
+}
+
 dependencies {
     // Pedro 3.0 'core' artifact'i saf Java jar'dir (67 sinif, FTC/Android/Kotlin
     // referansi yok - dogrulandi). Android tarafi 'revhub' AAR'idir, o TeamCode'a ait.
