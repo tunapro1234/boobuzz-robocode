@@ -11,6 +11,7 @@ import boobuzz.core.hal.Hal;
 import boobuzz.core.hal.RobotAction;
 import boobuzz.core.hal.RobotState;
 import boobuzz.core.hal.Mechanism;
+import boobuzz.core.hal.MechanismLoader;
 
 import com.pedropathing.math.Pose;
 
@@ -49,7 +50,7 @@ public class RobotLoopTest {
 
     private static Mechanism mechanism() {
         try (InputStream in = RobotLoopTest.class.getResourceAsStream("/mechanism-test.yaml")) {
-            return Mechanism.load(in, "mechanism-test.yaml");
+            return MechanismLoader.load(in, "mechanism-test.yaml");
         } catch (Exception e) {
             throw new AssertionError(e);
         }

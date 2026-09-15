@@ -3,6 +3,7 @@ package boobuzz.core.logic.cplx_engine_1;
 import boobuzz.core.hal.RobotAction;
 import boobuzz.core.logic.cplx_engine_1.HalDrivetrain;
 import boobuzz.core.hal.Mechanism;
+import boobuzz.core.hal.MechanismLoader;
 
 import com.pedropathing.drivetrain.DrivePowers;
 
@@ -21,7 +22,7 @@ public class HalDrivetrainTest {
     @Before
     public void setUp() {
         try (InputStream in = getClass().getResourceAsStream("/mechanism-test.yaml")) {
-            drivetrain = new HalDrivetrain(Mechanism.load(in, "mechanism-test.yaml"));
+            drivetrain = new HalDrivetrain(MechanismLoader.load(in, "mechanism-test.yaml"));
         } catch (Exception e) {
             throw new AssertionError(e);
         }

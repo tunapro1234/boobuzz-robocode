@@ -4,6 +4,7 @@ import boobuzz.core.contract.Drive;
 import boobuzz.core.contract.Intent;
 import boobuzz.core.hal.RobotAction;
 import boobuzz.core.hal.Mechanism;
+import boobuzz.core.hal.MechanismLoader;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -20,7 +21,7 @@ public class DriveSubsystemTest {
     @Before
     public void setUp() {
         try (InputStream in = getClass().getResourceAsStream("/mechanism-test.yaml")) {
-            mechanism = Mechanism.load(in, "mechanism-test.yaml");
+            mechanism = MechanismLoader.load(in, "mechanism-test.yaml");
         } catch (Exception e) {
             throw new AssertionError(e);
         }

@@ -5,6 +5,7 @@ import boobuzz.core.hal.Hal;
 import boobuzz.core.hal.RobotAction;
 import boobuzz.core.hal.RobotState;
 import boobuzz.core.hal.Mechanism;
+import boobuzz.core.hal.MechanismLoader;
 
 import com.pedropathing.math.Pose;
 
@@ -23,7 +24,7 @@ public class RobotFactoryTest {
     @Before
     public void setUp() {
         try (InputStream in = getClass().getResourceAsStream("/mechanism-test.yaml")) {
-            mechanism = Mechanism.load(in, "mechanism-test.yaml");
+            mechanism = MechanismLoader.load(in, "mechanism-test.yaml");
         } catch (Exception e) {
             throw new AssertionError(e);
         }

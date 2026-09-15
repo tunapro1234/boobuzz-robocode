@@ -4,6 +4,7 @@ import boobuzz.core.RobotLoop;
 import boobuzz.core.RobotFactory;
 import boobuzz.core.contract.Drive;
 import boobuzz.core.hal.Mechanism;
+import boobuzz.core.hal.MechanismLoader;
 
 import com.pedropathing.math.Pose;
 
@@ -26,7 +27,7 @@ public final class SimMain {
     public static void main(String[] args) throws Exception {
         Args a = Args.parse(args);
 
-        Mechanism mechanism = Mechanism.load(a.mechanism);
+        Mechanism mechanism = MechanismLoader.load(a.mechanism);
         System.out.printf("mechanism: %s  motorlar=%s%n", a.mechanism, mechanism.motorNames());
 
         try (SimHal hal = new SimHal(mechanism, a.host, a.port, a.dtMs,

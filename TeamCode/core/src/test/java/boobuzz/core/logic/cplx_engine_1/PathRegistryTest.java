@@ -5,6 +5,7 @@ import boobuzz.core.logic.cplx_engine_1.HalLocalizer;
 import boobuzz.core.logic.cplx_engine_1.PathRegistry;
 import boobuzz.core.logic.cplx_engine_1.PedroConstants;
 import boobuzz.core.hal.Mechanism;
+import boobuzz.core.hal.MechanismLoader;
 
 import com.pedropathing.follower.Follower;
 
@@ -25,7 +26,7 @@ public class PathRegistryTest {
     @Before
     public void setUp() {
         try (InputStream in = getClass().getResourceAsStream("/mechanism-test.yaml")) {
-            Mechanism mechanism = Mechanism.load(in, "mechanism-test.yaml");
+            Mechanism mechanism = MechanismLoader.load(in, "mechanism-test.yaml");
             HalLocalizer localizer = new HalLocalizer();
             HalDrivetrain drivetrain = new HalDrivetrain(mechanism);
             follower = PedroConstants.createFollower(localizer, drivetrain);

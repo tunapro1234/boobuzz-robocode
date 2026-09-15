@@ -9,6 +9,7 @@ import boobuzz.core.hal.GamepadState;
 import boobuzz.core.hal.RobotAction;
 import boobuzz.core.hal.RobotState;
 import boobuzz.core.hal.Mechanism;
+import boobuzz.core.hal.MechanismLoader;
 
 import com.pedropathing.math.Pose;
 
@@ -32,7 +33,7 @@ public class SimHalTest {
     private static Mechanism mechanism() throws Exception {
         Path p = Path.of("..", "mechanism.yaml").toAbsolutePath().normalize();
         assertTrue("mechanism.yaml bulunamadi: " + p, Files.exists(p));
-        return Mechanism.load(p);
+        return MechanismLoader.load(p);
     }
 
     private static SimHal connect(FakeSimServer server, Mechanism m, int dtMs) throws Exception {

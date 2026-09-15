@@ -11,6 +11,13 @@ robot: {width: 18, length: 18}            # ayak izi; duvar kirpma + cizim
 frames:
   robot:  {parent: field}
 drivetrain: {type: mecanum, track_width: 13.0, wheel_base: 11.0, wheel_diameter: 4.0}
+physics:
+  battery_v: 12.0
+  motor_tau_s: 0.1
+  efficiency: {fl: 1.0, fr: 1.0, bl: 1.0, br: 1.0}
+  strafe_eff: 0.7346
+  zero_power_decel_forward_in_s2: 36.17
+  zero_power_decel_lateral_in_s2: 85.98
 motors:                                   # ad = protokol anahtari
   # pos = [x ileri, y sol] robot cercevesi
   fl: {drives: wheel, pos: [ 6.5, 5.5], roller: 45,  ticks_per_rev: 537.7, free_rpm: 312, kV: 0.0, kS: 0.0}
