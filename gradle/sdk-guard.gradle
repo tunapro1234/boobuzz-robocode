@@ -1,0 +1,39 @@
+// Anayasa kural 1 (docs/mimari.md §2): L2/L3 FTC SDK import etmez.
+// Bu dosya kurali disiplin olmaktan cikarip DERLEME HATASI yapar.
+// compileJava'dan ONCE kosar; ihlal varsa build orada durur.
+
+def forbidden = ~/com\.qualcomm|org\.firstinspires|android\./
+
+def guard = tasks.register('sdkGuard') {
+    description = 'Kaynaklarda FTC SDK / Android referansi arar, bulursa build kirilir.'
+    group = 'verification'
+
+    def javaFiles = fileTree(dir: projectDir, includes: ['src/**/*.java'])
+    inputs.files(javaFiles).withPathSensitivity(PathSensitivity.RELATIVE)
+    def marker = layout.buildDirectory.file('sdk-guard.ok')
+    outputs.file(marker)
+    def projectName = project.name
+    def rootDir = project.rootDir
+
+    doLast {
+        def hits = []
+        javaFiles.each { f ->
+            f.eachLine('UTF-8') { line, n ->
+                if (forbidden.matcher(line).find()) {
+                    hits << "  ${rootDir.toPath().relativize(f.toPath())}:${n}: ${line.trim()}"
+                }
+            }
+        }
+        if (!hits.isEmpty()) {
+            throw new GradleException(
+                "\n:${projectName} icinde FTC SDK / Android referansi var (anayasa kural 1).\n" +
+                "Bu modul saf Java olmak zorunda; donanima dokunan kod TeamCode'a ait.\n" +
+                hits.join('\n') + '\n')
+        }
+        def out = marker.get().asFile
+        out.parentFile.mkdirs()
+        out.text = "ok\n"
+    }
+}
+
+tasks.named('compileJava') { dependsOn guard }

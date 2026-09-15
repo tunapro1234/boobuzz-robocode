@@ -1,0 +1,25 @@
+// :sim — L1'in simulasyon tarafi. Saf Java, FTC SDK YOK.
+// :core'a bagimli; TeamCode'a ASLA.
+plugins {
+    id 'java-library'
+    id 'application'
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
+dependencies {
+    implementation project(':core')
+    implementation 'org.yaml:snakeyaml:2.3'
+    testImplementation 'junit:junit:4.13.2'
+}
+
+application {
+    mainClass = 'boobuzz.sim.SimMain'
+}
+
+tasks.named('test') { useJUnit() }
+
+apply from: rootProject.file('gradle/sdk-guard.gradle')

@@ -8,3 +8,8 @@ pluginManagement {
 
 include ':FtcRobotController'
 include ':TeamCode'
+
+// Anayasa kural 1: :core ve :sim FTC SDK gormez.
+// Kural derleme hatasina cevrildi -> gradle/sdk-guard.gradle
+include ':core'
+include ':sim'

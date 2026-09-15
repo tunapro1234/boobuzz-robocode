@@ -1,0 +1,25 @@
+// :core — L2/L3. Saf Java, FTC SDK YOK, Android YOK.
+// Ayni bytecode hem robotta (TeamCode) hem simde (:sim) kosar.
+plugins {
+    id 'java-library'
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
+dependencies {
+    // Pedro 3.0 'core' artifact'i saf Java jar'dir (67 sinif, FTC/Android/Kotlin
+    // referansi yok - dogrulandi). Android tarafi 'revhub' AAR'idir, o TeamCode'a ait.
+    api 'com.pedropathing:core:3.0.0'
+
+    // mechanism.yaml okuyucu. SDK degil.
+    implementation 'org.yaml:snakeyaml:2.3'
+
+    testImplementation 'junit:junit:4.13.2'
+}
+
+tasks.named('test') { useJUnit() }
+
+apply from: rootProject.file('gradle/sdk-guard.gradle')

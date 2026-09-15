@@ -37,10 +37,14 @@ public final class Hardware {
         PinpointLocalizer localizer = new PinpointLocalizer(hardwareMap, new PinpointConfig(cfg -> {
             cfg.name.set("pinpoint");
             cfg.podType.set(GoBildaPinpointDriver.GoBildaOdometryPods.goBILDA_4_BAR_POD);
+            // Gecen sezonun OLCULMUS degerleri (Pedro 2.x Constants.java'dan tasindi):
+            //   forwardPodY(161) strafePodX(0), forward FORWARD, strafe REVERSED, birim MM.
+            // Pedro 3 karsiligi: xPod = ileri pod, yPod = yanal pod.
+            // YENI ROBOTTA YENIDEN OLCULECEK - su anki sasi degil.
             cfg.xPodDirection.set(GoBildaPinpointDriver.EncoderDirection.FORWARD);
-            cfg.yPodDirection.set(GoBildaPinpointDriver.EncoderDirection.FORWARD);
-            cfg.offsetUnits.set(DistanceUnit.INCH);
-            cfg.xPodOffset.set(0.0);
+            cfg.yPodDirection.set(GoBildaPinpointDriver.EncoderDirection.REVERSED);
+            cfg.offsetUnits.set(DistanceUnit.MM);
+            cfg.xPodOffset.set(161.0);
             cfg.yPodOffset.set(0.0);
         }));
 
