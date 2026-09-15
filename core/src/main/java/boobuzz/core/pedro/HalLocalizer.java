@@ -48,9 +48,13 @@ public final class HalLocalizer implements Localizer {
             long dtMs = state.t() - previousTimeMs;
             if (dtMs > 0) {
                 double dt = dtMs / 1000.0;
+                double rawVx = (sample.x() - previousRawPose.x()) / dt;
+                double rawVy = (sample.y() - previousRawPose.y()) / dt;
+                double cos = Math.cos(offsetHeading);
+                double sin = Math.sin(offsetHeading);
                 velocity = new Velocity(
-                        (sample.x() - previousRawPose.x()) / dt,
-                        (sample.y() - previousRawPose.y()) / dt,
+                        rawVx * cos - rawVy * sin,
+                        rawVx * sin + rawVy * cos,
                         wrap(sample.heading() - previousRawPose.heading()) / dt);
             }
         }
