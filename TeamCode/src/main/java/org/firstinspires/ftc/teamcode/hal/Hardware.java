@@ -33,6 +33,7 @@ public final class Hardware {
             DcMotorEx motor = hardwareMap.get(DcMotorEx.class, name);
             Mechanism.Motor config = mechanism.motor(name);
             if ("wheel".equals(config.drives())) {
+                // Robot cercevesinde +left sol taraftir; merkez esigi (0) sol kabul edilir.
                 motor.setDirection(config.left() >= 0.0
                         ? DcMotorSimple.Direction.REVERSE
                         : DcMotorSimple.Direction.FORWARD);

@@ -36,7 +36,7 @@ public class DriveSubsystemTest {
 
     @Test
     public void manuelMecanumEyleminiUretir() {
-        DriveSubsystem drive = DriveSubsystem.manual(mechanism);
+        DriveSubsystem drive = DriveSubsystem.pedro(mechanism, new PathRegistry());
         RobotAction.Builder out = new RobotAction.Builder();
         drive.update(Intent.of(new Drive.Manual(0.5, -0.25, 0.0)), out);
 

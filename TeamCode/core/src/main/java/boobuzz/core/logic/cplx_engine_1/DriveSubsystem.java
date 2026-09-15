@@ -23,7 +23,6 @@ public final class DriveSubsystem implements Subsystem {
     private static final int BL = 2;
     private static final int BR = 3;
 
-    private final Mechanism mechanism;
     private final String[] motorNames;
     private final HalLocalizer localizer;
     private final HalDrivetrain drivetrain;
@@ -37,22 +36,11 @@ public final class DriveSubsystem implements Subsystem {
     private double deltaTimeSeconds;
 
     private DriveSubsystem(Mechanism mechanism, PathRegistry paths) {
-        this.mechanism = mechanism;
         this.motorNames = wheelNames(mechanism);
         this.paths = paths;
-        if (paths == null) {
-            localizer = null;
-            drivetrain = null;
-            follower = null;
-        } else {
-            localizer = new HalLocalizer();
-            drivetrain = new HalDrivetrain(motorNames);
-            follower = PedroConstants.createFollower(mechanism, localizer, drivetrain);
-        }
-    }
-
-    public static DriveSubsystem manual(Mechanism mechanism) {
-        return new DriveSubsystem(mechanism, null);
+        localizer = new HalLocalizer();
+        drivetrain = new HalDrivetrain(motorNames);
+        follower = PedroConstants.createFollower(mechanism, localizer, drivetrain);
     }
 
     public static DriveSubsystem pedro(Mechanism mechanism, PathRegistry paths) {
@@ -66,9 +54,6 @@ public final class DriveSubsystem implements Subsystem {
 
     @Override
     public void observe(long now, RobotState state) {
-        if (localizer == null) {
-            return;
-        }
         localizer.feed(state);
         deltaTimeSeconds = 0.0;
         if (hasPreviousState && state.t() > previousStateTimeMs) {
@@ -82,11 +67,11 @@ public final class DriveSubsystem implements Subsystem {
     public void update(Intent intent, RobotAction.Builder out) {
         rejectUnsupportedRequests(intent);
         Drive drive = intent.drive();
-        if (follower == null || drive instanceof Drive.Manual) {
-            if (follower != null) {
+        if (drive instanceof Drive.Manual) {
+            if (!(activeDrive instanceof Drive.Manual)) {
                 follower.stop();
-                activeDrive = null;
             }
+            activeDrive = drive;
             writeManual(drive, out);
             return;
         }
@@ -106,21 +91,8 @@ public final class DriveSubsystem implements Subsystem {
     }
 
     public Pose pose() {
-        if (localizer == null) {
-            throw new IllegalStateException("manuel drive subsystem localizer tasimaz");
-        }
         return localizer.pose();
     }
-
-    public String frontLeftMotor() { return motorNames[FL]; }
-
-    public String frontRightMotor() { return motorNames[FR]; }
-
-    public String backLeftMotor() { return motorNames[BL]; }
-
-    public String backRightMotor() { return motorNames[BR]; }
-
-    public Mechanism mechanism() { return mechanism; }
 
     Drive activeCommand() { return activeDrive; }
 
@@ -134,7 +106,8 @@ public final class DriveSubsystem implements Subsystem {
         }
         List<RequestStatus> statuses = new ArrayList<>(intent.newRequests().size());
         for (Request request : intent.newRequests()) {
-            statuses.add(RequestStatus.rejected(request.id(), "C1'de subsystem yok"));
+            statuses.add(RequestStatus.rejected(
+                    request.id(), "cplx_engine_1 bu istek icin subsystem tasimiyor"));
         }
         pendingStatuses = List.copyOf(statuses);
     }
