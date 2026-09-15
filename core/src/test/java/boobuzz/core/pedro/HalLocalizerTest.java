@@ -75,6 +75,18 @@ public class HalLocalizerTest {
         assertEquals(0.0, localizer.twist().vy, EPS);
     }
 
+    @Test
+    public void headingPiBoluIkideSahaHiziniRobotCercevesineDondurur() {
+        HalLocalizer localizer = new HalLocalizer();
+        localizer.feed(state(0, 0, 0, Math.PI / 2.0));
+        localizer.feed(state(20, 1, 2, Math.PI / 2.0));
+
+        assertEquals(50.0, localizer.velocity().vx, EPS);
+        assertEquals(100.0, localizer.velocity().vy, EPS);
+        assertEquals(100.0, localizer.twist().vx, EPS);
+        assertEquals(-50.0, localizer.twist().vy, EPS);
+    }
+
     private static RobotState state(long t, double x, double y, double heading) {
         return new RobotState(t, Map.of(), Map.of(), heading,
                 new Pose(x, y, heading), 12.6);
