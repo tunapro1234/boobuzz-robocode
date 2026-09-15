@@ -1,5 +1,7 @@
 package boobuzz.core.logic.cplx_engine_1;
 
+import boobuzz.core.hal.Mechanism;
+
 import com.pedropathing.algorithm.Foresight;
 import com.pedropathing.algorithm.ForesightConfig;
 import com.pedropathing.controllers.Controller;
@@ -12,44 +14,73 @@ public final class PedroConstants {
 
     private PedroConstants() {}
 
-    // Gecen sezonun robotundan baslangic degerleri; YENI ROBOTTA YENIDEN OLCULECEK.
-    public static final double FORWARD_ZERO_POWER_ACCELERATION = -36.17;
-    public static final double LATERAL_ZERO_POWER_ACCELERATION = -85.98;
-    public static final double MAX_FORWARD_VELOCITY = 73.63;
-    public static final double MAX_STRAFE_VELOCITY = 54.09;
-
     // Pedro 3.0 icin muhafazakar baslangic kontrolculeri; AutoTune ile yenilenecek.
     public static final double HEADING_KP = 1.0;
     public static final double FORWARD_TRANSLATIONAL_KP = 0.10;
     public static final double STRAFE_TRANSLATIONAL_KP = 0.10;
-    public static final double VELOCITY_FEEDFORWARD = 1.0 / MAX_FORWARD_VELOCITY;
 
     /** Her follower icin durum tasimayan ayarlardan yeni bir config uretir. */
-    public static ForesightConfig createForesightConfig() {
+    public static ForesightConfig createForesightConfig(Mechanism mechanism) {
+        Mechanism.Physics physics = mechanism.physics();
+        double maxForwardVelocity = maxForwardVelocity(mechanism);
+        double maxStrafeVelocity = maxForwardVelocity * physics.strafeEfficiency();
+        double forwardDeceleration = physics.zeroPowerDecelForwardInchesPerSecondSquared();
+        double lateralDeceleration = physics.zeroPowerDecelLateralInchesPerSecondSquared();
+        requirePositive("physics.strafe_eff", physics.strafeEfficiency());
+        requirePositive("physics.zero_power_decel_forward_in_s2", forwardDeceleration);
+        requirePositive("physics.zero_power_decel_lateral_in_s2", lateralDeceleration);
+        double velocityFeedforward = 1.0 / maxForwardVelocity;
+
         return new ForesightConfig(c -> {
             c.headingFeedback.set(Controller.proportional(HEADING_KP));
             c.forwardTranslational.set(Controller.proportional(FORWARD_TRANSLATIONAL_KP));
             c.strafeTranslational.set(Controller.proportional(STRAFE_TRANSLATIONAL_KP));
-            c.coast.set(Controller.proportionalFeedforward(VELOCITY_FEEDFORWARD));
-            c.brake.set(Controller.proportionalFeedforward(VELOCITY_FEEDFORWARD));
+            c.coast.set(Controller.proportionalFeedforward(velocityFeedforward));
+            c.brake.set(Controller.proportionalFeedforward(velocityFeedforward));
 
             // Gecen sezonun sifir-guc yavaslamasindan turetilen ilk yaklasim.
             // AutoTune lineer/kuadratik fren katsayilarinin asil kaynagidir.
             c.linearBrakeCoefficients.set(Matrix.diag(0.0, 0.0));
             c.quadraticBrakeCoefficients.set(Matrix.diag(
-                    1.0 / (2.0 * Math.abs(FORWARD_ZERO_POWER_ACCELERATION)),
-                    1.0 / (2.0 * Math.abs(LATERAL_ZERO_POWER_ACCELERATION))));
+                    1.0 / (2.0 * forwardDeceleration),
+                    1.0 / (2.0 * lateralDeceleration)));
             c.headingBrakeCoefficients.set(Vector2D.zero());
 
-            c.maxAchievableForwardVelocity.set(MAX_FORWARD_VELOCITY);
-            c.maxAchievableStrafeVelocity.set(MAX_STRAFE_VELOCITY);
-            c.naturalForwardDeceleration.set(Math.abs(FORWARD_ZERO_POWER_ACCELERATION));
-            c.naturalStrafeDeceleration.set(Math.abs(LATERAL_ZERO_POWER_ACCELERATION));
+            c.maxAchievableForwardVelocity.set(maxForwardVelocity);
+            c.maxAchievableStrafeVelocity.set(maxStrafeVelocity);
+            c.naturalForwardDeceleration.set(forwardDeceleration);
+            c.naturalStrafeDeceleration.set(lateralDeceleration);
         });
     }
 
-    public static Follower createFollower(HalLocalizer localizer, HalDrivetrain drivetrain) {
+    public static Follower createFollower(Mechanism mechanism, HalLocalizer localizer,
+                                          HalDrivetrain drivetrain) {
         return new Follower(localizer, drivetrain,
-                new Foresight(createForesightConfig()));
+                new Foresight(createForesightConfig(mechanism)));
+    }
+
+    private static double maxForwardVelocity(Mechanism mechanism) {
+        double wheelCircumference = Math.PI * mechanism.drivetrain().wheelDiameter();
+        requirePositive("drivetrain.wheel_diameter", mechanism.drivetrain().wheelDiameter());
+        double velocity = Double.POSITIVE_INFINITY;
+        for (String name : mechanism.wheelMotorNames()) {
+            Mechanism.Motor motor = mechanism.motor(name);
+            double efficiency = mechanism.physics().efficiency().getOrDefault(name, 1.0);
+            requirePositive("motors." + name + ".free_rpm", motor.freeRpm());
+            requirePositive("physics.efficiency." + name, efficiency);
+            velocity = Math.min(velocity,
+                    motor.freeRpm() * efficiency * wheelCircumference / 60.0);
+        }
+        if (!Double.isFinite(velocity)) {
+            throw new Mechanism.MechanismException("Pedro icin tekerlek motoru bulunamadi");
+        }
+        return velocity;
+    }
+
+    private static void requirePositive(String field, double value) {
+        if (!Double.isFinite(value) || value <= 0.0) {
+            throw new Mechanism.MechanismException(
+                    "mechanism.yaml '" + field + "' pozitif olmali: " + value);
+        }
     }
 }

@@ -47,7 +47,7 @@ public final class DriveSubsystem implements Subsystem {
         } else {
             localizer = new HalLocalizer();
             drivetrain = new HalDrivetrain(motorNames);
-            follower = PedroConstants.createFollower(localizer, drivetrain);
+            follower = PedroConstants.createFollower(mechanism, localizer, drivetrain);
         }
     }
 

@@ -29,7 +29,7 @@ public class PathRegistryTest {
             Mechanism mechanism = MechanismLoader.load(in, "mechanism-test.yaml");
             HalLocalizer localizer = new HalLocalizer();
             HalDrivetrain drivetrain = new HalDrivetrain(mechanism);
-            follower = PedroConstants.createFollower(localizer, drivetrain);
+            follower = PedroConstants.createFollower(mechanism, localizer, drivetrain);
             registry = new PathRegistry();
         } catch (Exception e) {
             throw new AssertionError(e);
