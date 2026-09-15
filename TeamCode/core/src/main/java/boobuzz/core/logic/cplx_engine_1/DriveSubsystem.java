@@ -122,6 +122,12 @@ public final class DriveSubsystem implements Subsystem {
 
     public Mechanism mechanism() { return mechanism; }
 
+    Drive activeCommand() { return activeDrive; }
+
+    Follower.Mode followerMode() { return follower.mode(); }
+
+    double deltaTimeSeconds() { return deltaTimeSeconds; }
+
     private void rejectUnsupportedRequests(Intent intent) {
         if (intent.newRequests().isEmpty()) {
             return;
