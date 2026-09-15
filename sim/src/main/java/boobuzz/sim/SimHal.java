@@ -232,7 +232,7 @@ public final class SimHal implements Hal, Closeable {
     private Map<String, Object> receive() throws IOException {
         String line = in.readLine();
         if (line == null) {
-            throw new SimProtocolException("sunucu baglantiyi kapatti");
+            throw new ServerClosedException("sunucu baglantiyi kapatti");
         }
         return Json.parseObject(line);
     }

@@ -57,7 +57,13 @@ public final class SimMain {
 
             long wallStart = System.nanoTime();
             for (int i = 0; i < a.steps; i++) {
-                loop.tick();
+                try {
+                    loop.tick();
+                } catch (ServerClosedException e) {
+                    // Viewer penceresi kapandi; bu bir hata degil, kosunun sonu.
+                    System.out.println("sunucu kapandi, kosu bitti.");
+                    break;
+                }
             }
             double wallSec = (System.nanoTime() - wallStart) / 1e9;
 
