@@ -1,4 +1,4 @@
-package boobuzz.core.mechanism;
+package boobuzz.core.hal;
 
 import org.yaml.snakeyaml.Yaml;
 

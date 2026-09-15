@@ -1,6 +1,6 @@
-package boobuzz.core.mechanism;
+package boobuzz.core.hal;
 
-import boobuzz.core.mechanism.Mechanism;
+import boobuzz.core.hal.Mechanism;
 
 import org.junit.Test;
 

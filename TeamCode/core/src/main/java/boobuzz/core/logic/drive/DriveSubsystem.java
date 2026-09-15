@@ -7,7 +7,7 @@ import boobuzz.core.contract.RequestStatus;
 import boobuzz.core.hal.RobotAction;
 import boobuzz.core.hal.RobotState;
 import boobuzz.core.logic.Subsystem;
-import boobuzz.core.mechanism.Mechanism;
+import boobuzz.core.hal.Mechanism;
 
 import com.pedropathing.follower.Follower;
 import com.pedropathing.math.Pose;

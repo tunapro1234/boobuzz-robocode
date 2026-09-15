@@ -8,7 +8,7 @@ import boobuzz.core.hal.Hal;
 import boobuzz.core.logic.engine.C1DriveEngine;
 import boobuzz.core.logic.engine.PedroDriveEngine;
 import boobuzz.core.logic.engine.RobotEngine;
-import boobuzz.core.mechanism.Mechanism;
+import boobuzz.core.hal.Mechanism;
 
 import java.util.Objects;
 

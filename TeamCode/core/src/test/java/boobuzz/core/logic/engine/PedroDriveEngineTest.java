@@ -5,7 +5,7 @@ import boobuzz.core.contract.Intent;
 import boobuzz.core.logic.engine.C1DriveEngine;
 import boobuzz.core.logic.engine.PedroDriveEngine;
 import boobuzz.core.hal.RobotAction;
-import boobuzz.core.mechanism.Mechanism;
+import boobuzz.core.hal.Mechanism;
 
 import org.junit.Before;
 import org.junit.Test;

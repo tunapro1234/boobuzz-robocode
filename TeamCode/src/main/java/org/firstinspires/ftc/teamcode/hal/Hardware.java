@@ -1,6 +1,6 @@
 package org.firstinspires.ftc.teamcode.hal;
 
-import boobuzz.core.mechanism.Mechanism;
+import boobuzz.core.hal.Mechanism;
 
 import com.pedropathing.math.Pose;
 import com.qualcomm.hardware.gobilda.GoBildaPinpointDriver;

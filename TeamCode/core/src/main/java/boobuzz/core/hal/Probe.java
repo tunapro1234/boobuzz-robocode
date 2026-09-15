@@ -1,4 +1,4 @@
-package boobuzz.core.probe;
+package boobuzz.core.hal;
 
 /**
  * Ara degerleri disari sizdirma noktasi. Node framework'u DEGILDIR:

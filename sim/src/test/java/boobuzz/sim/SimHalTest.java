@@ -8,7 +8,7 @@ import boobuzz.core.logic.engine.C1DriveEngine;
 import boobuzz.core.hal.GamepadState;
 import boobuzz.core.hal.RobotAction;
 import boobuzz.core.hal.RobotState;
-import boobuzz.core.mechanism.Mechanism;
+import boobuzz.core.hal.Mechanism;
 
 import com.pedropathing.math.Pose;
 

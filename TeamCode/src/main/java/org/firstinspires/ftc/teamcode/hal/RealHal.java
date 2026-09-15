@@ -4,7 +4,7 @@ import boobuzz.core.hal.GamepadState;
 import boobuzz.core.hal.Hal;
 import boobuzz.core.hal.RobotAction;
 import boobuzz.core.hal.RobotState;
-import boobuzz.core.mechanism.Mechanism;
+import boobuzz.core.hal.Mechanism;
 
 import com.pedropathing.math.Pose;
 import com.qualcomm.robotcore.hardware.DcMotorEx;

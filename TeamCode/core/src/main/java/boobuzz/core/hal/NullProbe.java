@@ -1,4 +1,4 @@
-package boobuzz.core.probe;
+package boobuzz.core.hal;
 
 /** Hicbir sey yapmaz. Yarismada bu kosar. */
 public final class NullProbe implements Probe {

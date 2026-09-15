@@ -2,7 +2,7 @@ package org.firstinspires.ftc.teamcode.opmode;
 
 import boobuzz.core.RobotFactory;
 import boobuzz.core.RobotLoop;
-import boobuzz.core.mechanism.Mechanism;
+import boobuzz.core.hal.Mechanism;
 
 import com.pedropathing.math.Pose;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;

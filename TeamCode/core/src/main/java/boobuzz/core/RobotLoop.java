@@ -7,8 +7,8 @@ import boobuzz.core.logic.engine.RobotEngine;
 import boobuzz.core.hal.Hal;
 import boobuzz.core.hal.RobotAction;
 import boobuzz.core.hal.RobotState;
-import boobuzz.core.probe.NullProbe;
-import boobuzz.core.probe.Probe;
+import boobuzz.core.hal.NullProbe;
+import boobuzz.core.hal.Probe;
 
 /**
  * Tick. Bes satir, sirasi sabit (docs/mimari.md §1).

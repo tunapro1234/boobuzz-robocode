@@ -7,7 +7,7 @@ import boobuzz.core.hal.RobotAction;
 import boobuzz.core.hal.RobotState;
 import boobuzz.core.logic.Subsystem;
 import boobuzz.core.logic.drive.DriveSubsystem;
-import boobuzz.core.mechanism.Mechanism;
+import boobuzz.core.hal.Mechanism;
 
 import java.util.List;
 

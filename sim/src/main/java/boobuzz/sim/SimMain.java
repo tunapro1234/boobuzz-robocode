@@ -3,7 +3,7 @@ package boobuzz.sim;
 import boobuzz.core.RobotLoop;
 import boobuzz.core.RobotFactory;
 import boobuzz.core.contract.Drive;
-import boobuzz.core.mechanism.Mechanism;
+import boobuzz.core.hal.Mechanism;
 
 import com.pedropathing.math.Pose;
 

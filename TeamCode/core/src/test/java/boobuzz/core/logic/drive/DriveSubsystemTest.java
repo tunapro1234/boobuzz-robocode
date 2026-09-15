@@ -3,7 +3,7 @@ package boobuzz.core.logic.drive;
 import boobuzz.core.contract.Drive;
 import boobuzz.core.contract.Intent;
 import boobuzz.core.hal.RobotAction;
-import boobuzz.core.mechanism.Mechanism;
+import boobuzz.core.hal.Mechanism;
 
 import org.junit.Before;
 import org.junit.Test;
