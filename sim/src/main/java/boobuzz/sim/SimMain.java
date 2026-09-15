@@ -6,7 +6,9 @@ import boobuzz.core.control.Drive;
 import boobuzz.core.control.GamepadController;
 import boobuzz.core.control.Intent;
 import boobuzz.core.engine.C1DriveEngine;
+import boobuzz.core.engine.RobotEngine;
 import boobuzz.core.mechanism.Mechanism;
+import boobuzz.core.pedro.PedroDriveEngine;
 
 import com.pedropathing.math.Pose;
 
@@ -35,15 +37,26 @@ public final class SimMain {
         try (SimHal hal = new SimHal(mechanism, a.host, a.port, a.dtMs,
                 a.seed, new Pose(a.x, a.y, a.h), a.connectTimeoutMs)) {
 
-            C1DriveEngine engine = new C1DriveEngine(mechanism);
-            System.out.printf("engine: %s  fl=%s fr=%s bl=%s br=%s%n",
-                    engine.name(), engine.frontLeftMotor(), engine.frontRightMotor(),
-                    engine.backLeftMotor(), engine.backRightMotor());
+            RobotEngine engine;
+            if ("pedro".equals(a.engine)) {
+                engine = new PedroDriveEngine(mechanism);
+                System.out.printf("engine: %s%n", engine.name());
+            } else {
+                C1DriveEngine c1 = new C1DriveEngine(mechanism);
+                engine = c1;
+                System.out.printf("engine: %s  fl=%s fr=%s bl=%s br=%s%n",
+                        c1.name(), c1.frontLeftMotor(), c1.frontRightMotor(),
+                        c1.backLeftMotor(), c1.backRightMotor());
+            }
 
             // Varsayilan: gamepad sunucudan gelir (pygame). --drive headless duman
             // testi icin sabit bir niyet verir; viewer'siz kosuda gamepad hep sifirdir.
             Controller controller;
-            if (a.drive == null) {
+            if (a.pathId != null) {
+                Drive fixed = new Drive.FollowPath(a.pathId);
+                controller = fb -> Intent.of(fixed);
+                System.out.printf("controller: FollowPath(%s)%n", a.pathId);
+            } else if (a.drive == null) {
                 controller = new GamepadController(hal);
                 System.out.println("controller: gamepad (sunucudan)");
             } else {
@@ -92,6 +105,8 @@ public final class SimMain {
         double x = 0, y = 0, h = 0;
         int connectTimeoutMs = 5000;
         double[] drive = null;
+        String engine = "c1";
+        String pathId = null;
 
         static Args parse(String[] argv) {
             Args a = new Args();
@@ -108,12 +123,24 @@ public final class SimMain {
                     case "--y" -> a.y = Double.parseDouble(next(argv, ++i, key));
                     case "--h" -> a.h = Double.parseDouble(next(argv, ++i, key));
                     case "--drive" -> a.drive = triple(next(argv, ++i, key));
+                    case "--engine" -> a.engine = engine(next(argv, ++i, key));
+                    case "--path" -> a.pathId = next(argv, ++i, key);
                     case "--connect-timeout" ->
                             a.connectTimeoutMs = Integer.parseInt(next(argv, ++i, key));
                     default -> throw new IllegalArgumentException("bilinmeyen argüman: " + key);
                 }
             }
+            if (a.pathId != null && !"pedro".equals(a.engine)) {
+                throw new IllegalArgumentException("--path yalnizca --engine pedro ile kullanilir");
+            }
             return a;
+        }
+
+        private static String engine(String value) {
+            if (!"c1".equals(value) && !"pedro".equals(value)) {
+                throw new IllegalArgumentException("--engine c1|pedro bekliyor: " + value);
+            }
+            return value;
         }
 
         private static double[] triple(String value) {
