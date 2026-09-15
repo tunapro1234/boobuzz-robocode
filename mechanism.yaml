@@ -6,12 +6,9 @@
 # Faz 0/1: sadece dort tekerlek. Shooter/turret/tof/limelight eklendiginde
 # buraya girer, protokol degismez.
 
-units: {length: in, angle: deg}          # dosyada derece; PROTOKOLDE RADYAN
+units: {angle: deg}                      # dosyada derece; PROTOKOLDE RADYAN
 robot: {width: 18, length: 18}            # ayak izi; duvar kirpma + cizim
-frames:
-  robot:  {parent: field}
-# Kaynak: motors.*.pos; 2*|y_sol|=11 track width, 2*|x_ileri|=13 wheel base.
-drivetrain: {type: mecanum, track_width: 11.0, wheel_base: 13.0, wheel_diameter: 4.0}
+drivetrain: {type: mecanum, wheel_diameter: 4.0}
 physics:
   battery_v: 12.0
   motor_tau_s: 0.1
@@ -29,8 +26,8 @@ motors:                                   # ad = protokol anahtari
   br: {drives: wheel, pos: [-6.5,-5.5], roller: 45,  ticks_per_rev: 537.7, free_rpm: 351.55735379568756, kV: 0.0, kS: 0.0}
 servos: {}
 sensors:
-  imu: {parent: robot}
+  imu: {}
   # Gecen sezonun OLCULMUS Pedro 2.x Constants.java degerleri; yeni saside yeniden olculecek.
-  pinpoint: {parent: robot, x_pod_offset_mm: 161.0, y_pod_offset_mm: 0.0,
+  pinpoint: {x_pod_offset_mm: 161.0, y_pod_offset_mm: 0.0,
              x_pod_direction: FORWARD, y_pod_direction: REVERSED,
              pod_type: goBILDA_4_BAR_POD}

@@ -10,7 +10,7 @@ import com.pedropathing.math.Pose;
  */
 public sealed interface Drive {
 
-    /** Robot cercevesi, -1..1 ham guc. C1'de tek desteklenen mod. */
+    /** Robot cercevesi, -1..1 ham guc. */
     record Manual(double vx, double vy, double omega) implements Drive {}
 
     /**
@@ -20,7 +20,7 @@ public sealed interface Drive {
      */
     record Velocity(double vx, double vy, double omega) implements Drive {}
 
-    /** Bir noktaya git. C2.5'te Pedro follower'a baglanir. */
+    /** Bir noktaya Pedro follower ile git. */
     record GoTo(Pose target, Constraints constraints) implements Drive {}
 
     /** Onceden tanimli yolu takip et. */
@@ -29,7 +29,7 @@ public sealed interface Drive {
     /** Oldugun yerde dur. */
     record Hold() implements Drive {}
 
-    /** Hareket kisitlari. C1'de kullanilmaz, sozlesme sekli icin burada. */
+    /** Hareket kisitlari. */
     record Constraints(double maxPower, double maxVelocity) {
         public static Constraints defaults() {
             return new Constraints(1.0, Double.MAX_VALUE);
