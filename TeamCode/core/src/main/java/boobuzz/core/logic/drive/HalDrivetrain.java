@@ -1,6 +1,5 @@
 package boobuzz.core.logic.drive;
 
-import boobuzz.core.logic.engine.C1DriveEngine;
 import boobuzz.core.hal.RobotAction;
 import boobuzz.core.mechanism.Mechanism;
 
@@ -30,10 +29,11 @@ public final class HalDrivetrain implements Drivetrain {
     private boolean manual;
 
     public HalDrivetrain(Mechanism mechanism) {
-        C1DriveEngine mapping = new C1DriveEngine(mechanism);
-        motorNames = new String[] {
-                mapping.frontLeftMotor(), mapping.frontRightMotor(),
-                mapping.backLeftMotor(), mapping.backRightMotor()};
+        this(DriveSubsystem.wheelNames(mechanism));
+    }
+
+    HalDrivetrain(String[] motorNames) {
+        this.motorNames = motorNames.clone();
     }
 
     @Override
