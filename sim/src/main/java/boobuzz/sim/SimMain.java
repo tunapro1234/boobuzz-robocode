@@ -1,14 +1,9 @@
 package boobuzz.sim;
 
 import boobuzz.core.RobotLoop;
-import boobuzz.core.controller.Controller;
+import boobuzz.core.RobotFactory;
 import boobuzz.core.contract.Drive;
-import boobuzz.core.controller.GamepadController;
-import boobuzz.core.contract.Intent;
-import boobuzz.core.logic.engine.C1DriveEngine;
-import boobuzz.core.logic.engine.RobotEngine;
 import boobuzz.core.mechanism.Mechanism;
-import boobuzz.core.logic.engine.PedroDriveEngine;
 
 import com.pedropathing.math.Pose;
 
@@ -37,36 +32,25 @@ public final class SimMain {
         try (SimHal hal = new SimHal(mechanism, a.host, a.port, a.dtMs,
                 a.seed, new Pose(a.x, a.y, a.h), a.connectTimeoutMs)) {
 
-            RobotEngine engine;
-            if ("pedro".equals(a.engine)) {
-                engine = new PedroDriveEngine(mechanism);
-                System.out.printf("engine: %s%n", engine.name());
-            } else {
-                C1DriveEngine c1 = new C1DriveEngine(mechanism);
-                engine = c1;
-                System.out.printf("engine: %s  fl=%s fr=%s bl=%s br=%s%n",
-                        c1.name(), c1.frontLeftMotor(), c1.frontRightMotor(),
-                        c1.backLeftMotor(), c1.backRightMotor());
-            }
-
             // Varsayilan: gamepad sunucudan gelir (pygame). --drive headless duman
             // testi icin sabit bir niyet verir; viewer'siz kosuda gamepad hep sifirdir.
-            Controller controller;
+            Drive fixedDrive = null;
             if (a.pathId != null) {
-                Drive fixed = new Drive.FollowPath(a.pathId);
-                controller = fb -> Intent.of(fixed);
+                fixedDrive = new Drive.FollowPath(a.pathId);
                 System.out.printf("controller: FollowPath(%s)%n", a.pathId);
             } else if (a.drive == null) {
-                controller = new GamepadController(hal);
                 System.out.println("controller: gamepad (sunucudan)");
             } else {
-                Drive fixed = new Drive.Manual(a.drive[0], a.drive[1], a.drive[2]);
-                controller = fb -> Intent.of(fixed);
+                fixedDrive = new Drive.Manual(a.drive[0], a.drive[1], a.drive[2]);
                 System.out.printf("controller: sabit Manual(%.2f, %.2f, %.2f)%n",
                         a.drive[0], a.drive[1], a.drive[2]);
             }
 
-            RobotLoop loop = new RobotLoop(hal, engine, controller);
+            RobotFactory.EngineKind engineKind = "pedro".equals(a.engine)
+                    ? RobotFactory.EngineKind.PEDRO
+                    : RobotFactory.EngineKind.C1;
+            RobotLoop loop = RobotFactory.create(hal, mechanism, engineKind, fixedDrive);
+            System.out.printf("engine: %s%n", loop.engine().name());
 
             long wallStart = System.nanoTime();
             for (int i = 0; i < a.steps; i++) {
