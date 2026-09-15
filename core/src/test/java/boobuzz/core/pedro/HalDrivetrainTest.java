@@ -50,4 +50,30 @@ public class HalDrivetrainTest {
         assertEquals(-1.0, negative.motor("bl"), EPS);
         assertEquals(-1.0, negative.motor("br"), EPS);
     }
+
+    @Test
+    public void doygunTabandaTersDeltaOlsaBileOlceklemez() {
+        double scale = drivetrain.maxScaling(
+                new DrivePowers(2.0, 0.0, 0.0),
+                new DrivePowers(-1.0, 0.0, 0.0));
+
+        assertEquals(0.0, scale, EPS);
+    }
+
+    @Test
+    public void sinirIcindeTersIsaretliDeltaninTamaminiUygular() {
+        double scale = drivetrain.maxScaling(
+                new DrivePowers(0.8, 0.0, 0.0),
+                new DrivePowers(-0.2, 0.0, 0.0));
+
+        assertEquals(1.0, scale, EPS);
+    }
+
+    @Test
+    public void sifirDeltaTamOlcekDondurur() {
+        double scale = drivetrain.maxScaling(
+                new DrivePowers(0.4, 0.0, 0.0), DrivePowers.zero());
+
+        assertEquals(1.0, scale, EPS);
+    }
 }

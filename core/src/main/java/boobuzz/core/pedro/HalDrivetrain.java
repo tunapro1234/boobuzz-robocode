@@ -58,6 +58,11 @@ public final class HalDrivetrain implements Drivetrain {
     public double maxScaling(DrivePowers current, DrivePowers delta) {
         double[] base = unnormalized(current);
         double[] change = unnormalized(delta);
+        for (double power : base) {
+            if (Math.abs(power) > 1.0) {
+                return 0.0;
+            }
+        }
         double scale = 1.0;
         for (int i = 0; i < wheelPowers.length; i++) {
             if (Math.abs(change[i]) < 1e-9) {
