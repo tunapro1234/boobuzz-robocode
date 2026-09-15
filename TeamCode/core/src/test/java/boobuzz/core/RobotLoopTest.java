@@ -5,7 +5,7 @@ import boobuzz.core.contract.Drive;
 import boobuzz.core.contract.Feedback;
 import boobuzz.core.controller.GamepadController;
 import boobuzz.core.contract.Intent;
-import boobuzz.core.engine.C1DriveEngine;
+import boobuzz.core.logic.engine.C1DriveEngine;
 import boobuzz.core.hal.GamepadState;
 import boobuzz.core.hal.Hal;
 import boobuzz.core.hal.RobotAction;

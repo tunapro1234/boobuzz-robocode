@@ -1,4 +1,4 @@
-package boobuzz.core.engine;
+package boobuzz.core.logic.engine;
 
 import boobuzz.core.contract.Drive;
 import boobuzz.core.contract.Feedback;

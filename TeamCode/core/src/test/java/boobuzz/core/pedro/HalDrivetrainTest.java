@@ -1,6 +1,7 @@
 package boobuzz.core.pedro;
 
 import boobuzz.core.hal.RobotAction;
+import boobuzz.core.logic.drive.HalDrivetrain;
 import boobuzz.core.mechanism.Mechanism;
 
 import com.pedropathing.drivetrain.DrivePowers;

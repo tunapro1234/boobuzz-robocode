@@ -5,10 +5,10 @@ import boobuzz.core.controller.Controller;
 import boobuzz.core.contract.Drive;
 import boobuzz.core.controller.GamepadController;
 import boobuzz.core.contract.Intent;
-import boobuzz.core.engine.C1DriveEngine;
-import boobuzz.core.engine.RobotEngine;
+import boobuzz.core.logic.engine.C1DriveEngine;
+import boobuzz.core.logic.engine.RobotEngine;
 import boobuzz.core.mechanism.Mechanism;
-import boobuzz.core.pedro.PedroDriveEngine;
+import boobuzz.core.logic.engine.PedroDriveEngine;
 
 import com.pedropathing.math.Pose;
 

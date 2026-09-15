@@ -3,7 +3,7 @@ package boobuzz.core;
 import boobuzz.core.controller.Controller;
 import boobuzz.core.contract.Feedback;
 import boobuzz.core.contract.Intent;
-import boobuzz.core.engine.RobotEngine;
+import boobuzz.core.logic.engine.RobotEngine;
 import boobuzz.core.hal.Hal;
 import boobuzz.core.hal.RobotAction;
 import boobuzz.core.hal.RobotState;

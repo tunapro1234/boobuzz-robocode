@@ -1,13 +1,15 @@
-package boobuzz.core.pedro;
+package boobuzz.core.logic.engine;
 
 import boobuzz.core.contract.Drive;
 import boobuzz.core.contract.Feedback;
 import boobuzz.core.contract.Intent;
 import boobuzz.core.contract.WorldSnapshot;
-import boobuzz.core.engine.C1DriveEngine;
-import boobuzz.core.engine.RobotEngine;
 import boobuzz.core.hal.RobotAction;
 import boobuzz.core.hal.RobotState;
+import boobuzz.core.logic.drive.HalDrivetrain;
+import boobuzz.core.logic.drive.HalLocalizer;
+import boobuzz.core.logic.drive.PathRegistry;
+import boobuzz.core.logic.drive.PedroConstants;
 import boobuzz.core.mechanism.Mechanism;
 
 import com.pedropathing.follower.Follower;

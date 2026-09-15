@@ -1,5 +1,9 @@
 package boobuzz.core.pedro;
 
+import boobuzz.core.logic.drive.HalDrivetrain;
+import boobuzz.core.logic.drive.HalLocalizer;
+import boobuzz.core.logic.drive.PathRegistry;
+import boobuzz.core.logic.drive.PedroConstants;
 import boobuzz.core.mechanism.Mechanism;
 
 import com.pedropathing.follower.Follower;

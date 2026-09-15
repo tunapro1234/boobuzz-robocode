@@ -1,4 +1,4 @@
-package boobuzz.core.pedro;
+package boobuzz.core.logic.drive;
 
 import com.pedropathing.algorithm.Foresight;
 import com.pedropathing.algorithm.ForesightConfig;

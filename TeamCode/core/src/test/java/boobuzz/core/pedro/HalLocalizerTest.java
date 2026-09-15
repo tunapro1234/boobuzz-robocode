@@ -1,6 +1,7 @@
 package boobuzz.core.pedro;
 
 import boobuzz.core.hal.RobotState;
+import boobuzz.core.logic.drive.HalLocalizer;
 
 import com.pedropathing.math.Pose;
 

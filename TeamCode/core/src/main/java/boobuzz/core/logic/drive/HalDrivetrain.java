@@ -1,6 +1,6 @@
-package boobuzz.core.pedro;
+package boobuzz.core.logic.drive;
 
-import boobuzz.core.engine.C1DriveEngine;
+import boobuzz.core.logic.engine.C1DriveEngine;
 import boobuzz.core.hal.RobotAction;
 import boobuzz.core.mechanism.Mechanism;
 
