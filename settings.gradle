@@ -12,4 +12,5 @@ include ':TeamCode'
 // Anayasa kural 1: :core ve :sim FTC SDK gormez.
 // Kural derleme hatasina cevrildi -> gradle/sdk-guard.gradle
 include ':core'
+project(':core').projectDir = file('TeamCode/core')
 include ':sim'

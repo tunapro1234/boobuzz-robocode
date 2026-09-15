@@ -53,7 +53,7 @@ public class MechanismTest {
 
     @Test
     public void projedekiGercekDosyaOkunabiliyor() throws Exception {
-        Path p = Path.of("..", "mechanism.yaml").toAbsolutePath().normalize();
+        Path p = Path.of("..", "..", "mechanism.yaml").toAbsolutePath().normalize();
         assertTrue("mechanism.yaml bulunamadi: " + p, Files.exists(p));
         Mechanism m = Mechanism.load(p);
         assertEquals(4, m.wheelMotorNames().size());

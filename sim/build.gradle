@@ -20,6 +20,10 @@ application {
     mainClass = 'boobuzz.sim.SimMain'
 }
 
+tasks.named('run') {
+    workingDir rootProject.projectDir
+}
+
 tasks.named('test') { useJUnit() }
 
 apply from: rootProject.file('gradle/sdk-guard.gradle')
