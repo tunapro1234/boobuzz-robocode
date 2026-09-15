@@ -13,7 +13,6 @@ public final class PedroConstants {
     private PedroConstants() {}
 
     // Gecen sezonun robotundan baslangic degerleri; YENI ROBOTTA YENIDEN OLCULECEK.
-    public static final double MASS_KG = 13.8;
     public static final double FORWARD_ZERO_POWER_ACCELERATION = -36.17;
     public static final double LATERAL_ZERO_POWER_ACCELERATION = -85.98;
     public static final double MAX_FORWARD_VELOCITY = 73.63;
