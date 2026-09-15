@@ -20,10 +20,10 @@ physics:
 motors:                                   # ad = protokol anahtari
   # pos = [x ileri, y sol] robot cercevesi
   # free_rpm = 73.63 in/s * 60 / (pi * 4 in); doğrudan RPM verisi bulunamadı.
-  fl: {drives: wheel, pos: [ 6.5, 5.5], roller: 45,  ticks_per_rev: 537.7, free_rpm: 351.55735379568756, kV: 0.0, kS: 0.0}
-  fr: {drives: wheel, pos: [ 6.5,-5.5], roller: -45, ticks_per_rev: 537.7, free_rpm: 351.55735379568756, kV: 0.0, kS: 0.0}
-  bl: {drives: wheel, pos: [-6.5, 5.5], roller: -45, ticks_per_rev: 537.7, free_rpm: 351.55735379568756, kV: 0.0, kS: 0.0}
-  br: {drives: wheel, pos: [-6.5,-5.5], roller: 45,  ticks_per_rev: 537.7, free_rpm: 351.55735379568756, kV: 0.0, kS: 0.0}
+  fl: {drives: wheel, pos: [ 6.5, 5.5], roller: 45,  ticks_per_rev: 537.7, free_rpm: 351.55735379568756}
+  fr: {drives: wheel, pos: [ 6.5,-5.5], roller: -45, ticks_per_rev: 537.7, free_rpm: 351.55735379568756}
+  bl: {drives: wheel, pos: [-6.5, 5.5], roller: -45, ticks_per_rev: 537.7, free_rpm: 351.55735379568756}
+  br: {drives: wheel, pos: [-6.5,-5.5], roller: 45,  ticks_per_rev: 537.7, free_rpm: 351.55735379568756}
 servos: {}
 sensors:
   imu: {}
