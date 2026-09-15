@@ -11,12 +11,21 @@ robot: {width: 18, length: 18}            # ayak izi; duvar kirpma + cizim
 frames:
   robot:  {parent: field}
 drivetrain: {type: mecanum, track_width: 13.0, wheel_base: 11.0, wheel_diameter: 4.0}
+physics:
+  battery_v: 12.0
+  motor_tau_s: 0.1
+  efficiency: {fl: 1.0, fr: 1.0, bl: 1.0, br: 1.0}
+  # archive/ftc/de-cock TeamCode pedroPathing/Constants.java (geçen sezon).
+  strafe_eff: 0.7346                    # yVelocity/xVelocity = 54.09/73.63
+  zero_power_decel_forward_in_s2: 36.17 # |forwardZeroPowerAcceleration|
+  zero_power_decel_lateral_in_s2: 85.98 # |lateralZeroPowerAcceleration|
 motors:                                   # ad = protokol anahtari
   # pos = [x ileri, y sol] robot cercevesi
-  fl: {drives: wheel, pos: [ 6.5, 5.5], roller: 45,  ticks_per_rev: 537.7, free_rpm: 312, kV: 0.0, kS: 0.0}
-  fr: {drives: wheel, pos: [ 6.5,-5.5], roller: -45, ticks_per_rev: 537.7, free_rpm: 312, kV: 0.0, kS: 0.0}
-  bl: {drives: wheel, pos: [-6.5, 5.5], roller: -45, ticks_per_rev: 537.7, free_rpm: 312, kV: 0.0, kS: 0.0}
-  br: {drives: wheel, pos: [-6.5,-5.5], roller: 45,  ticks_per_rev: 537.7, free_rpm: 312, kV: 0.0, kS: 0.0}
+  # free_rpm = 73.63 in/s * 60 / (pi * 4 in); doğrudan RPM verisi bulunamadı.
+  fl: {drives: wheel, pos: [ 6.5, 5.5], roller: 45,  ticks_per_rev: 537.7, free_rpm: 351.55735379568756, kV: 0.0, kS: 0.0}
+  fr: {drives: wheel, pos: [ 6.5,-5.5], roller: -45, ticks_per_rev: 537.7, free_rpm: 351.55735379568756, kV: 0.0, kS: 0.0}
+  bl: {drives: wheel, pos: [-6.5, 5.5], roller: -45, ticks_per_rev: 537.7, free_rpm: 351.55735379568756, kV: 0.0, kS: 0.0}
+  br: {drives: wheel, pos: [-6.5,-5.5], roller: 45,  ticks_per_rev: 537.7, free_rpm: 351.55735379568756, kV: 0.0, kS: 0.0}
 servos: {}
 sensors:
   imu: {parent: robot}
