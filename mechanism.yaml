@@ -10,7 +10,8 @@ units: {length: in, angle: deg}          # dosyada derece; PROTOKOLDE RADYAN
 robot: {width: 18, length: 18}            # ayak izi; duvar kirpma + cizim
 frames:
   robot:  {parent: field}
-drivetrain: {type: mecanum, track_width: 13.0, wheel_base: 11.0, wheel_diameter: 4.0}
+# Kaynak: motors.*.pos; 2*|y_sol|=11 track width, 2*|x_ileri|=13 wheel base.
+drivetrain: {type: mecanum, track_width: 11.0, wheel_base: 13.0, wheel_diameter: 4.0}
 physics:
   battery_v: 12.0
   motor_tau_s: 0.1
