@@ -1,10 +1,10 @@
 package boobuzz.sim;
 
 import boobuzz.core.RobotLoop;
-import boobuzz.core.control.Controller;
-import boobuzz.core.control.Drive;
-import boobuzz.core.control.GamepadController;
-import boobuzz.core.control.Intent;
+import boobuzz.core.controller.Controller;
+import boobuzz.core.contract.Drive;
+import boobuzz.core.controller.GamepadController;
+import boobuzz.core.contract.Intent;
 import boobuzz.core.engine.C1DriveEngine;
 import boobuzz.core.engine.RobotEngine;
 import boobuzz.core.mechanism.Mechanism;

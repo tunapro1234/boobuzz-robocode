@@ -1,4 +1,4 @@
-package boobuzz.core.control;
+package boobuzz.core.contract;
 
 /**
  * Kenar tetikli istek. Seviye degil olay: "at" der, "atmaya devam et" demez.

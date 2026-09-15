@@ -1,7 +1,7 @@
 package boobuzz.core.engine;
 
-import boobuzz.core.control.Feedback;
-import boobuzz.core.control.Intent;
+import boobuzz.core.contract.Feedback;
+import boobuzz.core.contract.Intent;
 import boobuzz.core.hal.RobotAction;
 import boobuzz.core.hal.RobotState;
 

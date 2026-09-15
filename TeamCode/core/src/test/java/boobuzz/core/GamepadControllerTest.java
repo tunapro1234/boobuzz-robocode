@@ -1,10 +1,10 @@
 package boobuzz.core;
 
-import boobuzz.core.control.Drive;
-import boobuzz.core.control.Feedback;
-import boobuzz.core.control.GamepadController;
-import boobuzz.core.control.Intent;
-import boobuzz.core.control.WorldSnapshot;
+import boobuzz.core.contract.Drive;
+import boobuzz.core.contract.Feedback;
+import boobuzz.core.controller.GamepadController;
+import boobuzz.core.contract.Intent;
+import boobuzz.core.contract.WorldSnapshot;
 import boobuzz.core.hal.GamepadSource;
 import boobuzz.core.hal.GamepadState;
 

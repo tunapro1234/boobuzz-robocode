@@ -1,10 +1,10 @@
 package boobuzz.core;
 
-import boobuzz.core.control.Drive;
-import boobuzz.core.control.Intent;
-import boobuzz.core.control.Request;
-import boobuzz.core.control.RequestStatus;
-import boobuzz.core.control.RequestType;
+import boobuzz.core.contract.Drive;
+import boobuzz.core.contract.Intent;
+import boobuzz.core.contract.Request;
+import boobuzz.core.contract.RequestStatus;
+import boobuzz.core.contract.RequestType;
 import boobuzz.core.engine.C1DriveEngine;
 import boobuzz.core.hal.RobotAction;
 import boobuzz.core.hal.RobotState;

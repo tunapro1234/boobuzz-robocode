@@ -1,11 +1,11 @@
 package boobuzz.core.engine;
 
-import boobuzz.core.control.Drive;
-import boobuzz.core.control.Feedback;
-import boobuzz.core.control.Intent;
-import boobuzz.core.control.Request;
-import boobuzz.core.control.RequestStatus;
-import boobuzz.core.control.WorldSnapshot;
+import boobuzz.core.contract.Drive;
+import boobuzz.core.contract.Feedback;
+import boobuzz.core.contract.Intent;
+import boobuzz.core.contract.Request;
+import boobuzz.core.contract.RequestStatus;
+import boobuzz.core.contract.WorldSnapshot;
 import boobuzz.core.hal.RobotAction;
 import boobuzz.core.hal.RobotState;
 import boobuzz.core.mechanism.Mechanism;

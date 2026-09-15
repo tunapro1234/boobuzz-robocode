@@ -1,4 +1,7 @@
-package boobuzz.core.control;
+package boobuzz.core.controller;
+
+import boobuzz.core.contract.Feedback;
+import boobuzz.core.contract.Intent;
 
 /**
  * L3. {@code decide(Feedback) -> Intent} ayni zamanda {@code policy(obs) -> action}

@@ -1,4 +1,4 @@
-package boobuzz.core.control;
+package boobuzz.core.contract;
 
 /**
  * Istek durumu. Controller'a YUKARI doner.

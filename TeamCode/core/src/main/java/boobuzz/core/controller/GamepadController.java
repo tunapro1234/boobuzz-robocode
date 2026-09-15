@@ -1,5 +1,8 @@
-package boobuzz.core.control;
+package boobuzz.core.controller;
 
+import boobuzz.core.contract.Drive;
+import boobuzz.core.contract.Feedback;
+import boobuzz.core.contract.Intent;
 import boobuzz.core.hal.GamepadSource;
 import boobuzz.core.hal.GamepadState;
 
