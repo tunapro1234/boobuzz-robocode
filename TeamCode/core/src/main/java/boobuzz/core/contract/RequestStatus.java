@@ -1,10 +1,10 @@
 package boobuzz.core.contract;
 
 /**
- * Istek durumu. Controller'a YUKARI doner.
+ * Request status. Returned UPWARD to the controller.
  *
- * <p>BIR TICK GECIKMELIDIR: Engine, Controller'dan sonra kosar (anayasa kural 4,
- * geri ok yok). Controller bu tick verdigi istegin sonucunu gelecek tick gorur.
+ * <p>ONE TICK DELAYED: the engine runs after the controller (constitution rule 4,
+ * no feedback loop). The controller sees this tick's request result on the next tick.
  */
 public record RequestStatus(int id, State state, double progress, String note) {
 

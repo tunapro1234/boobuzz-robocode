@@ -29,18 +29,18 @@ public class MechanismTest {
     }
 
     @Test
-    public void motorAdlariSirayiKorur() {
+    public void motorNamesPreserveOrder() {
         assertEquals(List.of("fl", "fr", "bl", "br"), testMechanism().motorNames());
     }
 
     @Test
-    public void drivetrainOlculeriOkunur() {
+    public void drivetrainDimensionsAreRead() {
         Mechanism.Drivetrain d = testMechanism().drivetrain();
         assertEquals(4.0, d.wheelDiameter(), 1e-9);
     }
 
     @Test
-    public void pinpointAyarlariTekKaynaktanOkunur() {
+    public void pinpointSettingsComeFromSingleSource() {
         Mechanism.Pinpoint p = testMechanism().pinpoint();
         assertEquals(161.0, p.xPodOffsetMm(), 1e-9);
         assertEquals(0.0, p.yPodOffsetMm(), 1e-9);
@@ -50,27 +50,27 @@ public class MechanismTest {
     }
 
     @Test
-    public void fizikVerisiOkunur() {
+    public void physicsDataIsRead() {
         Mechanism.Physics physics = testMechanism().physics();
         assertEquals(0.7346, physics.strafeEfficiency(), 1e-9);
         assertEquals(1.0, physics.efficiency().get("fl"), 1e-9);
     }
 
     @Test
-    public void projedekiGercekDosyaOkunabiliyor() throws Exception {
+    public void projectMechanismFileCanBeRead() throws Exception {
         Path p = Path.of("..", "..", "mechanism.yaml").toAbsolutePath().normalize();
-        assertTrue("mechanism.yaml bulunamadi: " + p, Files.exists(p));
+        assertTrue("mechanism.yaml not found: " + p, Files.exists(p));
         Mechanism m = MechanismLoader.load(p);
         assertEquals(4, m.wheelMotorNames().size());
     }
 
     @Test
-    public void gercekDosyaCoreJarKaynaklarindanOkunabiliyor() {
+    public void projectFileCanBeReadFromCoreJarResources() {
         assertEquals(4, MechanismLoader.loadDefault().wheelMotorNames().size());
     }
 
     @Test
-    public void freeRpmZorunlu() {
+    public void freeRpmIsRequired() {
         Mechanism.MechanismException e = assertThrows(Mechanism.MechanismException.class,
                 () -> load("""
                         motors:
@@ -80,7 +80,7 @@ public class MechanismTest {
     }
 
     @Test
-    public void posIleriVeSolOlarakYorumlanir() {
+    public void positionIsInterpretedAsForwardAndLeft() {
         Mechanism m = testMechanism();
         assertEquals(6.5, m.motor("fl").forward(), 1e-9);
         assertEquals(5.5, m.motor("fl").left(), 1e-9);
@@ -89,16 +89,16 @@ public class MechanismTest {
     }
 
     @Test
-    public void adListesiUyusmazligindaCoker() {
+    public void nameListMismatchFails() {
         Mechanism m = testMechanism();
-        m.requireNames(List.of("br", "bl", "fr", "fl"), List.of()); // sira onemsiz
+        m.requireNames(List.of("br", "bl", "fr", "fl"), List.of()); // order does not matter
         Mechanism.MechanismException e = assertThrows(Mechanism.MechanismException.class,
                 () -> m.requireNames(List.of("fl", "fr", "bl"), List.of()));
-        assertTrue(e.getMessage().contains("uyusmuyor"));
+        assertTrue(e.getMessage().contains("do not match"));
     }
 
     @Test
-    public void motorsuzDosyaHataVerir() {
+    public void fileWithoutMotorsFails() {
         assertThrows(Mechanism.MechanismException.class,
                 () -> load("frames:\n  robot: {parent: field}\n"));
     }

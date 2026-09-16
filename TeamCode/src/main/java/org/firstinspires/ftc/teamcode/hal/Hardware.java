@@ -19,7 +19,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/** Yalniz FTC cihazlarini bulur ve {@code mechanism.yaml} ile yapilandirir. */
+/** Finds only FTC devices and configures them from {@code mechanism.yaml}. */
 public final class Hardware {
 
     final Map<String, DcMotorEx> motors;
@@ -33,7 +33,7 @@ public final class Hardware {
             DcMotorEx motor = hardwareMap.get(DcMotorEx.class, name);
             Mechanism.Motor config = mechanism.motor(name);
             if ("wheel".equals(config.drives())) {
-                // Robot cercevesinde +left sol taraftir; merkez esigi (0) sol kabul edilir.
+                // In the robot frame +left is the left side; the center threshold (0) counts as left.
                 motor.setDirection(config.left() >= 0.0
                         ? DcMotorSimple.Direction.REVERSE
                         : DcMotorSimple.Direction.FORWARD);
@@ -65,7 +65,7 @@ public final class Hardware {
 
         voltageSensors = List.copyOf(hardwareMap.getAll(VoltageSensor.class));
         if (voltageSensors.isEmpty()) {
-            throw new IllegalStateException("FTC HardwareMap voltaj sensoru icermiyor");
+            throw new IllegalStateException("FTC HardwareMap contains no voltage sensor");
         }
     }
 }

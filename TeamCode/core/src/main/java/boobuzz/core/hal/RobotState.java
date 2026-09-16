@@ -5,20 +5,20 @@ import com.pedropathing.math.Pose;
 import java.util.Map;
 
 /**
- * YUKARI gelen ham sensor okumasi. docs/protokol.md ile birebir.
+ * UPWARD raw sensor reading. Matches the protocol documentation exactly.
  *
- * <p>{@code t} sim/robot saatidir ve {@link Hal#now()} ile ayni kaynaktir
- * (anayasa kural 2: zaman HAL'den).
+ * <p>{@code t} is the simulator/robot clock and comes from the same source as
+ * {@link Hal#now()} (constitution rule 2: time comes from HAL).
  *
- * <p>Simulatordeki {@code truth} alani BURAYA GIRMEZ - :core gercegi hic gormez,
- * yoksa simde calisip robotta calismayan kod yaziliriz.
+ * <p>The simulator's {@code truth} field does NOT ENTER HERE - :core never sees
+ * ground truth, otherwise code could work in simulation but fail on the robot.
  *
- * @param t       milisaniye, HAL saati
- * @param enc     motor adi -> enkoder tick (tam sayi)
- * @param vel     motor adi -> tick/saniye
- * @param yaw     IMU yaw, RADYAN
- * @param pinpoint odometri pozu (inc, radyan)
- * @param voltage bus voltaji
+ * @param t       milliseconds, HAL clock
+ * @param enc     motor name -> encoder ticks (integer)
+ * @param vel     motor name -> ticks/second
+ * @param yaw     IMU yaw, RADIANS
+ * @param pinpoint odometry pose (inches, radians)
+ * @param voltage bus voltage
  */
 public record RobotState(long t,
                          Map<String, Integer> enc,

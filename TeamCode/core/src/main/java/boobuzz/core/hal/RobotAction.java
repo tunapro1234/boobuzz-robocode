@@ -5,13 +5,13 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * ASAGI giden komut. Motor/servo seviyesi - subsystem seviyesi DEGIL.
+ * DOWNWARD command. Motor/servo level - NOT subsystem level.
  *
- * <p>Seam burada cunku motor arayuzu fizigi kodlar (degismez); subsystem arayuzu
- * tasarim varsayimini kodlar (her hafta degisir). Bkz. docs/mimari.md §3.
+ * <p>The seam is here because the motor interface encodes physics (stable), while
+ * the subsystem interface encodes design assumptions (changing). See the architecture documentation, §3.
  *
- * <p>Anahtarlar {@code mechanism.yaml}'daki adlardir. Motor eklemek :core'u degistirmez.
- * Degerler -1..1 guctur. Eksik anahtar = 0.
+ * <p>Keys are names from {@code mechanism.yaml}. Adding a motor does not change :core.
+ * Values are power from -1..1. A missing key means 0.
  */
 public record RobotAction(Map<String, Double> motors, Map<String, Double> servos) {
 
@@ -40,7 +40,7 @@ public record RobotAction(Map<String, Double> motors, Map<String, Double> servos
         return servos.getOrDefault(name, 0.0);
     }
 
-    /** Elle kurmak icin kucuk yardimci; sirayi korur (telemetri okunabilirligi). */
+    /** Small helper for manual construction; preserves order (telemetry readability). */
     public static final class Builder {
         private final Map<String, Double> motors = new LinkedHashMap<>();
         private final Map<String, Double> servos = new LinkedHashMap<>();

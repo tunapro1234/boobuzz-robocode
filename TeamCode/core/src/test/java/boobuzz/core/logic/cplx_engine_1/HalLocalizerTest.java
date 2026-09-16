@@ -15,7 +15,7 @@ public class HalLocalizerTest {
     private static final double EPS = 1e-9;
 
     @Test
-    public void pinpointPozunuOlduguGibiGecirir() {
+    public void pinpointPosePassesThroughUnchanged() {
         HalLocalizer localizer = new HalLocalizer();
         localizer.feed(state(0, 12.5, 31.0, 0.75));
 
@@ -25,7 +25,7 @@ public class HalLocalizerTest {
     }
 
     @Test
-    public void ikiOrnektenSahaHiziniHesaplar() {
+    public void fieldVelocityIsComputedFromTwoSamples() {
         HalLocalizer localizer = new HalLocalizer();
         localizer.feed(state(100, 10, 20, 0));
         localizer.feed(state(120, 11, 20, 0));
@@ -37,7 +37,7 @@ public class HalLocalizerTest {
     }
 
     @Test
-    public void headingFarkiniPiSinirindaSarar() {
+    public void headingDifferenceWrapsAtPiBoundary() {
         HalLocalizer localizer = new HalLocalizer();
         localizer.feed(state(0, 0, 0, 3.1));
         localizer.feed(state(20, 0, 0, -3.1));
@@ -47,7 +47,7 @@ public class HalLocalizerTest {
     }
 
     @Test
-    public void setPosePinpointUstundeKaliciOffsetTutar() {
+    public void setPoseKeepsPersistentOffsetOverPinpoint() {
         HalLocalizer localizer = new HalLocalizer();
         localizer.feed(state(0, 10, 20, 0.2));
         localizer.setPose(new Pose(100, 50, 1.0));
@@ -63,7 +63,7 @@ public class HalLocalizerTest {
     }
 
     @Test
-    public void headingOffsetiSahaHiziniDondurupRobotTwistiniKorur() {
+    public void headingOffsetRotatesFieldVelocityAndPreservesRobotTwist() {
         HalLocalizer localizer = new HalLocalizer();
         localizer.feed(state(0, 0, 0, 0));
         localizer.setPose(new Pose(0, 0, Math.PI / 2.0));
@@ -76,7 +76,7 @@ public class HalLocalizerTest {
     }
 
     @Test
-    public void headingPiBoluIkideSahaHiziniRobotCercevesineDondurur() {
+    public void halfPiHeadingRotatesFieldVelocityToRobotFrame() {
         HalLocalizer localizer = new HalLocalizer();
         localizer.feed(state(0, 0, 0, Math.PI / 2.0));
         localizer.feed(state(20, 1, 2, Math.PI / 2.0));

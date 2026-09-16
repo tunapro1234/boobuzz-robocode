@@ -9,11 +9,11 @@ import boobuzz.core.hal.RobotAction;
 import boobuzz.core.hal.RobotState;
 
 /**
- * Tick. Bes satir, sirasi sabit (docs/mimari.md §1).
+ * Tick. Five lines, fixed order (architecture documentation, §1).
  *
- * <p>Tek thread, deterministik. Tekrarlanmayan sistem ne debug edilir ne egitilir.
- * Geri ok yoktur: Engine, Controller'i cagirmaz - bu yuzden istek durumlari
- * bir tick gecikmelidir.
+ * <p>Single thread, deterministic. A system that cannot be replayed can be neither
+ * debugged nor trained. There is no feedback loop: the engine does not call the
+ * controller, so request statuses lag by one tick.
  */
 public final class RobotLoop {
 
@@ -28,14 +28,14 @@ public final class RobotLoop {
         this.controller = controller;
     }
 
-    /** Bir tick kosar. */
+    /** Runs one tick. */
     public void tick() {
         long now = hal.now();
 
         RobotState state = hal.read();
-        Feedback feedback = engine.sense(now, state);    // YUKARI
+        Feedback feedback = engine.sense(now, state);    // UP
         Intent intent = controller.decide(feedback);     // L3
-        RobotAction action = engine.act(intent);         // ASAGI
+        RobotAction action = engine.act(intent);         // DOWN
         hal.write(action);
 
         ticks++;

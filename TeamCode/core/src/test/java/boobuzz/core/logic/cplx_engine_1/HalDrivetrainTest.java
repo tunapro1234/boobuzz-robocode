@@ -20,7 +20,7 @@ public class HalDrivetrainTest {
     }
 
     @Test
-    public void drivePowersMotorAdlariylaSonEylemeDonusur() {
+    public void drivePowersBecomeFinalActionWithMotorNames() {
         drivetrain.drive(new DrivePowers(0.2, -0.3, 0.1), false);
         RobotAction action = drivetrain.lastAction();
 
@@ -32,7 +32,7 @@ public class HalDrivetrainTest {
     }
 
     @Test
-    public void tekerlekGucleriniEksiBirArtiBirAraliginaKirpar() {
+    public void wheelPowersClampToMinusOneThroughOne() {
         drivetrain.drive(new DrivePowers(2.0, 0.0, 0.0), false);
         RobotAction positive = drivetrain.lastAction();
         assertEquals(1.0, positive.motor("fl"), EPS);
@@ -45,7 +45,7 @@ public class HalDrivetrainTest {
     }
 
     @Test
-    public void doygunTabandaTersDeltaOlsaBileOlceklemez() {
+    public void saturatedBaseDoesNotScaleReverseDelta() {
         double scale = drivetrain.maxScaling(
                 new DrivePowers(2.0, 0.0, 0.0),
                 new DrivePowers(-1.0, 0.0, 0.0));
@@ -54,7 +54,7 @@ public class HalDrivetrainTest {
     }
 
     @Test
-    public void sinirIcindeTersIsaretliDeltaninTamaminiUygular() {
+    public void inRangeReverseDeltaIsAppliedFully() {
         double scale = drivetrain.maxScaling(
                 new DrivePowers(0.8, 0.0, 0.0),
                 new DrivePowers(-0.2, 0.0, 0.0));
@@ -63,7 +63,7 @@ public class HalDrivetrainTest {
     }
 
     @Test
-    public void sifirDeltaTamOlcekDondurur() {
+    public void zeroDeltaReturnsFullScale() {
         double scale = drivetrain.maxScaling(
                 new DrivePowers(0.4, 0.0, 0.0), DrivePowers.zero());
 

@@ -11,7 +11,7 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
 import org.firstinspires.ftc.teamcode.hal.RealHal;
 
-/** Gercek HAL uzerinde sim ile ayni core bytecode'unu calistiran ana TeleOp. */
+/** Main TeleOp running the same core bytecode as the simulator on the real HAL. */
 @TeleOp(name = "Teleop Main", group = "1 Main")
 public class TeleopMain extends LinearOpMode {
 
@@ -21,7 +21,7 @@ public class TeleopMain extends LinearOpMode {
         RealHal hal = new RealHal(hardwareMap, gamepad1, mechanism, new Pose(0, 0, 0));
         RobotLoop robot = RobotFactory.create(hal, mechanism);
 
-        telemetry.addLine("RealHal + ortak core hazir. Start'a bas.");
+        telemetry.addLine("RealHal + shared core ready. Press Start.");
         telemetry.update();
         waitForStart();
 

@@ -14,11 +14,11 @@ import java.util.Locale;
 import java.util.Map;
 
 /**
- * Python sunucusunun yerine gecen asgari taklit. SADECE TEST icindir.
+ * Minimal replacement for the Python server. FOR TESTS ONLY.
  *
- * <p>Gercek fizik yok: enkoderleri guce gore biriktirir, pozu basit mecanum
- * duz kinematigiyle Euler'le ilerletir. Amaci protokolu dogrulamak, fizigi degil.
- * Gercek entegrasyon re-cock-nize sunucusuyla kosulur.
+ * <p>There is no real physics: encoders accumulate from power, and the pose is
+ * advanced with simple mecanum forward kinematics and Euler integration. Its
+ * purpose is protocol validation, not physics. Real integration uses re-cock-nize.
  */
 final class FakeSimServer implements Closeable {
 
@@ -47,7 +47,7 @@ final class FakeSimServer implements Closeable {
         this.gamepadJson = json;
     }
 
-    /** Protokol ihlali taklidi: 'ready' state tasimasin. */
+    /** Protocol violation simulation: omit the 'ready' state. */
     void setOmitReadyState(boolean omit) {
         this.omitReadyState = omit;
     }
@@ -92,10 +92,10 @@ final class FakeSimServer implements Closeable {
 
                 } else if ("step".equals(type)) {
                     int dt = (int) Json.num(msg, "dt_ms", 0);
-                    // Gercek sunucu boyle davraniyor; taklit de ayni olmali,
-                    // yoksa test gecip entegrasyon patlar.
+                    // The real server behaves this way; the fake must match it,
+                    // or tests pass while integration fails.
                     if (dt <= 0) {
-                        throw new SimProtocolException("step.dt_ms pozitif olmali, " + dt + " geldi");
+                        throw new SimProtocolException("step.dt_ms must be positive, got " + dt);
                     }
                     Map<String, Object> motors = Json.obj(msg, "motors");
 
@@ -104,7 +104,7 @@ final class FakeSimServer implements Closeable {
                         p[i] = Json.num(motors, motorNames.get(i), 0.0);
                         ticks[i] += p[i] * dt * 0.5;
                     }
-                    // Duz mecanum kinematigi (fl, fr, bl, br sirasi varsayilir).
+                    // Simple mecanum kinematics (assumes fl, fr, bl, br order).
                     double vx = (p[0] + p[1] + p[2] + p[3]) / 4.0;
                     double vy = (-p[0] + p[1] + p[2] - p[3]) / 4.0;
                     double w = (-p[0] + p[1] - p[2] + p[3]) / 4.0;
@@ -119,11 +119,11 @@ final class FakeSimServer implements Closeable {
                 } else if ("bye".equals(type)) {
                     return;
                 } else {
-                    throw new SimProtocolException("taklit sunucu bilmiyor: " + type);
+                    throw new SimProtocolException("fake server does not recognize: " + type);
                 }
             }
         } catch (IOException e) {
-            // baglanti kapandi
+            // connection closed
         }
     }
 

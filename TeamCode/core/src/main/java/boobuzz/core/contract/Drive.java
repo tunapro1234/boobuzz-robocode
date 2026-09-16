@@ -3,33 +3,33 @@ package boobuzz.core.contract;
 import com.pedropathing.math.Pose;
 
 /**
- * Surus niyeti. docs/mimari.md §6.
+ * Drive intent. Architecture documentation, §6.
  *
- * <p>Isaret duzeni Pedro ile ayni: {@code vx} ILERI, {@code vy} SOL, {@code omega} CCW.
- * {@code GamepadController} ham stickleri once {@code (-ly, -lx, -rx)} ile bu duzene cevirir.
+ * <p>Sign convention matches Pedro: {@code vx} FORWARD, {@code vy} LEFT, {@code omega} CCW.
+ * {@code GamepadController} first converts raw sticks {@code (-ly, -lx, -rx)} to this convention.
  */
 public sealed interface Drive {
 
-    /** Robot cercevesi, -1..1 ham guc. */
+    /** Robot frame, raw power from -1 to 1. */
     record Manual(double vx, double vy, double omega) implements Drive {}
 
     /**
-     * Saha cercevesi, in/s. RL bunu kullanir (docs/mimari.md §6).
-     * KAPALI CEVRIM olmak zorunda; acik cevrim guc eslemesi kullanilirsa
-     * gizliden gizliye "guc" olur ve pil voltajiyla %20+ kayar.
+     * Field frame, in/s. RL uses this (architecture documentation, §6).
+     * Must be CLOSED LOOP; an open-loop power mapping silently becomes
+     * "power" and drifts by 20%+ with battery voltage.
      */
     record Velocity(double vx, double vy, double omega) implements Drive {}
 
-    /** Bir noktaya Pedro follower ile git. */
+    /** Go to a point with the Pedro follower. */
     record GoTo(Pose target, Constraints constraints) implements Drive {}
 
-    /** Onceden tanimli yolu takip et. */
+    /** Follow a predefined path. */
     record FollowPath(String pathId) implements Drive {}
 
-    /** Oldugun yerde dur. */
+    /** Hold the current position. */
     record Hold() implements Drive {}
 
-    /** Hareket kisitlari. */
+    /** Motion constraints. */
     record Constraints(double maxPower, double maxVelocity) {
         public static Constraints defaults() {
             return new Constraints(1.0, Double.MAX_VALUE);

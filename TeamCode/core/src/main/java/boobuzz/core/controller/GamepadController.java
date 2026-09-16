@@ -9,22 +9,22 @@ import boobuzz.core.hal.GamepadState;
 import com.pedropathing.math.Pose;
 
 /**
- * L3 - surucu girdisini niyete cevirir.
+ * L3 - converts driver input into intent.
  *
- * <p>Sol stick surusu, sag stick X donusu belirler; stick eksenleri ters
- * isaretlidir (yukari itmek negatif deger verir).
+ * <p>The left stick drives and the right stick X controls rotation; stick axes
+ * are inverted (pushing up gives a negative value).
  *
- * <p>Olu bolge (deadband) burada, HAL'de degil: gamepad donanimi merkeze tam
- * donmez ve bu her iki tarafta da (sim, robot) ayni problemdir.
+ * <p>The deadband belongs here, not in HAL: gamepad hardware does not return
+ * exactly to center, and this is the same problem on both sides (simulator, robot).
  *
- * <p><b>Field-oriented:</b> varsayilan ACIK. Sol stick saha cercevesinde okunur
- * (yukari = saha {@code +x}), heading ile geri dondurulup robot cercevesine
- * cevrilir. {@link Drive} tipi ve Engine bundan haberdar degil - donusum tamamen
- * L3'te biter, asagi giden yine robot cerceveli {@code Drive.Manual}'dir.
+ * <p><b>Field-oriented:</b> ON by default. The left stick is read in the field
+ * frame (up = field {@code +x}), rotated back by heading, and converted to the
+ * robot frame. The {@link Drive} type and engine do not know about this; conversion
+ * ends entirely in L3, and the downward value remains robot-frame {@code Drive.Manual}.
  *
- * <p>{@code b} modu degistirir, {@code y} heading'i sifirlar. Sifirlama HAL'e
- * dokunmaz; burada tutulan bir offset'tir (anayasa kural 3: :core donanimin
- * hangisi oldugunu bilmez, sensoru de yeniden ayarlamaz).
+ * <p>{@code b} toggles the mode and {@code y} resets heading. Resetting does not
+ * touch HAL; it is an offset held here (constitution rule 3: :core does not know
+ * which hardware is present and does not recalibrate the sensor).
  */
 public final class GamepadController implements Controller {
 
@@ -48,7 +48,7 @@ public final class GamepadController implements Controller {
             return Intent.idle();
         }
 
-        // Kenar tetikleme: tus basili tutuldugunda her tick'te tetiklenmesin.
+        // Edge trigger: holding a button must not trigger it every tick.
         if (g.b() && !prevToggle) {
             fieldOriented = !fieldOriented;
         }
@@ -60,12 +60,12 @@ public final class GamepadController implements Controller {
 
         double forward = deadband(-g.ly());
         double left = deadband(-g.lx());
-        double omega = deadband(-g.rx()); // CCW, her iki modda da robot cerceveli
+        double omega = deadband(-g.rx()); // CCW, robot frame in both modes
 
         double vx = forward;
         double vy = left;
         if (fieldOriented) {
-            // Stick saha niyeti; robot cercevesine -heading donusu ile gecilir.
+            // Stick is a field intent; rotate it by -heading into the robot frame.
             double h = rawHeading(feedback) - headingOffset;
             double cos = Math.cos(h);
             double sin = Math.sin(h);
@@ -75,7 +75,7 @@ public final class GamepadController implements Controller {
         return Intent.of(new Drive.Manual(vx, vy, omega));
     }
 
-    /** C1'de localizer pinpoint'in kendisidir; poz yoksa heading bilinmiyor demektir. */
+    /** In C1 the localizer is Pinpoint; without a pose, heading is unknown. */
     private static double rawHeading(Feedback feedback) {
         if (feedback == null || feedback.world() == null) {
             return 0.0;
@@ -88,7 +88,7 @@ public final class GamepadController implements Controller {
         if (Math.abs(value) < DEADBAND) {
             return 0.0;
         }
-        // Olu bolgeden sonra yeniden olceklendir; esikte sicrama olmasin.
+        // Rescale after the deadband to avoid a jump at the threshold.
         double sign = Math.signum(value);
         return sign * (Math.abs(value) - DEADBAND) / (1.0 - DEADBAND);
     }

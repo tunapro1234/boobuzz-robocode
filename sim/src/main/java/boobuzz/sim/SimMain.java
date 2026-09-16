@@ -11,14 +11,14 @@ import com.pedropathing.math.Pose;
 import java.nio.file.Path;
 
 /**
- * Headless sim kosucusu.
+ * Headless simulator runner.
  *
  * <pre>
  * java -cp ... boobuzz.sim.SimMain --mechanism ../mechanism.yaml --steps 500 --dt 20
  * </pre>
  *
- * <p>RobotLoop'u SimHal + CplxEngine1 + GamepadController ile kosturur,
- * N adim sonra {@code bye} gonderir.
+ * <p>Runs RobotLoop with SimHal + CplxEngine1 + GamepadController and sends
+ * {@code bye} after N steps.
  */
 public final class SimMain {
 
@@ -28,22 +28,22 @@ public final class SimMain {
         Args a = Args.parse(args);
 
         Mechanism mechanism = MechanismLoader.load(a.mechanism);
-        System.out.printf("mechanism: %s  motorlar=%s%n", a.mechanism, mechanism.motorNames());
+        System.out.printf("mechanism: %s  motors=%s%n", a.mechanism, mechanism.motorNames());
 
         try (SimHal hal = new SimHal(mechanism, a.host, a.port, a.dtMs,
                 a.seed, new Pose(a.x, a.y, a.h), a.connectTimeoutMs)) {
 
-            // Varsayilan: gamepad sunucudan gelir (pygame). --drive headless duman
-            // testi icin sabit bir niyet verir; viewer'siz kosuda gamepad hep sifirdir.
+            // Default: the gamepad comes from the server (pygame). --drive provides a
+            // fixed intent for a headless smoke test; without a viewer, gamepad stays neutral.
             Drive fixedDrive = null;
             if (a.pathId != null) {
                 fixedDrive = new Drive.FollowPath(a.pathId);
                 System.out.printf("controller: FollowPath(%s)%n", a.pathId);
             } else if (a.drive == null) {
-                System.out.println("controller: gamepad (sunucudan)");
+                System.out.println("controller: gamepad (from server)");
             } else {
                 fixedDrive = new Drive.Manual(a.drive[0], a.drive[1], a.drive[2]);
-                System.out.printf("controller: sabit Manual(%.2f, %.2f, %.2f)%n",
+                System.out.printf("controller: fixed Manual(%.2f, %.2f, %.2f)%n",
                         a.drive[0], a.drive[1], a.drive[2]);
             }
 
@@ -55,29 +55,29 @@ public final class SimMain {
                 try {
                     loop.tick();
                 } catch (ServerClosedException e) {
-                    // Viewer penceresi kapandi; bu bir hata degil, kosunun sonu.
-                    System.out.println("sunucu kapandi, kosu bitti.");
+                    // The viewer window closed; this is the end of the run, not an error.
+                    System.out.println("server closed, run finished.");
                     break;
                 }
             }
             double wallSec = (System.nanoTime() - wallStart) / 1e9;
 
             long simMs = hal.now();
-            System.out.printf("%d tick bitti.  sim=%.2fs  gercek=%.2fs  hizlanma=%.1fx%n",
+            System.out.printf("%d ticks finished.  sim=%.2fs  wall=%.2fs  speedup=%.1fx%n",
                     loop.ticks(), simMs / 1000.0, wallSec,
                     wallSec > 0 ? (simMs / 1000.0) / wallSec : 0.0);
             Pose pose = hal.read().pinpoint();
-            System.out.printf("son poz: x=%.2f y=%.2f h=%.3f rad%n",
+            System.out.printf("final pose: x=%.2f y=%.2f h=%.3f rad%n",
                     pose.x(), pose.y(), pose.heading());
             Pose truth = hal.truth();
             if (truth != null) {
-                System.out.printf("gercek : x=%.2f y=%.2f h=%.3f rad%n",
+                System.out.printf("truth : x=%.2f y=%.2f h=%.3f rad%n",
                         truth.x(), truth.y(), truth.heading());
             }
         }
     }
 
-    /** Kucuk argüman ayristirici; kutuphane getirmeye degmez. */
+    /** Small argument parser; not worth adding a library. */
     private static final class Args {
         Path mechanism = Path.of("mechanism.yaml");
         String host = SimHal.DEFAULT_HOST;
@@ -108,11 +108,11 @@ public final class SimMain {
                     case "--path" -> a.pathId = next(argv, ++i, key);
                     case "--connect-timeout" ->
                             a.connectTimeoutMs = Integer.parseInt(next(argv, ++i, key));
-                    default -> throw new IllegalArgumentException("bilinmeyen argüman: " + key);
+                    default -> throw new IllegalArgumentException("unknown argument: " + key);
                 }
             }
             if (a.pathId != null && a.drive != null) {
-                throw new IllegalArgumentException("--path ile --drive birlikte kullanilamaz");
+                throw new IllegalArgumentException("--path and --drive cannot be used together");
             }
             return a;
         }
@@ -120,7 +120,7 @@ public final class SimMain {
         private static double[] triple(String value) {
             String[] parts = value.split(",");
             if (parts.length != 3) {
-                throw new IllegalArgumentException("--drive vx,vy,omega bekliyor: " + value);
+                throw new IllegalArgumentException("--drive expects vx,vy,omega: " + value);
             }
             return new double[] {
                     Double.parseDouble(parts[0].trim()),
@@ -130,7 +130,7 @@ public final class SimMain {
 
         private static String next(String[] argv, int i, String key) {
             if (i >= argv.length) {
-                throw new IllegalArgumentException(key + " bir deger bekliyor");
+                throw new IllegalArgumentException(key + " expects a value");
             }
             return argv[i];
         }

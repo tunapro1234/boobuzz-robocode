@@ -1,5 +1,5 @@
-// :core — L2/L3. Saf Java, FTC SDK YOK, Android YOK.
-// Ayni bytecode hem robotta (TeamCode) hem simde (:sim) kosar.
+// :core — L2/L3. Pure Java, no FTC SDK, no Android.
+// The same bytecode runs on the robot (TeamCode) and in the simulator (:sim).
 plugins {
     id 'java-library'
 }
@@ -9,18 +9,18 @@ java {
     targetCompatibility = JavaVersion.VERSION_17
 }
 
-// Tek kaynak root mechanism.yaml'dir; core jar uzerinden robot APK'sina da girer.
+// The root mechanism.yaml is the single source; it also enters the robot APK through the core jar.
 sourceSets.main.resources {
     srcDir rootProject.projectDir
     include 'mechanism.yaml'
 }
 
 dependencies {
-    // Pedro 3.0 'core' artifact'i saf Java jar'dir (67 sinif, FTC/Android/Kotlin
-    // referansi yok - dogrulandi). Android tarafi 'revhub' AAR'idir, o TeamCode'a ait.
+    // Pedro 3.0 'core' artifact is a pure Java jar (67 classes, no FTC/Android/Kotlin
+    // references - verified). The Android side is the 'revhub' AAR, which belongs to TeamCode.
     api 'com.pedropathing:core:3.0.0'
 
-    // mechanism.yaml okuyucu. SDK degil.
+    // mechanism.yaml reader. Not an SDK.
     implementation 'org.yaml:snakeyaml:2.3'
 
     testImplementation 'junit:junit:4.13.2'

@@ -10,12 +10,12 @@ import com.pedropathing.math.Velocity;
 import java.util.Objects;
 
 /**
- * Pedro localizer'ini HAL'in Pinpoint okumalarina baglar.
+ * Connects Pedro's localizer to HAL Pinpoint readings.
  *
- * <p>{@link #feed(RobotState)} her robot tick'inde, follower guncellenmeden once
- * cagrilir. {@link #update()} no-op'tur; donanim okumasi veya zaman ilerletme yapmaz.
- * {@link #reset()} Pinpoint'e yazamadigimiz icin yalnizca yazilim pose offset'ini
- * sifirlar ve bir sonraki hiz hesabini ilk ornek gibi sifir hizla baslatir.
+ * <p>{@link #feed(RobotState)} is called every robot tick before the follower is
+ * updated. {@link #update()} is a no-op; it does not read hardware or advance time.
+ * Because {@link #reset()} cannot write Pinpoint, it only clears the software pose
+ * offset and starts the next velocity calculation with zero speed like a first sample.
  */
 public final class HalLocalizer implements Localizer {
 
@@ -30,7 +30,7 @@ public final class HalLocalizer implements Localizer {
     private double offsetHeading;
     private Pose pendingPose;
 
-    /** HAL'in o tick'e ait son durumunu localizer'a verir. */
+    /** Supplies the latest HAL state for the tick to the localizer. */
     public void feed(RobotState state) {
         Objects.requireNonNull(state, "state");
         Pose sample = Objects.requireNonNull(state.pinpoint(), "state.pinpoint");
@@ -80,13 +80,13 @@ public final class HalLocalizer implements Localizer {
         return motionState;
     }
 
-    /** Feed tabanli oldugu icin bilerek no-op. */
+    /** Intentionally a no-op because this localizer is feed-based. */
     @Override
     public void update() {
-        // RobotLoop ayni sensor ornegini ikinci kez okumaz.
+        // RobotLoop does not read the same sensor sample twice.
     }
 
-    /** Pose offset'ini temizler; Pinpoint donanimini resetlemez. */
+    /** Clears the pose offset; does not reset Pinpoint hardware. */
     @Override
     public void reset() {
         offsetX = 0.0;

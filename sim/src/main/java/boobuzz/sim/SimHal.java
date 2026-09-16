@@ -23,19 +23,19 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * L1'in sim tarafi. TCP istemcisi, satir sonlu JSON, lockstep.
+ * Simulator side of L1. TCP client, line-oriented JSON, lockstep.
  *
- * <p>Saat sahibi Java'dir: {@code dt_ms}'i biz gondeririz, boylece headless kosu
- * gercek zamandan hizli olabilir. {@link #now()} sunucunun bildirdigi sim saatidir
- * (anayasa kural 2), duvar saati degil.
+ * <p>Java owns the clock: we send {@code dt_ms}, so a headless run can be faster
+ * than real time. {@link #now()} is the simulator time reported by the server
+ * (constitution rule 2), not wall time.
  *
- * <p>Akis: {@code write()} bir {@code step} gonderir ve karsiligindaki {@code state}'i
- * bloklayarak okur; {@code read()} en son gelen {@code state}'i dondurur. Baglanirken
- * {@code dt_ms=0} ve sifir guclu bir hazirlik adimi atilir, boylece ilk {@code read()}
- * gecerli bir duruma sahiptir ve fizik hic ilerlememis olur.
+ * <p>Flow: {@code write()} sends a {@code step} and blocks while reading its
+ * corresponding {@code state}; {@code read()} returns the latest state. On connect,
+ * a zero-power setup step with {@code dt_ms=0} is sent, so the first {@code read()}
+ * is valid and physics has not advanced.
  *
- * <p>{@code truth} alani okunur ama {@link RobotState}'e KONULMAZ - sadece
- * testler ve viewer icindir. :core gercegi hic gormez.
+ * <p>The {@code truth} field is read but NOT PUT into {@link RobotState}; it is for
+ * tests and the viewer only. :core never sees ground truth.
  */
 public final class SimHal implements Hal, Closeable {
 
@@ -69,7 +69,7 @@ public final class SimHal implements Hal, Closeable {
         handshake(seed, startPose);
     }
 
-    // ------------------------------------------------------------- el sikisma
+    // ------------------------------------------------------------- handshake
 
     private void handshake(long seed, Pose startPose) throws IOException {
         Pose p = (startPose == null) ? new Pose(0, 0, 0) : startPose;
@@ -84,28 +84,28 @@ public final class SimHal implements Hal, Closeable {
         Map<String, Object> ready = receive();
         String type = Json.str(ready, "type");
         if (!"ready".equals(type)) {
-            throw new SimProtocolException("'ready' bekleniyordu, '" + type + "' geldi");
+            throw new SimProtocolException("expected 'ready', got '" + type + "'");
         }
         int proto = (int) Json.num(ready, "proto", -1);
         if (proto != PROTO) {
             throw new SimProtocolException(
-                    "protokol surumu uyusmuyor: bizde " + PROTO + ", sunucuda " + proto);
+                    "protocol version mismatch: local " + PROTO + ", server " + proto);
         }
         List<String> motors = Json.strings(ready, "motors");
         List<String> servos = Json.strings(ready, "servos");
-        // Uyusmazlik = aninda cokme. Yanlis motora guc vermek sahada fark edilmez.
+        // A mismatch fails immediately. Powering the wrong motor may go unnoticed on the field.
         mechanism.requireNames(motors, servos);
 
-        // 'ready' baslangic state'ini tasir (t_ms = 0, reset pozu).
+        // 'ready' carries the initial state (t_ms = 0, reset pose).
         Map<String, Object> initial = Json.obj(ready, "state");
         if (initial.isEmpty()) {
             throw new SimProtocolException(
-                    "'ready' baslangic 'state' alanini tasimiyor (docs/protokol.md)");
+                    "'ready' does not contain the initial 'state' field (protocol documentation)");
         }
         applyState(initial);
         if (state.t() != 0L) {
             throw new SimProtocolException(
-                    "baslangic state t_ms = 0 olmali, " + state.t() + " geldi");
+                    "initial state t_ms must be 0, got " + state.t());
         }
     }
 
@@ -119,7 +119,7 @@ public final class SimHal implements Hal, Closeable {
     @Override
     public RobotState read() {
         if (state == null) {
-            throw new SimProtocolException("henuz durum alinmadi (el sikisma tamamlanmadi)");
+            throw new SimProtocolException("state not received yet (handshake incomplete)");
         }
         return state;
     }
@@ -129,7 +129,7 @@ public final class SimHal implements Hal, Closeable {
         try {
             exchange(action, dtMs);
         } catch (IOException e) {
-            throw new SimProtocolException("step/state degisimi basarisiz", e);
+            throw new SimProtocolException("step/state exchange failed", e);
         }
     }
 
@@ -138,7 +138,7 @@ public final class SimHal implements Hal, Closeable {
         return gamepad;
     }
 
-    // -------------------------------------------------------------- degisim
+    // -------------------------------------------------------------- exchange
 
     private void exchange(RobotAction action, int stepMs) throws IOException {
         StringBuilder sb = new StringBuilder(256);
@@ -152,12 +152,12 @@ public final class SimHal implements Hal, Closeable {
         Map<String, Object> msg = receive();
         String type = Json.str(msg, "type");
         if (!"state".equals(type)) {
-            throw new SimProtocolException("'state' bekleniyordu, '" + type + "' geldi");
+            throw new SimProtocolException("expected 'state', got '" + type + "'");
         }
         applyState(msg);
     }
 
-    /** Eksik anahtar = 0; protokol boyle diyor ve sunucuya tam liste gondermek daha guvenli. */
+    /** Missing key = 0; the protocol specifies this and a full list is safer for the server. */
     private static Map<String, Double> fill(Map<String, Double> given, List<String> names) {
         Map<String, Double> out = new LinkedHashMap<>(names.size());
         for (String n : names) {
@@ -211,7 +211,7 @@ public final class SimHal implements Hal, Closeable {
                 d);
     }
 
-    // ----------------------------------------------------------------- altyapi
+    // ----------------------------------------------------------------- utilities
 
     private void send(String line) throws IOException {
         out.write(line);
@@ -222,7 +222,7 @@ public final class SimHal implements Hal, Closeable {
     private Map<String, Object> receive() throws IOException {
         String line = in.readLine();
         if (line == null) {
-            throw new ServerClosedException("sunucu baglantiyi kapatti");
+            throw new ServerClosedException("server closed the connection");
         }
         return Json.parseObject(line);
     }
@@ -232,8 +232,8 @@ public final class SimHal implements Hal, Closeable {
     }
 
     /**
-     * Sim gercegi. YALNIZCA testler ve viewer icindir; :core bunu gormez.
-     * Sunucu gondermediyse null.
+     * Simulator ground truth. ONLY for tests and the viewer; :core does not see it.
+     * Null when the server did not send it.
      */
     public Pose truth() {
         return truth;
@@ -248,7 +248,7 @@ public final class SimHal implements Hal, Closeable {
         try {
             send("{\"type\":\"bye\"}");
         } catch (IOException ignored) {
-            // kapanirken yazamamak sorun degil
+            // Failure to write while closing is harmless.
         } finally {
             socket.close();
         }

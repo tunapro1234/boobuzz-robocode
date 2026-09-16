@@ -10,7 +10,7 @@ import boobuzz.core.hal.Mechanism;
 
 import java.util.Objects;
 
-/** Robot ve sim icin ortak engine/controller zincirini kurar. */
+/** Builds the shared engine/controller chain for the robot and simulator. */
 public final class RobotFactory {
 
     private RobotFactory() {}
@@ -19,7 +19,7 @@ public final class RobotFactory {
         return create(hal, mechanism, null);
     }
 
-    /** {@code fixedDrive == null} ise controller HAL'in gamepad kaynagini kullanir. */
+    /** When {@code fixedDrive == null}, the controller uses HAL's gamepad source. */
     public static RobotLoop create(Hal hal, Mechanism mechanism, Drive fixedDrive) {
         Objects.requireNonNull(hal, "hal");
         Objects.requireNonNull(mechanism, "mechanism");

@@ -2,7 +2,7 @@ package boobuzz.core.contract;
 
 import java.util.List;
 
-/** YUKARI giden geri besleme. Engine uretir, Controller tuketir. */
+/** UPWARD feedback. The engine produces it; the controller consumes it. */
 public record Feedback(WorldSnapshot world, List<RequestStatus> statuses, long t) {
 
     public Feedback {

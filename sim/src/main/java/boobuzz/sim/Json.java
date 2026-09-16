@@ -6,8 +6,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Satir sonlu JSON. Okuma icin snakeyaml (JSON, YAML'in alt kumesidir),
- * yazma icin elle - protokolde sadece duz nesneler var.
+ * Line-oriented JSON. SnakeYAML reads it (JSON is a subset of YAML), while
+ * writing is manual because the protocol contains only flat objects.
  */
 final class Json {
 
@@ -17,7 +17,7 @@ final class Json {
     static Map<String, Object> parseObject(String line) {
         Object parsed = new Yaml().load(line);
         if (!(parsed instanceof Map)) {
-            throw new SimProtocolException("JSON nesnesi bekleniyordu: " + trim(line));
+            throw new SimProtocolException("JSON object expected: " + trim(line));
         }
         return (Map<String, Object>) parsed;
     }
@@ -58,7 +58,7 @@ final class Json {
         return ((List<Object>) v).stream().map(String::valueOf).toList();
     }
 
-    /** {@code {"a":1.0,"b":2.0}} — protokolde motor/servo haritalari icin. */
+    /** {@code {"a":1.0,"b":2.0}} — for motor/servo maps in the protocol. */
     static void writeNumberMap(StringBuilder out, Map<String, Double> values) {
         out.append('{');
         boolean first = true;
@@ -70,7 +70,7 @@ final class Json {
             out.append('"').append(escape(e.getKey())).append("\":");
             double v = e.getValue();
             if (!Double.isFinite(v)) {
-                throw new SimProtocolException("sonlu olmayan deger: " + e.getKey() + "=" + v);
+                throw new SimProtocolException("non-finite value: " + e.getKey() + "=" + v);
             }
             out.append(String.format(java.util.Locale.US, "%.6f", v));
         }

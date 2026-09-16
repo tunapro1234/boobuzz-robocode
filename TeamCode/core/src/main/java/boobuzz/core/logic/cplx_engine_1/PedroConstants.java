@@ -9,17 +9,17 @@ import com.pedropathing.follower.Follower;
 import com.pedropathing.math.Matrix;
 import com.pedropathing.math.Vector2D;
 
-/** Pedro follower ayarlarinin tek kaynagi. */
+/** Single source of Pedro follower settings. */
 public final class PedroConstants {
 
     private PedroConstants() {}
 
-    // Pedro 3.0 icin muhafazakar baslangic kontrolculeri; AutoTune ile yenilenecek.
+    // Conservative starting controllers for Pedro 3.0; tune with AutoTune.
     private static final double HEADING_KP = 1.0;
     private static final double FORWARD_TRANSLATIONAL_KP = 0.10;
     private static final double STRAFE_TRANSLATIONAL_KP = 0.10;
 
-    /** Her follower icin durum tasimayan ayarlardan yeni bir config uretir. */
+    /** Creates a new config from stateless settings for each follower. */
     public static ForesightConfig createForesightConfig(Mechanism mechanism) {
         Mechanism.Physics physics = mechanism.physics();
         double maxForwardVelocity = maxForwardVelocity(mechanism);
@@ -38,8 +38,8 @@ public final class PedroConstants {
             c.coast.set(Controller.proportionalFeedforward(velocityFeedforward));
             c.brake.set(Controller.proportionalFeedforward(velocityFeedforward));
 
-            // Gecen sezonun sifir-guc yavaslamasindan turetilen ilk yaklasim.
-            // AutoTune lineer/kuadratik fren katsayilarinin asil kaynagidir.
+            // Initial approximation derived from last season's zero-power deceleration.
+            // This is the source for AutoTune's linear/quadratic brake coefficients.
             c.linearBrakeCoefficients.set(Matrix.diag(0.0, 0.0));
             c.quadraticBrakeCoefficients.set(Matrix.diag(
                     1.0 / (2.0 * forwardDeceleration),
@@ -72,7 +72,7 @@ public final class PedroConstants {
                     motor.freeRpm() * efficiency * wheelCircumference / 60.0);
         }
         if (!Double.isFinite(velocity)) {
-            throw new Mechanism.MechanismException("Pedro icin tekerlek motoru bulunamadi");
+            throw new Mechanism.MechanismException("no wheel motor found for Pedro");
         }
         return velocity;
     }
@@ -80,7 +80,7 @@ public final class PedroConstants {
     private static void requirePositive(String field, double value) {
         if (!Double.isFinite(value) || value <= 0.0) {
             throw new Mechanism.MechanismException(
-                    "mechanism.yaml '" + field + "' pozitif olmali: " + value);
+                    "mechanism.yaml '" + field + "' must be positive: " + value);
         }
     }
 }

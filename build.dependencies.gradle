@@ -18,10 +18,10 @@ dependencies {
     implementation 'androidx.appcompat:appcompat:1.2.0'
 
     // ===== Pedro Pathing 3.0 =====
-    // revhub, core'u transitive olarak cekiyor (api bagimliligi)
+    // revhub pulls in core transitively (API dependency)
     implementation 'com.pedropathing:revhub:3.0.0'
 
-    // ===== Tuning / telemetri =====
+    // ===== Tuning / telemetry =====
     implementation 'com.bylazar:fullpanels:1.0.13'
     implementation 'com.acmerobotics.dashboard:dashboard:0.5.1'
 }

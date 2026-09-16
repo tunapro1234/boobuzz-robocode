@@ -15,7 +15,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/** {@code mechanism.yaml} dosyasini saf {@link Mechanism} verisine donusturur. */
+/** Converts {@code mechanism.yaml} into pure {@link Mechanism} data. */
 public final class MechanismLoader {
 
     private MechanismLoader() {}
@@ -30,11 +30,11 @@ public final class MechanismLoader {
         return parse(new InputStreamReader(in, StandardCharsets.UTF_8), origin);
     }
 
-    /** Core jar'a paketlenen ortak robot mekanizmasini yukler. */
+    /** Loads the shared robot mechanism packaged in the core jar. */
     public static Mechanism loadDefault() {
         InputStream in = MechanismLoader.class.getResourceAsStream("/mechanism.yaml");
         if (in == null) {
-            throw new Mechanism.MechanismException("classpath'te mechanism.yaml bulunamadi");
+            throw new Mechanism.MechanismException("mechanism.yaml not found on the classpath");
         }
         return load(in, "classpath:/mechanism.yaml");
     }
@@ -43,7 +43,7 @@ public final class MechanismLoader {
     private static Mechanism parse(Reader reader, String origin) {
         Object loaded = new Yaml().load(reader);
         if (!(loaded instanceof Map)) {
-            throw new Mechanism.MechanismException(origin + ": kok bir esleme (map) olmali");
+            throw new Mechanism.MechanismException(origin + ": root must be a map");
         }
         Map<String, Object> root = (Map<String, Object>) loaded;
 
@@ -63,7 +63,7 @@ public final class MechanismLoader {
             motorNames.add(entry.getKey());
         }
         if (motorNames.isEmpty()) {
-            throw new Mechanism.MechanismException(origin + ": en az bir motor tanimlanmali");
+            throw new Mechanism.MechanismException(origin + ": at least one motor must be defined");
         }
 
         Map<String, Object> drivetrainNode = mapOf(root.get("drivetrain"));
@@ -121,7 +121,7 @@ public final class MechanismLoader {
     private static double requireNum(Object node, String origin, String field) {
         if (!(node instanceof Number number)) {
             throw new Mechanism.MechanismException(
-                    origin + ": '" + field + "' sayisal ve zorunlu olmali");
+                    origin + ": '" + field + "' must be a required number");
         }
         return number.doubleValue();
     }
@@ -129,7 +129,7 @@ public final class MechanismLoader {
     private static String requireStr(Object node, String origin, String field) {
         if (!(node instanceof String value) || value.isBlank()) {
             throw new Mechanism.MechanismException(
-                    origin + ": '" + field + "' metin ve zorunlu olmali");
+                    origin + ": '" + field + "' must be a required non-blank string");
         }
         return value;
     }
@@ -137,7 +137,7 @@ public final class MechanismLoader {
     private static double[] requireDoubles(Object node, int size, String origin, String field) {
         if (!(node instanceof List<?> list) || list.size() != size) {
             throw new Mechanism.MechanismException(
-                    origin + ": '" + field + "' " + size + " sayi icermeli");
+                    origin + ": '" + field + "' must contain " + size + " numbers");
         }
         double[] values = new double[size];
         for (int i = 0; i < values.length; i++) {

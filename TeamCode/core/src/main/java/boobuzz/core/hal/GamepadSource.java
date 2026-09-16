@@ -1,6 +1,6 @@
 package boobuzz.core.hal;
 
-/** Gamepad kaynagi. SimHal soketten, RealHal OpMode'dan doldurur. */
+/** Gamepad source. SimHal fills it from the socket; RealHal from the OpMode. */
 @FunctionalInterface
 public interface GamepadSource {
     GamepadState get();

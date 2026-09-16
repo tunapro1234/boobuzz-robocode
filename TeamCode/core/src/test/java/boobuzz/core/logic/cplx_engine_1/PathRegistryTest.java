@@ -33,7 +33,7 @@ public class PathRegistryTest {
     }
 
     @Test
-    public void bilinenTestLineYolunuBaslatir() {
+    public void startsKnownTestLinePath() {
         registry.start(follower, "test-line");
 
         assertTrue(follower.following());
@@ -42,8 +42,8 @@ public class PathRegistryTest {
     }
 
     @Test
-    public void testTurnAyniYerdekiYuzYirmiYetmisIkiHedefiniTutar() {
-        // test-turn konumu, test-line sonuyla ayni (120, 72) olarak sabittir.
+    public void testTurnKeepsTargetAtOneHundredTwentySeventyTwo() {
+        // test-turn position is fixed at (120, 72), the same as test-line's end.
         registry.start(follower, "test-turn");
 
         assertTrue(follower.holding());
@@ -53,8 +53,8 @@ public class PathRegistryTest {
     }
 
     @Test
-    public void bilinmeyenYolHataVerir() {
+    public void unknownPathFails() {
         assertThrows(IllegalArgumentException.class,
-                () -> registry.start(follower, "yok"));
+                () -> registry.start(follower, "unknown"));
     }
 }

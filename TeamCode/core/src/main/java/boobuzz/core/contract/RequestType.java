@@ -1,6 +1,6 @@
 package boobuzz.core.contract;
 
-/** Kenar tetikli istek turleri. */
+/** Edge-triggered request types. */
 public enum RequestType {
     SHOOT,
     INTAKE

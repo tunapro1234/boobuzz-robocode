@@ -31,7 +31,7 @@ public class RobotFactoryTest {
     }
 
     @Test
-    public void tekEngineFabrikadanKurulur() {
+    public void engineIsBuiltByFactory() {
         StubHal hal = new StubHal();
         assertEquals("cplx_engine_1",
                 RobotFactory.create(hal, mechanism).engine().name());

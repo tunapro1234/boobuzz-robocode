@@ -16,7 +16,7 @@ import com.pedropathing.math.Pose;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Manuel mecanum ve istege bagli Pedro takibini tek L2 drive biriminde toplar. */
+/** Combines manual mecanum and optional Pedro following in one L2 drive unit. */
 public final class DriveSubsystem implements Subsystem {
 
     private static final int FL = 0;
@@ -93,7 +93,7 @@ public final class DriveSubsystem implements Subsystem {
         List<RequestStatus> statuses = new ArrayList<>(intent.newRequests().size());
         for (Request request : intent.newRequests()) {
             statuses.add(RequestStatus.rejected(
-                    request.id(), "cplx_engine_1 bu istek icin subsystem tasimiyor"));
+                    request.id(), "cplx_engine_1 has no subsystem for this request"));
         }
         pendingStatuses = List.copyOf(statuses);
     }
@@ -127,8 +127,8 @@ public final class DriveSubsystem implements Subsystem {
         List<String> wheels = mechanism.wheelMotorNames();
         if (wheels.size() != 4) {
             throw new Mechanism.MechanismException(
-                    "DriveSubsystem dort adet 'drives: wheel' motoru bekler, " + wheels.size()
-                            + " buldu: " + wheels);
+                    "DriveSubsystem requires four 'drives: wheel' motors, found " + wheels.size()
+                            + ": " + wheels);
         }
         String[] names = new String[4];
         for (String name : wheels) {
@@ -138,14 +138,14 @@ public final class DriveSubsystem implements Subsystem {
                     : (motor.left() >= 0 ? BL : BR);
             if (names[index] != null) {
                 throw new Mechanism.MechanismException(
-                        "Iki motor ayni koseye dusuyor: " + names[index] + " ve " + name);
+                        "Two motors map to the same corner: " + names[index] + " and " + name);
             }
             names[index] = name;
         }
         for (String name : names) {
             if (name == null) {
                 throw new Mechanism.MechanismException(
-                        "Tekerlek konumlari dort ayri koseye dusmuyor: " + wheels);
+                        "Wheel positions do not map to four distinct corners: " + wheels);
             }
         }
         return names;

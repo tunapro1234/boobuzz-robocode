@@ -14,19 +14,19 @@ import org.junit.Test;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-/** Field-oriented surus: donusum L3'te biter, Drive tipi robot cerceveli kalir. */
+/** Field-oriented drive: conversion ends in L3, and Drive remains robot-frame. */
 public class GamepadControllerTest {
 
     private static final double EPS = 1e-9;
 
-    /** Elde tutulan gamepad. */
+    /** Test gamepad. */
     private static final class Pad implements GamepadSource {
         GamepadState state = GamepadState.neutral();
 
         @Override public GamepadState get() { return state; }
     }
 
-    /** ly yukari itildiginde negatif; "ileri stick" budur. */
+    /** ly is negative when pushed up; this is the "forward stick." */
     private static GamepadState forwardStick() {
         return new GamepadState(0, -1, 0, 0,
                 false, false, false, false, false, false, 0, 0, GamepadState.Dpad.NONE);
@@ -37,12 +37,12 @@ public class GamepadControllerTest {
     }
 
     private static Drive.Manual driveOf(Intent intent) {
-        assertTrue("Drive.Manual bekleniyor", intent.drive() instanceof Drive.Manual);
+        assertTrue("expected Drive.Manual", intent.drive() instanceof Drive.Manual);
         return (Drive.Manual) intent.drive();
     }
 
     @Test
-    public void varsayilanFieldOrientedAcik() {
+    public void fieldOrientedIsOnByDefault() {
         Pad pad = new Pad();
         pad.state = forwardStick();
         Drive.Manual d = driveOf(new GamepadController(pad).decide(at(Math.PI / 2)));
@@ -51,7 +51,7 @@ public class GamepadControllerTest {
     }
 
     @Test
-    public void heading0daIleriStickDegismez() {
+    public void forwardStickUnchangedAtHeadingZero() {
         Pad pad = new Pad();
         pad.state = forwardStick();
         Drive.Manual d = driveOf(new GamepadController(pad).decide(at(0)));
@@ -60,17 +60,17 @@ public class GamepadControllerTest {
     }
 
     @Test
-    public void headingYarimPideIleriStickVyYonuneDoner() {
+    public void forwardStickRotatesToVyAtHalfPiHeading() {
         Pad pad = new Pad();
         pad.state = forwardStick();
         Drive.Manual d = driveOf(new GamepadController(pad).decide(at(Math.PI / 2)));
-        // Robot saha +y'ye bakiyor; saha +x istegi robotun SAGI, yani vy negatif.
+        // The robot faces field +y; field +x is robot RIGHT, so vy is negative.
         assertEquals(0.0, d.vx(), EPS);
         assertEquals(-1.0, d.vy(), EPS);
     }
 
     @Test
-    public void robotOrientedModdaHeadingOnemsiz() {
+    public void headingIgnoredInRobotOrientedMode() {
         Pad pad = new Pad();
         GamepadController c = new GamepadController(pad);
         pad.state = new GamepadState(0, -1, 0, 0,
@@ -81,7 +81,7 @@ public class GamepadControllerTest {
     }
 
     @Test
-    public void toggleKenardaTetiklenirBasiliTutmaSaymaz() {
+    public void toggleTriggersOnEdgeNotWhileHeld() {
         Pad pad = new Pad();
         GamepadController c = new GamepadController(pad);
         GamepadState bHeld = new GamepadState(0, -1, 0, 0,
@@ -99,19 +99,19 @@ public class GamepadControllerTest {
     }
 
     @Test
-    public void ySifirlamasiOAnkiHeadingiIleriYapar() {
+    public void yResetMakesCurrentHeadingForward() {
         Pad pad = new Pad();
         GamepadController c = new GamepadController(pad);
         pad.state = new GamepadState(0, -1, 0, 0,
                 false, false, false, true, false, false, 0, 0, GamepadState.Dpad.NONE);
         Drive.Manual d = driveOf(c.decide(at(Math.PI / 2)));
-        // Sifirlamadan sonra ayni tick'te bile robot cercevesi = saha cercevesi.
+        // Even on the same tick after reset, robot frame equals field frame.
         assertEquals(1.0, d.vx(), EPS);
         assertEquals(0.0, d.vy(), EPS);
     }
 
     @Test
-    public void donusHerIkiModdaRobotCerceveli() {
+    public void rotationIsRobotFrameInBothModes() {
         Pad pad = new Pad();
         GamepadState turn = new GamepadState(0, 0, -1, 0,
                 false, false, false, false, false, false, 0, 0, GamepadState.Dpad.NONE);
@@ -120,7 +120,7 @@ public class GamepadControllerTest {
     }
 
     @Test
-    public void pozYoksaYawKullanilir() {
+    public void yawUsedWhenPoseMissing() {
         Pad pad = new Pad();
         pad.state = forwardStick();
         Feedback noPose = Feedback.of(new WorldSnapshot(0, null, Math.PI / 2, 12.6));

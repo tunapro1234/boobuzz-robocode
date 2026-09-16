@@ -10,11 +10,11 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * Pedro drivetrain cikisini HAL {@link RobotAction} verisine cevirir.
+ * Converts Pedro drivetrain output into HAL {@link RobotAction} data.
  *
- * <p>Bu sinif donanima yazmaz. {@link #drive(DrivePowers, boolean)} yalnizca son
- * FL/FR/BL/BR guclerini saklar; RobotEngine ayni tick'te {@link #lastAction()}
- * sonucunu HAL'e yollar. Motor adlari {@link Mechanism} konumlarindan gelir.
+ * <p>This class does not write hardware. {@link #drive(DrivePowers, boolean)} only
+ * stores the latest FL/FR/BL/BR powers; RobotEngine sends {@link #lastAction()}
+ * to HAL in the same tick. Motor names come from {@link Mechanism} positions.
  */
 public final class HalDrivetrain implements Drivetrain {
 
@@ -39,8 +39,8 @@ public final class HalDrivetrain implements Drivetrain {
     }
 
     /**
-     * Pedro'nun oncelik sirasiyla ekledigi bir guc deltasinin tekerlekleri
-     * doyurmadan uygulanabilecek en buyuk [0,1] katsayisini verir.
+     * Returns the largest [0,1] factor by which a power delta added in Pedro's
+     * priority order can be applied without saturating a wheel.
      */
     @Override
     public double maxScaling(DrivePowers current, DrivePowers delta) {
@@ -92,7 +92,7 @@ public final class HalDrivetrain implements Drivetrain {
                 + Math.abs(Math.sin(theta)) / strafeVelocity);
     }
 
-    /** O tick'te HAL'e yazilacak son motor komutu. */
+    /** Final motor command to write to HAL for this tick. */
     public RobotAction lastAction() {
         Map<String, Double> motors = new LinkedHashMap<>(4);
         motors.put(motorNames[FL], wheelPowers[FL]);

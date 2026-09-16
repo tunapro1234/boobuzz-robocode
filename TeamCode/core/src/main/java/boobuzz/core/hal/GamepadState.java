@@ -1,13 +1,13 @@
 package boobuzz.core.hal;
 
 /**
- * Tek kare gamepad okumasi. docs/protokol.md'deki {@code gamepad} alaninin karsiligi.
+ * Single-frame gamepad reading, corresponding to the {@code gamepad} field in the protocol documentation.
  *
- * <p>Simde pygame klavyesi/joystick'i doldurur, robotta OpMode'un {@code gamepad1}'i.
- * :core hangisi oldugunu bilmez (anayasa kural 3).
+ * <p>In the simulator pygame fills it from the keyboard/joystick; on the robot it
+ * comes from the OpMode's {@code gamepad1}. :core does not know which one (rule 3).
  *
- * <p>Stick degerleri -1..1, tetikler 0..1. {@code ly} yukari ITERKEN NEGATIFTIR
- * (hem pygame hem FTC boyle verir); ileri yon isteyen {@code -ly} kullanir.
+ * <p>Stick values are -1..1 and triggers are 0..1. {@code ly} is NEGATIVE WHEN
+ * PUSHED UP (both pygame and FTC report this); use {@code -ly} for forward.
  */
 public record GamepadState(double lx, double ly, double rx, double ry,
                            boolean a, boolean b, boolean x, boolean y,

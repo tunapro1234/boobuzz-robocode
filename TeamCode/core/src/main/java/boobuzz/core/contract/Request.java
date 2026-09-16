@@ -1,11 +1,12 @@
 package boobuzz.core.contract;
 
 /**
- * Kenar tetikli istek. Seviye degil olay: "at" der, "atmaya devam et" demez.
+ * Edge-triggered request. It is an event, not a level: "throw" rather than
+ * "keep throwing."
  *
- * <p>Yasam dongusu {@link RequestStatus} ile takip edilir. Command-based
- * scheduler YOK - tek {@link Intent}'li tek donguda kaynak cakismasi yok,
- * {@code Intent}'in kendisi arbitrajdir (docs/mimari.md §4).
+ * <p>The lifecycle is tracked by {@link RequestStatus}. There is no command-based
+ * scheduler: one {@link Intent} per loop has no resource conflict, and the
+ * {@code Intent} itself is the arbitration (architecture documentation, §4).
  */
 public record Request(int id, RequestType type, double[] params) {
 

@@ -24,7 +24,7 @@ import static org.junit.Assert.assertEquals;
 
 public class RobotLoopTest {
 
-    /** Kayit tutan sahte HAL. Soket yok, Python yok. */
+    /** Recording fake HAL. No socket or Python. */
     private static final class FakeHal implements Hal {
         long t = 0;
         final int dtMs = 20;
@@ -54,7 +54,7 @@ public class RobotLoopTest {
     }
 
     @Test
-    public void tickZamaniHaldenAlir() {
+    public void tickTimeComesFromHal() {
         FakeHal hal = new FakeHal();
         RobotLoop loop = new RobotLoop(hal, new CplxEngine1(mechanism()),
                 fb -> Intent.of(new Drive.Manual(1, 0, 0)));
@@ -69,7 +69,7 @@ public class RobotLoopTest {
     }
 
     @Test
-    public void oluBolgeMerkezdeSifirVerir() {
+    public void deadbandReturnsZeroAtCenter() {
         FakeHal hal = new FakeHal();
         hal.pad = new GamepadState(0.02, -0.03, 0.01, 0,
                 false, false, false, false, false, false, 0, 0, GamepadState.Dpad.NONE);
@@ -80,7 +80,7 @@ public class RobotLoopTest {
     }
 
     @Test
-    public void ucUctanUcaGamepadMotoraVarir() {
+    public void gamepadReachesMotorsEndToEnd() {
         FakeHal hal = new FakeHal();
         hal.pad = new GamepadState(0, -1.0, 0, 0,
                 false, false, false, false, false, false, 0, 0, GamepadState.Dpad.NONE);

@@ -6,16 +6,16 @@ import boobuzz.core.hal.RobotAction;
 import boobuzz.core.hal.RobotState;
 
 /**
- * L2. Iki yonlu: {@link #sense} yukari algi, {@link #act} asagi icra.
- * Robot ve sim ayni engine uygulamasini bu arayuz uzerinden calistirir.
+ * L2. Bidirectional: {@link #sense} reads upward, {@link #act} executes downward.
+ * Robot and simulator run the same engine implementation through this interface.
  */
 public interface RobotEngine {
 
     String name();
 
-    /** YUKARI: ham durumdan dunya gorusu + istek durumlari. */
+    /** UP: world view and request statuses from raw state. */
     Feedback sense(long now, RobotState state);
 
-    /** ASAGI: niyetten motor/servo komutu. */
+    /** DOWN: motor/servo command from intent. */
     RobotAction act(Intent intent);
 }

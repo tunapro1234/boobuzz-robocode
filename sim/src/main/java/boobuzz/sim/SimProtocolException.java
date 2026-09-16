@@ -1,6 +1,6 @@
 package boobuzz.sim;
 
-/** Protokol ihlali. Sessiz kayma yerine aninda cokme (docs/protokol.md). */
+/** Protocol violation. Fail immediately instead of silently drifting (protocol documentation). */
 public class SimProtocolException extends RuntimeException {
 
     public SimProtocolException(String message) {

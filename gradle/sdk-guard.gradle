@@ -1,11 +1,11 @@
-// Anayasa kural 1 (docs/mimari.md §2): L2/L3 FTC SDK import etmez.
-// Bu dosya kurali disiplin olmaktan cikarip DERLEME HATASI yapar.
-// compileJava'dan ONCE kosar; ihlal varsa build orada durur.
+// Constitution rule 1 (architecture documentation, §2): L2/L3 must not import the FTC SDK.
+// This file turns the rule from discipline into a BUILD ERROR.
+// It runs BEFORE compileJava; a violation stops the build there.
 
 def forbidden = ~/com\.qualcomm|org\.firstinspires|android\./
 
 def guard = tasks.register('sdkGuard') {
-    description = 'Kaynaklarda FTC SDK / Android referansi arar, bulursa build kirilir.'
+    description = 'Searches sources for FTC SDK / Android references and fails the build if found.'
     group = 'verification'
 
     def javaFiles = sourceSets.main.java.asFileTree + sourceSets.test.java.asFileTree
@@ -26,8 +26,8 @@ def guard = tasks.register('sdkGuard') {
         }
         if (!hits.isEmpty()) {
             throw new GradleException(
-                "\n:${projectName} icinde FTC SDK / Android referansi var (anayasa kural 1).\n" +
-                "Bu modul saf Java olmak zorunda; donanima dokunan kod TeamCode'a ait.\n" +
+                "\n:${projectName} contains an FTC SDK / Android reference (constitution rule 1).\n" +
+                "This module must be pure Java; hardware code belongs in TeamCode.\n" +
                 hits.join('\n') + '\n')
         }
         def out = marker.get().asFile

@@ -25,14 +25,14 @@ import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
 /**
- * Python olmadan protokol dogrulamasi. Gercek entegrasyon
- * re-cock-nize sunucusuyla ayrica kosulur.
+ * Protocol validation without Python. Real integration runs separately
+ * against the re-cock-nize server.
  */
 public class SimHalTest {
 
     private static Mechanism mechanism() throws Exception {
         Path p = Path.of("..", "mechanism.yaml").toAbsolutePath().normalize();
-        assertTrue("mechanism.yaml bulunamadi: " + p, Files.exists(p));
+        assertTrue("mechanism.yaml not found: " + p, Files.exists(p));
         return MechanismLoader.load(p);
     }
 
@@ -41,11 +41,11 @@ public class SimHalTest {
     }
 
     @Test
-    public void elSikismaVeAdDogrulamasi() throws Exception {
+    public void handshakeAndNameValidation() throws Exception {
         Mechanism m = mechanism();
         try (FakeSimServer server = new FakeSimServer(m.motorNames());
              SimHal hal = connect(server, m, 20)) {
-            // Baslangic state 'ready' icinde geldi: saat hic ilerlememis olmali.
+            // Initial state arrived in 'ready': the clock must not have advanced.
             assertEquals(0L, hal.now());
             assertEquals(0.0, hal.read().pinpoint().x(), 1e-9);
             assertEquals(0.0, hal.read().pinpoint().y(), 1e-9);
@@ -56,7 +56,7 @@ public class SimHalTest {
     }
 
     @Test
-    public void readyStateTasimazsaCoker() throws Exception {
+    public void missingReadyStateFails() throws Exception {
         Mechanism m = mechanism();
         try (FakeSimServer server = new FakeSimServer(m.motorNames())) {
             server.setOmitReadyState(true);
@@ -67,7 +67,7 @@ public class SimHalTest {
     }
 
     @Test
-    public void adUyusmazligindaCoker() throws Exception {
+    public void nameMismatchFails() throws Exception {
         Mechanism m = mechanism();
         try (FakeSimServer server = new FakeSimServer(List.of("fl", "fr", "bl"))) {
             assertThrows(Mechanism.MechanismException.class, () -> connect(server, m, 20).close());
@@ -75,7 +75,7 @@ public class SimHalTest {
     }
 
     @Test
-    public void besYuzAdimHatasizKosar() throws Exception {
+    public void runsFiveHundredStepsWithoutError() throws Exception {
         Mechanism m = mechanism();
         try (FakeSimServer server = new FakeSimServer(m.motorNames());
              SimHal hal = connect(server, m, 20)) {
@@ -87,15 +87,15 @@ public class SimHalTest {
                 loop.tick();
             }
             assertEquals(500, loop.ticks());
-            assertEquals(500L * 20, hal.now());   // hazirlik adimi yok
-            // Ileri surulduyse poz +x yonunde ilerlemis olmali.
-            assertTrue("robot ileri gitmedi: " + hal.read().pinpoint().x(),
+            assertEquals(500L * 20, hal.now());   // no setup step counted
+            // Driving forward must advance the pose along +x.
+            assertTrue("robot did not move forward: " + hal.read().pinpoint().x(),
                     hal.read().pinpoint().x() > 1.0);
         }
     }
 
     @Test
-    public void gamepadSunucudanGelirVeNiyeteDonusur() throws Exception {
+    public void gamepadArrivesFromServerAndBecomesIntent() throws Exception {
         Mechanism m = mechanism();
         try (FakeSimServer server = new FakeSimServer(m.motorNames())) {
             server.setGamepadJson("{\"lx\":0,\"ly\":-1.0,\"rx\":0,\"ry\":0,\"a\":true,"
@@ -115,15 +115,15 @@ public class SimHalTest {
     }
 
     @Test
-    public void truthCoreDisindaKalir() throws Exception {
+    public void truthStaysOutsideCore() throws Exception {
         Mechanism m = mechanism();
         try (FakeSimServer server = new FakeSimServer(m.motorNames());
              SimHal hal = connect(server, m, 20)) {
             hal.write(RobotAction.zero());
-            // truth SimHal'de var (viewer/test icin) ama RobotState'te yok.
+            // truth exists in SimHal (viewer/tests) but not in RobotState.
             assertNotNull(hal.truth());
             for (var field : RobotState.class.getRecordComponents()) {
-                assertTrue("RobotState'e truth sizmis: " + field.getName(),
+                assertTrue("truth leaked into RobotState: " + field.getName(),
                         !field.getName().toLowerCase().contains("truth"));
             }
         }

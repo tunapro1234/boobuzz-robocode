@@ -1,20 +1,20 @@
 package boobuzz.core.hal;
 
 /**
- * L1 - donanim soyutlamasi. Sim ile gercek arasindaki TEK fark budur.
+ * L1 - hardware abstraction. This is the ONLY difference between simulator and robot.
  *
- * <p>Iki implementasyon: {@code RealHal} (TeamCode/Android) ve {@code SimHal}
- * (:sim, soketle Python fizik sunucusuna). Bu arayuzun ustunde
- * {@code if (isSim)} YOKTUR (anayasa kural 3).
+ * <p>Two implementations: {@code RealHal} (TeamCode/Android) and {@code SimHal}
+ * (:sim, socket to the Python physics server). There is NO {@code if (isSim)}
+ * above this interface (constitution rule 3).
  */
 public interface Hal extends GamepadSource {
 
-    /** HAL saati, milisaniye. Sim hizlandirilabilsin diye duvar saati degil. */
+    /** HAL clock in milliseconds; not wall time so the simulator can run faster. */
     long now();
 
-    /** Sensorleri oku. */
+    /** Read sensors. */
     RobotState read();
 
-    /** Motor/servo komutlarini uygula. */
+    /** Apply motor/servo commands. */
     void write(RobotAction action);
 }

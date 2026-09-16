@@ -1,5 +1,5 @@
-// :sim — L1'in simulasyon tarafi. Saf Java, FTC SDK YOK.
-// :core'a bagimli; TeamCode'a ASLA.
+// :sim — L1 simulator adapter. Pure Java, no FTC SDK.
+// Depends on :core; never on TeamCode.
 plugins {
     id 'java-library'
     id 'application'

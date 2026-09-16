@@ -23,9 +23,9 @@ android {
         jniLibs.useLegacyPackaging true
     }
 
-    // build.common.gradle 1.8 diyor; :core Java 17 (record / sealed) uretiyor.
-    // Burada eziyoruz - build.common.gradle SDK guncellemeleriyle degisen dosya,
-    // ozellestirme TeamCode/build.gradle'a ait.
+    // build.common.gradle says 1.8; :core produces Java 17 (record / sealed) bytecode.
+    // Override it here: build.common.gradle changes with SDK updates, while
+    // customization belongs in TeamCode/build.gradle.
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
@@ -35,6 +35,6 @@ android {
 dependencies {
     implementation project(':FtcRobotController')
 
-    // L2/L3 mantik katmani. SDK'sizdir; TeamCode sadece L1 (HAL) + OpMode kabugudur.
+    // L2/L3 logic layer. SDK-free; TeamCode only contains L1 (HAL) + the OpMode shell.
     implementation project(':core')
 }

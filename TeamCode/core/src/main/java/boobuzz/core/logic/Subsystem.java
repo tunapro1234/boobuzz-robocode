@@ -5,11 +5,12 @@ import boobuzz.core.hal.RobotAction;
 import boobuzz.core.hal.RobotState;
 
 /**
- * L2 icinde iki yonlu subsystem siniri.
+ * Bidirectional subsystem boundary within L2.
  *
- * <p>{@link #observe} yukari akan ham durumu, {@link #update} asagi akan niyeti
- * alir. {@link RobotAction} immutable oldugu icin subsystem'ler ayni sirali
- * {@link RobotAction.Builder} uzerine yazar; son eylemi engine tek kez dondurur.
+ * <p>{@link #observe} receives raw state flowing upward, while {@link #update}
+ * receives intent flowing downward. Since {@link RobotAction} is immutable,
+ * subsystems write onto the same ordered {@link RobotAction.Builder}; the engine
+ * materializes the final action once.
  */
 public interface Subsystem {
 

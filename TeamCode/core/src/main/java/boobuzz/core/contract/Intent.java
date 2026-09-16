@@ -3,10 +3,10 @@ package boobuzz.core.contract;
 import java.util.List;
 
 /**
- * ASAGI giden niyet. Controller uretir, Engine tuketir.
+ * DOWNWARD intent. The controller produces it; the engine consumes it.
  *
- * <p>Gecirilerek tasinir, global degil: (a) dogrudan RL eylemi, (b) replay icin
- * kaydedilebilir, (c) test edilebilir. Singleton ucunu de oldurur.
+ * <p>Passed through rather than global: (a) direct RL action, (b) recordable for
+ * replay, and (c) testable. It also eliminates the singleton edge case.
  */
 public record Intent(Drive drive, List<Request> newRequests, int[] cancels) {
 

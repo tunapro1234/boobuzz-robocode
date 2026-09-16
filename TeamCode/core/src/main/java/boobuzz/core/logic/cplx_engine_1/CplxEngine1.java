@@ -11,7 +11,7 @@ import boobuzz.core.hal.Mechanism;
 
 import java.util.List;
 
-/** Manuel surus ile Pedro GoTo/FollowPath/Hold komutlarini calistiran tek engine. */
+/** Single engine running manual drive and Pedro GoTo/FollowPath/Hold commands. */
 public final class CplxEngine1 implements RobotEngine {
 
     private final DriveSubsystem drive;

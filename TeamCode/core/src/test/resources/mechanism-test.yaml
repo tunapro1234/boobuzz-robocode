@@ -1,13 +1,13 @@
-# Tek gercek kaynak: sim geometrisi VE gercek robotun koordinat matematigi.
-# Java (:core, :sim) ve Python (re-cock-nize) AYNI dosyayi okur.
-# Sema ve cerceve kurali docs/protokol.md'de. Dosyada aci DERECE, protokolde RADYAN.
+# Single source of truth: simulator geometry AND the real robot coordinate math.
+# Java (:core, :sim) and Python (re-cock-nize) read the SAME file.
+# The schema and frame rules are in the protocol documentation. Angles are DEGREES here, RADIANS in the protocol.
 #
-# Cerceve: robot +x ILERI, +y SOL, donus CCW pozitif (Pedro/FTC ile ayni).
-# Faz 0/1: sadece dort tekerlek. Shooter/turret/tof/limelight eklendiginde
-# buraya girer, protokol degismez.
+# Frame: robot +x FORWARD, +y LEFT, rotation positive CCW (same as Pedro/FTC).
+# Phase 0/1: four wheels only. Shooter/turret/tof/limelight can be added here;
+# the protocol does not change.
 
-units: {angle: deg}                      # dosyada derece; PROTOKOLDE RADYAN
-robot: {width: 18, length: 18}            # ayak izi; duvar kirpma + cizim
+units: {angle: deg}                      # degrees in this file; RADIANS IN THE PROTOCOL
+robot: {width: 18, length: 18}            # footprint; wall clipping + drawing
 drivetrain: {type: mecanum, wheel_diameter: 4.0}
 physics:
   battery_v: 12.0
@@ -16,8 +16,8 @@ physics:
   strafe_eff: 0.7346
   zero_power_decel_forward_in_s2: 36.17
   zero_power_decel_lateral_in_s2: 85.98
-motors:                                   # ad = protokol anahtari
-  # pos = [x ileri, y sol] robot cercevesi
+motors:                                   # name = protocol key
+  # pos = [x forward, y left] robot frame
   fl: {drives: wheel, pos: [ 6.5, 5.5], roller: 45,  ticks_per_rev: 537.7, free_rpm: 312, kV: 0.0, kS: 0.0}
   fr: {drives: wheel, pos: [ 6.5,-5.5], roller: -45, ticks_per_rev: 537.7, free_rpm: 312, kV: 0.0, kS: 0.0}
   bl: {drives: wheel, pos: [-6.5, 5.5], roller: -45, ticks_per_rev: 537.7, free_rpm: 312, kV: 0.0, kS: 0.0}

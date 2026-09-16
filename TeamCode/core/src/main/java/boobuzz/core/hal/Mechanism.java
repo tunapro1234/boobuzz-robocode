@@ -5,7 +5,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
-/** Robot ve sim tarafinin ortak, degismez mekanizma verisi. */
+/** Shared immutable mechanism data for the robot and simulator. */
 public record Mechanism(
         List<String> motorNames,
         List<String> servoNames,
@@ -20,7 +20,7 @@ public record Mechanism(
         motors = Map.copyOf(motors);
     }
 
-    /** Sunucunun bildirdigi donanim adlariyla mekanizma semasini dogrular. */
+    /** Validates the mechanism schema against names reported by the server. */
     public void requireNames(List<String> actualMotors, List<String> actualServos) {
         List<String> expectedM = sorted(motorNames);
         List<String> gotM = sorted(actualMotors == null ? List.of() : actualMotors);
@@ -28,16 +28,16 @@ public record Mechanism(
         List<String> gotS = sorted(actualServos == null ? List.of() : actualServos);
         if (!expectedM.equals(gotM) || !expectedS.equals(gotS)) {
             throw new MechanismException(
-                    "mechanism.yaml ile sunucu ad listesi uyusmuyor.\n"
-                            + "  motor  beklenen=" + expectedM + " gelen=" + gotM + "\n"
-                            + "  servo  beklenen=" + expectedS + " gelen=" + gotS);
+                    "mechanism.yaml motor/servo name lists do not match.\n"
+                            + "  motors expected=" + expectedM + " actual=" + gotM + "\n"
+                            + "  servos expected=" + expectedS + " actual=" + gotS);
         }
     }
 
     public Motor motor(String name) {
         Motor motor = motors.get(name);
         if (motor == null) {
-            throw new MechanismException("mechanism.yaml'da '" + name + "' motoru yok");
+            throw new MechanismException("mechanism.yaml does not define motor '" + name + "'");
         }
         return motor;
     }
@@ -54,7 +54,7 @@ public record Mechanism(
 
     public Pinpoint pinpoint() {
         if (pinpoint == null) {
-            throw new MechanismException("mechanism.yaml'da sensors.pinpoint yok");
+            throw new MechanismException("mechanism.yaml does not define sensors.pinpoint");
         }
         return pinpoint;
     }
@@ -65,7 +65,7 @@ public record Mechanism(
         return sorted;
     }
 
-    /** Motor konumu: +forward ileri, +left sol. */
+    /** Motor position: +forward is forward, +left is left. */
     public record Motor(String drives, double forward, double left, double freeRpm) {}
 
     public record Drivetrain(double wheelDiameter) {}

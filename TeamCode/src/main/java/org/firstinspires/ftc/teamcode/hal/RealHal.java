@@ -20,7 +20,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 
-/** FTC cihazlarini saf-Java {@link Hal} sozlesmesine uyarlayan gercek L1. */
+/** Real L1 adapter from FTC devices to the pure-Java {@link Hal} contract. */
 public final class RealHal implements Hal {
 
     private final Mechanism mechanism;
@@ -91,7 +91,7 @@ public final class RealHal implements Hal {
             }
         }
         if (!Double.isFinite(voltage)) {
-            throw new IllegalStateException("gecerli robot voltaji okunamadi");
+            throw new IllegalStateException("could not read a valid robot voltage");
         }
         return voltage;
     }

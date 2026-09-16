@@ -7,7 +7,7 @@ import com.pedropathing.paths.Path;
 
 import java.util.Map;
 
-/** Kod icinde adlandirilmis, kucuk Pedro yol kaydi. */
+/** Small registry of named Pedro paths defined in code. */
 public final class PathRegistry {
 
     private static final String TEST_LINE = "test-line";
@@ -21,12 +21,12 @@ public final class PathRegistry {
         Pose lineEnd = new Pose(120, 72, 0);
         paths = Map.of(TEST_LINE, Paths.line(lineStart, lineEnd).constant(0));
 
-        // Pedro 3.0 Line sifir uzunlugu reddeder. Ayni (x,y)'de donus, kutuphanenin
-        // dogrudan sundugu hold(Pose) ile ifade edilir.
+        // Pedro 3.0 rejects zero-length lines. A turn at the same (x,y) is
+        // represented by the library's direct hold(Pose) method.
         holdTargets = Map.of(TEST_TURN, new Pose(120, 72, Math.PI / 2.0));
     }
 
-    /** Kayitli komutu follower'da baslatir; bilinmeyen kimlik sessizce yutulmaz. */
+    /** Starts a registered command on the follower; unknown IDs are not swallowed. */
     public void start(Follower follower, String id) {
         Path path = paths.get(id);
         if (path != null) {
@@ -38,6 +38,6 @@ public final class PathRegistry {
             follower.hold(holdTarget);
             return;
         }
-        throw new IllegalArgumentException("bilinmeyen Pedro yolu: " + id);
+        throw new IllegalArgumentException("unknown Pedro path: " + id);
     }
 }

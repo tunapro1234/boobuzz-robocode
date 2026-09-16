@@ -32,7 +32,7 @@ public class DriveSubsystemTest {
     }
 
     @Test
-    public void manuelMecanumEyleminiUretir() {
+    public void manualMecanumProducesAction() {
         DriveSubsystem drive = new DriveSubsystem(mechanism, new PathRegistry());
         RobotAction.Builder out = new RobotAction.Builder();
         drive.update(Intent.of(new Drive.Manual(0.5, -0.25, 0.0)), out);
@@ -45,7 +45,7 @@ public class DriveSubsystemTest {
     }
 
     @Test
-    public void goToHoldVelocityGecisleriMotorEylemineYansir() {
+    public void goToHoldVelocityTransitionsReachMotorAction() {
         DriveSubsystem drive = new DriveSubsystem(mechanism, new PathRegistry());
         drive.observe(state(0L, 0.0));
 
@@ -61,7 +61,7 @@ public class DriveSubsystemTest {
     }
 
     @Test
-    public void ayniKomutAyniMotorEyleminiKorur() {
+    public void equalCommandPreservesMotorAction() {
         DriveSubsystem drive = new DriveSubsystem(mechanism, new PathRegistry());
         Drive.FollowPath first = new Drive.FollowPath("test-line");
         Drive.FollowPath equalButDistinct = new Drive.FollowPath("test-line");
@@ -73,7 +73,7 @@ public class DriveSubsystemTest {
     }
 
     @Test
-    public void esitZamanliOrnekKararliMotorEylemiUretir() {
+    public void sameTimeSampleProducesDeterministicMotorAction() {
         DriveSubsystem drive = new DriveSubsystem(mechanism, new PathRegistry());
         Drive.GoTo goTo = new Drive.GoTo(
                 new Pose(24.0, 0.0, 0.0), Drive.Constraints.defaults());
@@ -87,7 +87,7 @@ public class DriveSubsystemTest {
     }
 
     @Test
-    public void artanDurumZamaniYeniMotorEylemiUretir() {
+    public void laterStateTimeProducesNewMotorAction() {
         DriveSubsystem drive = new DriveSubsystem(mechanism, new PathRegistry());
         Drive.GoTo goTo = new Drive.GoTo(
                 new Pose(24.0, 0.0, 0.0), Drive.Constraints.defaults());
