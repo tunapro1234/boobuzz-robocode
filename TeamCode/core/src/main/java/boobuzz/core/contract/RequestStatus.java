@@ -8,7 +8,7 @@ package boobuzz.core.contract;
  */
 public record RequestStatus(int id, State state, double progress, String note) {
 
-    public enum State { ACCEPTED, ACTIVE, DONE, FAILED, REJECTED }
+    public enum State { ACTIVE, DONE, FAILED, REJECTED }
 
     public static RequestStatus rejected(int id, String note) {
         return new RequestStatus(id, State.REJECTED, 0.0, note);
