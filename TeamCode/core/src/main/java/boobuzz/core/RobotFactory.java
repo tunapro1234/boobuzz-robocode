@@ -10,6 +10,7 @@ import boobuzz.core.logic.direct.DirectEngine;
 import boobuzz.core.hal.Mechanism;
 import boobuzz.core.subsystem.stub.StubIntake;
 import boobuzz.core.subsystem.stub.StubShooter;
+import boobuzz.core.subsystem.stub.StubTurret;
 import boobuzz.core.subsystem.Subsystems;
 import boobuzz.core.subsystem.pedro.PedroDrive;
 
@@ -50,7 +51,7 @@ public final class RobotFactory {
         Objects.requireNonNull(engineName, "engineName");
         Objects.requireNonNull(controller, "controller");
         Subsystems subsystems = new Subsystems(
-                new PedroDrive(mechanism), new StubShooter(), new StubIntake());
+                new PedroDrive(mechanism), new StubShooter(), new StubIntake(), new StubTurret());
         var engine = switch (engineName) {
             case "cplx1", "cplx_engine_1" -> new CplxEngine1(subsystems);
             case "direct" -> new DirectEngine(subsystems);

@@ -65,6 +65,10 @@ public record Request(int id, RequestType type, double[] params, PathRequest pat
         return of(id, RequestType.INTAKE_OFF);
     }
 
+    public static Request turretAim(int id, double fieldX, double fieldY) {
+        return of(id, RequestType.TURRET_AIM, fieldX, fieldY);
+    }
+
     public double param(int index, double fallback) {
         return index >= 0 && index < params.length ? params[index] : fallback;
     }
