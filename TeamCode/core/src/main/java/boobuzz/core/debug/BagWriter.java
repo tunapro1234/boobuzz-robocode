@@ -10,6 +10,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 /** Writes a deterministic header followed by the three seam lines per tick. */
@@ -18,6 +19,8 @@ public final class BagWriter implements AutoCloseable {
     private final BufferedWriter writer;
     private final Path path;
     private int pendingLines;
+    private long lastTimestampMs;
+    private boolean closed;
 
     public BagWriter(Path path, String engine, String controller, String constantsHash)
             throws IOException {
@@ -59,6 +62,11 @@ public final class BagWriter implements AutoCloseable {
             writer.write(line);
             writer.newLine();
             pendingLines++;
+            Map<String, Object> record = JsonCodec.parseObject(line);
+            Object timestamp = record.get("t_ms");
+            if (timestamp instanceof Number number) {
+                lastTimestampMs = number.longValue();
+            }
         }
         if (pendingLines >= 96) {
             writer.flush();
@@ -71,13 +79,31 @@ public final class BagWriter implements AutoCloseable {
         pendingLines = 0;
     }
 
-    @Override
-    public synchronized void close() {
+    /** Writes a seam-shaped footer so drop accounting never breaks tick groups. */
+    public synchronized void closeWithTapDrops(long tapDrops) {
+        if (closed) {
+            return;
+        }
         try {
+            if (tapDrops > 0) {
+                LinkedHashMap<String, Object> footer = new LinkedHashMap<>();
+                footer.put("seam", "meta");
+                footer.put("t_ms", lastTimestampMs);
+                footer.put("tap_dropped", tapDrops);
+                writer.write(JsonCodec.stringify(footer));
+                writer.newLine();
+            }
             writer.flush();
             writer.close();
         } catch (IOException ignored) {
             // Shutdown should not mask the robot loop's result.
+        } finally {
+            closed = true;
         }
+    }
+
+    @Override
+    public synchronized void close() {
+        closeWithTapDrops(0);
     }
 }

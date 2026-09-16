@@ -173,14 +173,14 @@ public final class DebugTap implements AutoCloseable {
                 long dropCount = dropped.get();
                 if (dropCount != reportedDrops
                         && (dispatchedFrames % DROP_REPORT_INTERVAL == 0 || !running)) {
-                    writeLines(List.of(dropLine(dropCount)));
+                    enqueueClients(dropLine(dropCount));
                     reportedDrops = dropCount;
                 }
             }
             ensureBag();
             long dropCount = dropped.get();
             if (dropCount != reportedDrops) {
-                writeLines(List.of(dropLine(dropCount)));
+                enqueueClients(dropLine(dropCount));
                 reportedDrops = dropCount;
             }
         } catch (InterruptedException e) {
@@ -201,7 +201,7 @@ public final class DebugTap implements AutoCloseable {
             try {
                 ensureBag();
                 long dropCount = dropped.get();
-                if (dropCount != reportedDrops) writeLines(List.of(dropLine(dropCount)));
+                if (dropCount != reportedDrops) enqueueClients(dropLine(dropCount));
             } catch (IOException ignored) {
                 // Shutdown is best effort.
             }
@@ -210,7 +210,7 @@ public final class DebugTap implements AutoCloseable {
             bagError = e.getMessage() == null ? e.toString() : e.getMessage();
         } finally {
             if (bagWriter != null) {
-                bagWriter.close();
+                bagWriter.closeWithTapDrops(dropped.get());
                 bagWriter = null;
             }
             for (Client client : clients.toArray(Client[]::new)) {
@@ -225,7 +225,7 @@ public final class DebugTap implements AutoCloseable {
             return;
         }
         if (bagWriter != null) {
-            bagWriter.close();
+            bagWriter.closeWithTapDrops(dropped.get());
             bagWriter = null;
         }
         activeBag = requested;
