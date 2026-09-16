@@ -6,6 +6,7 @@ import boobuzz.core.contract.RequestBatch;
 import boobuzz.core.contract.RobotAction;
 import boobuzz.core.contract.RobotState;
 import boobuzz.core.contract.WorldSnapshot;
+import boobuzz.core.debug.DebugTap;
 import boobuzz.core.logic.IRobotEngine;
 import boobuzz.core.hal.IHal;
 
@@ -19,21 +20,35 @@ import java.util.Objects;
  * debugged nor trained. There is no feedback loop: the engine does not call the
  * controller, so request statuses lag by one tick.
  */
-public final class RobotLoop {
+public final class RobotLoop implements AutoCloseable {
 
     private final IHal hal;
     private final List<IRobotEngine> engines;
     private IRobotEngine engine;
     private final IController controller;
+    private DebugTap debugTap;
     private long ticks;
 
     public RobotLoop(IHal hal, IRobotEngine engine, IController controller) {
         this(hal, List.of(Objects.requireNonNull(engine, "engine")), engine, controller);
     }
 
+    public RobotLoop(IHal hal, IRobotEngine engine, IController controller,
+                     int debugTapPort) {
+        this(hal, List.of(Objects.requireNonNull(engine, "engine")), engine,
+                controller, debugTapPort);
+    }
+
     /** Builds a loop with selectable engines sharing one subsystem set. */
     public RobotLoop(IHal hal, List<? extends IRobotEngine> engines,
                      IRobotEngine initialEngine, IController controller) {
+        this(hal, engines, initialEngine, controller, 0);
+    }
+
+    /** Builds a loop and starts a debug tap when {@code debugTapPort != 0}. */
+    public RobotLoop(IHal hal, List<? extends IRobotEngine> engines,
+                     IRobotEngine initialEngine, IController controller,
+                     int debugTapPort) {
         this.hal = Objects.requireNonNull(hal, "hal");
         this.engines = List.copyOf(engines);
         this.engine = Objects.requireNonNull(initialEngine, "initial engine");
@@ -41,6 +56,7 @@ public final class RobotLoop {
         if (this.engines.isEmpty() || !this.engines.contains(initialEngine)) {
             throw new IllegalArgumentException("initial engine must be in engine list");
         }
+        openDebugTap(debugTapPort);
     }
 
     /** Runs one tick. */
@@ -75,6 +91,37 @@ public final class RobotLoop {
 
     public void setEngine(IRobotEngine engine) {
         this.engine = Objects.requireNonNull(engine, "engine");
+    }
+
+    /** Starts or replaces the tap; port zero disables it. */
+    public boolean openDebugTap(int port) {
+        closeDebugTap();
+        if (port == 0) {
+            return true;
+        }
+        try {
+            debugTap = new DebugTap(port);
+            return true;
+        } catch (java.io.IOException e) {
+            debugTap = null;
+            return false;
+        }
+    }
+
+    public DebugTap debugTap() {
+        return debugTap;
+    }
+
+    @Override
+    public void close() {
+        closeDebugTap();
+    }
+
+    private void closeDebugTap() {
+        if (debugTap != null) {
+            debugTap.close();
+            debugTap = null;
+        }
     }
 
     private static int switchIndex(RequestBatch batch) {
