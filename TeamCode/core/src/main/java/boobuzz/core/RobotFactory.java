@@ -7,6 +7,7 @@ import boobuzz.core.contract.RequestStream;
 import boobuzz.core.hal.IHal;
 import boobuzz.core.logic.cplx1.CplxEngine1;
 import boobuzz.core.logic.direct.DirectEngine;
+import boobuzz.core.logic.IRobotEngine;
 import boobuzz.core.hal.Mechanism;
 import boobuzz.core.subsystem.stub.StubIntake;
 import boobuzz.core.subsystem.stub.StubShooter;
@@ -52,12 +53,14 @@ public final class RobotFactory {
         Objects.requireNonNull(controller, "controller");
         Subsystems subsystems = new Subsystems(
                 new PedroDrive(mechanism), new StubShooter(), new StubIntake(), new StubTurret());
-        var engine = switch (engineName) {
-            case "cplx1", "cplx_engine_1" -> new CplxEngine1(subsystems);
-            case "direct" -> new DirectEngine(subsystems);
+        DirectEngine direct = new DirectEngine(subsystems);
+        CplxEngine1 cplx1 = new CplxEngine1(subsystems);
+        IRobotEngine engine = switch (engineName) {
+            case "cplx1", "cplx_engine_1" -> cplx1;
+            case "direct" -> direct;
             default -> throw new IllegalArgumentException(
                     "unknown engine: " + engineName + " (expected direct or cplx1)");
         };
-        return new RobotLoop(hal, engine, controller);
+        return new RobotLoop(hal, java.util.List.of(direct, cplx1), engine, controller);
     }
 }

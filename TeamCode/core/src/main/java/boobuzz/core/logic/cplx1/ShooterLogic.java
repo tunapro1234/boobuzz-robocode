@@ -105,6 +105,18 @@ public final class ShooterLogic {
                 + RobotConstants.SHOOTER_HOOD_PER_IN * distanceInches;
     }
 
+    public void cancelAll(List<RequestStatus> statuses) {
+        if (busy()) {
+            statuses.add(RequestStatus.rejected(requestId, "engine switch"));
+        }
+        shooter.spinDown();
+        turret.holdForShot(false);
+        state = State.IDLE;
+        requestId = -1;
+        remaining = 0;
+        shot = false;
+    }
+
     private void begin(int id, int count, boolean isShot, double targetRpm) {
         state = State.SPINNING;
         requestId = id;

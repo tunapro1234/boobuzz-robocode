@@ -32,6 +32,10 @@ public final class MotionLogic {
             drive.manual(stream.vx(), stream.vy(), stream.omega());
         }
         for (int id : cancels == null ? new int[0] : cancels) {
+            if (id == boobuzz.core.contract.RequestBatch.CANCEL_ALL) {
+                cancelActive("engine switch", statuses);
+                continue;
+            }
             if (active != null && active.id == id) {
                 cancelActive("cancelled", statuses);
             }
@@ -62,6 +66,11 @@ public final class MotionLogic {
 
     public int activeRequestId() {
         return active == null ? -1 : active.id;
+    }
+
+    public void cancelAll(List<RequestStatus> statuses) {
+        cancelActive("engine switch", statuses);
+        drive.stop();
     }
 
     private MotionJob start(Request request, List<RequestStatus> statuses) {

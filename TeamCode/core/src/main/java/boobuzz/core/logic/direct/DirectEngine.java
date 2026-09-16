@@ -46,6 +46,10 @@ public final class DirectEngine implements IRobotEngine {
             batch = RequestBatch.idle();
         }
         List<RequestStatus> statuses = new ArrayList<>();
+        boolean cancelAll = containsCancelAll(batch.cancels());
+        if (cancelAll) {
+            cancelAll(statuses);
+        }
         boolean driveRequest = batch.requests().stream()
                 .anyMatch(request -> DirectMap.isDrive(request.type()));
 
@@ -56,6 +60,9 @@ public final class DirectEngine implements IRobotEngine {
         }
 
         for (int id : batch.cancels()) {
+            if (id == RequestBatch.CANCEL_ALL) {
+                continue;
+            }
             cancel(id, statuses);
         }
 
@@ -121,6 +128,29 @@ public final class DirectEngine implements IRobotEngine {
             map.cancel(driveJob, note, statuses);
             driveJob = null;
         }
+    }
+
+    private void cancelAll(List<RequestStatus> statuses) {
+        if (driveJob != null) {
+            map.cancel(driveJob, "engine switch", statuses);
+            driveJob = null;
+        }
+        if (shooterJob != null) {
+            map.cancel(shooterJob, "engine switch", statuses);
+            shooterJob = null;
+        }
+        subsystems.drive().stop();
+        subsystems.shooter().spinDown();
+        subsystems.intake().stop();
+    }
+
+    private static boolean containsCancelAll(int[] cancels) {
+        for (int id : cancels) {
+            if (id == RequestBatch.CANCEL_ALL) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static boolean isShooter(Request request) {

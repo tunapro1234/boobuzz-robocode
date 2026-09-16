@@ -53,6 +53,11 @@ public final class CplxEngine1 implements IRobotEngine {
             batch = RequestBatch.idle();
         }
         List<RequestStatus> statuses = new ArrayList<>();
+        if (containsCancelAll(batch.cancels())) {
+            motion.cancelAll(statuses);
+            shooter.cancelAll(statuses);
+            subsystems.intake().stop();
+        }
         motion.act(batch.stream(), batch.requests(), batch.cancels(), statuses);
 
         for (Request request : batch.requests()) {
@@ -117,5 +122,14 @@ public final class CplxEngine1 implements IRobotEngine {
                 || status.state() == RequestStatus.State.FAILED) {
             statuses.add(status);
         }
+    }
+
+    private static boolean containsCancelAll(int[] cancels) {
+        for (int id : cancels) {
+            if (id == RequestBatch.CANCEL_ALL) {
+                return true;
+            }
+        }
+        return false;
     }
 }
