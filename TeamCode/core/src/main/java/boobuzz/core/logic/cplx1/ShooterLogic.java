@@ -134,6 +134,21 @@ public final class ShooterLogic {
         shot = false;
     }
 
+    /** Cancels one request owned by this shooter, if it is currently active. */
+    public boolean cancel(int id, List<RequestStatus> statuses) {
+        if (!busy() || requestId != id) {
+            return false;
+        }
+        shooter.spinDown();
+        turret.holdForShot(false);
+        state = State.IDLE;
+        requestId = -1;
+        remaining = 0;
+        shot = false;
+        statuses.add(RequestStatus.rejected(id, "cancelled"));
+        return true;
+    }
+
     private void begin(int id, int count, boolean isShot, double targetRpm) {
         state = State.SPINNING;
         requestId = id;
