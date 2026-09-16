@@ -1,5 +1,7 @@
 package boobuzz.core.controller.auto;
 
+import com.pedropathing.math.Pose;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -52,6 +54,16 @@ public final class AutoSequence {
 
     public String name() {
         return currentName();
+    }
+
+    /** Starting pose recorded on the first movement step, or the origin for an empty sequence. */
+    public Pose startPose() {
+        for (AutoStep step : steps) {
+            if (step instanceof AutoStep.Path path) {
+                return path.startPose();
+            }
+        }
+        return Pose.zero();
     }
 
     public boolean isFinished() {

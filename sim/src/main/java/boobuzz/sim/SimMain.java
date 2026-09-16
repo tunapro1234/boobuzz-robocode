@@ -2,6 +2,9 @@ package boobuzz.sim;
 
 import boobuzz.core.RobotLoop;
 import boobuzz.core.RobotFactory;
+import boobuzz.core.controller.auto.AutoController;
+import boobuzz.core.controller.auto.AutoSequence;
+import boobuzz.core.controller.autos.AutoRegistry;
 import boobuzz.core.contract.Drive;
 import boobuzz.core.hal.Mechanism;
 import boobuzz.core.hal.RobotConstants;
@@ -23,18 +26,35 @@ public final class SimMain {
     private SimMain() {}
 
     public static void main(String[] args) throws Exception {
+        int status = run(args);
+        if (status != 0) {
+            System.exit(status);
+        }
+    }
+
+    /** Runs one simulation and returns the process status without terminating the JVM. */
+    static int run(String[] args) throws Exception {
         Args a = Args.parse(args);
 
         Mechanism mechanism = RobotConstants.mechanism();
         System.out.printf("mechanism: RobotConstants  motors=%s%n", mechanism.motorNames());
+        AutoSequence sequence = a.auto == null ? null : AutoRegistry.build(a.auto);
+        AutoController autoController = sequence == null ? null : new AutoController(sequence);
+        Pose startPose = sequence == null ? new Pose(a.x, a.y, a.h) : sequence.startPose();
+        if (sequence != null) {
+            System.out.printf("auto: %s  steps=%d  start=(%.2f, %.2f, %.3f)%n",
+                    a.auto, sequence.size(), startPose.x(), startPose.y(), startPose.heading());
+        }
 
         try (SimHal hal = new SimHal(mechanism, a.host, a.port, a.dtMs,
-                a.seed, new Pose(a.x, a.y, a.h), a.connectTimeoutMs)) {
+                a.seed, startPose, a.connectTimeoutMs)) {
 
             // Default: the gamepad comes from the server (pygame). --drive provides a
             // fixed intent for a headless smoke test; without a viewer, gamepad stays neutral.
             Drive fixedDrive = null;
-            if (a.pathId != null) {
+            if (autoController != null) {
+                System.out.printf("controller: auto (%s)%n", a.auto);
+            } else if (a.pathId != null) {
                 fixedDrive = new Drive.FollowPath(a.pathId);
                 System.out.printf("controller: FollowPath(%s)%n", a.pathId);
             } else if (a.drive == null) {
@@ -45,7 +65,9 @@ public final class SimMain {
                         a.drive[0], a.drive[1], a.drive[2]);
             }
 
-            RobotLoop loop = RobotFactory.create(hal, mechanism, a.engine, fixedDrive);
+            RobotLoop loop = autoController == null
+                    ? RobotFactory.create(hal, mechanism, a.engine, fixedDrive)
+                    : RobotFactory.createWithController(hal, mechanism, a.engine, autoController);
             System.out.printf("engine: %s%n", loop.engine().name());
 
             long wallStart = System.nanoTime();
@@ -55,6 +77,9 @@ public final class SimMain {
                 } catch (ServerClosedException e) {
                     // The viewer window closed; this is the end of the run, not an error.
                     System.out.println("server closed, run finished.");
+                    break;
+                }
+                if (autoController != null && autoController.isFinished()) {
                     break;
                 }
             }
@@ -72,7 +97,18 @@ public final class SimMain {
                 System.out.printf("truth : x=%.2f y=%.2f h=%.3f rad%n",
                         truth.x(), truth.y(), truth.heading());
             }
+            if (autoController != null) {
+                if (autoController.isDone()) {
+                    System.out.printf("auto finished: %d/%d steps%n",
+                            sequence.size(), sequence.size());
+                } else {
+                    System.out.printf("auto unfinished: %d/%d steps; %s%n",
+                            sequence.index(), sequence.size(), autoController.failureNote());
+                    return 1;
+                }
+            }
         }
+        return 0;
     }
 
     /** Small argument parser; not worth adding a library. */
@@ -86,6 +122,7 @@ public final class SimMain {
         int connectTimeoutMs = 5000;
         double[] drive = null;
         String pathId = null;
+        String auto = null;
         String engine = "cplx_engine_1";
 
         static Args parse(String[] argv) {
@@ -103,14 +140,19 @@ public final class SimMain {
                     case "--h" -> a.h = Double.parseDouble(next(argv, ++i, key));
                     case "--drive" -> a.drive = triple(next(argv, ++i, key));
                     case "--path" -> a.pathId = next(argv, ++i, key);
+                    case "--auto" -> a.auto = next(argv, ++i, key);
                     case "--engine" -> a.engine = next(argv, ++i, key);
                     case "--connect-timeout" ->
                             a.connectTimeoutMs = Integer.parseInt(next(argv, ++i, key));
                     default -> throw new IllegalArgumentException("unknown argument: " + key);
                 }
             }
-            if (a.pathId != null && a.drive != null) {
-                throw new IllegalArgumentException("--path and --drive cannot be used together");
+            int driveModes = (a.pathId == null ? 0 : 1)
+                    + (a.drive == null ? 0 : 1)
+                    + (a.auto == null ? 0 : 1);
+            if (driveModes > 1) {
+                throw new IllegalArgumentException(
+                        "--auto, --path and --drive cannot be used together");
             }
             return a;
         }
