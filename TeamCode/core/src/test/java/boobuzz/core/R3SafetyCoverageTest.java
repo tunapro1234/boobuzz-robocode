@@ -91,6 +91,19 @@ public class R3SafetyCoverageTest {
         Files.deleteIfExists(path);
     }
 
+    @Test
+    public void bagOpenRejectsDirectoryImmediately() throws Exception {
+        Path directory = Files.createTempDirectory("r3-bag-directory");
+        try (RobotLoop loop = new RobotLoop(new TestHal(),
+                new DirectEngine(new Subsystems(new RecordingDrive(),
+                        new StubShooter(), new StubIntake())),
+                feedback -> RequestBatch.idle())) {
+            assertTrue(!loop.openBag(directory.toFile(), "R3SafetyCoverageTest"));
+        } finally {
+            Files.deleteIfExists(directory);
+        }
+    }
+
     private static final class TestHal implements IHal {
         private long now;
         private RobotAction last = RobotAction.zero();

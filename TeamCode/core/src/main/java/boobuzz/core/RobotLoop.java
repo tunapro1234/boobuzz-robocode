@@ -173,10 +173,25 @@ public final class RobotLoop implements AutoCloseable {
             return true;
         }
         try {
+            File absolute = path.getAbsoluteFile();
+            File parent = absolute.getParentFile();
+            if (absolute.isDirectory()) {
+                return false;
+            }
+            if (parent != null && !parent.exists()
+                    && !parent.mkdirs() && !parent.isDirectory()) {
+                return false;
+            }
+            if (!absolute.exists() && !absolute.createNewFile()) {
+                return false;
+            }
+            if (!absolute.canWrite()) {
+                return false;
+            }
             if (debugTap == null) {
                 debugTap = new DebugTap(0);
             }
-            debugTap.configureBag(path, engine.name(),
+            debugTap.configureBag(absolute, engine.name(),
                     controllerName == null ? controller.getClass().getSimpleName() : controllerName,
                     boobuzz.core.hal.RobotConstants.constantsHash(), startPose);
             return true;
