@@ -26,6 +26,7 @@ public final class ReplayController implements IController {
     public ReplayController(Path bagPath) throws IOException {
         List<RequestBatch> loadedBatches = new ArrayList<>();
         Pose loadedPose = null;
+        Pose headerPose = null;
         String loadedEngine = "cplx1";
         for (String line : Files.readAllLines(bagPath)) {
             if (line.isBlank()) continue;
@@ -34,7 +35,7 @@ public final class ReplayController implements IController {
                 loadedEngine = JsonCodec.str(root, "engine", loadedEngine);
                 Map<String, Object> start = JsonCodec.object(root, "start_pose");
                 if (!start.isEmpty()) {
-                    loadedPose = new Pose(JsonCodec.num(start, "x", 0.0),
+                    headerPose = new Pose(JsonCodec.num(start, "x", 0.0),
                             JsonCodec.num(start, "y", 0.0),
                             JsonCodec.num(start, "h", 0.0));
                 }
@@ -54,7 +55,7 @@ public final class ReplayController implements IController {
             }
         }
         batches = List.copyOf(loadedBatches);
-        initialPose = loadedPose;
+        initialPose = loadedPose == null ? headerPose : loadedPose;
         engineName = loadedEngine;
     }
 
