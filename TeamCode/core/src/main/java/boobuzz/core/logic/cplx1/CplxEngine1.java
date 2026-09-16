@@ -65,8 +65,7 @@ public final class CplxEngine1 implements IRobotEngine {
         for (Request request : batch.requests()) {
             switch (request.type()) {
                 case RESET_POSE -> handleResetPose(request, statuses);
-                case SHOOT -> addIfRejected(statuses,
-                        shooter.requestShot(request.id(), (int) Math.round(request.param(0, 1.0))));
+                case SHOOT -> handleShoot(request, statuses);
                 case SPIN_UP -> addIfRejected(statuses,
                         shooter.requestSpinUp(request.id(), request.param(0, 1.0)));
                 case INTAKE, INTAKE_ON, INTAKE_OFF -> handleIntake(request, statuses);
@@ -118,6 +117,22 @@ public final class CplxEngine1 implements IRobotEngine {
             subsystems.intake().run(request.param(0, 1.0));
         }
         statuses.add(RequestStatus.done(request.id()));
+    }
+
+    private void handleShoot(Request request, List<RequestStatus> statuses) {
+        if (request.params().length < 1
+                || !Double.isFinite(request.param(0, Double.NaN))
+                || request.param(0, 0.0) <= 0.0
+                || request.param(0, 0.0) != Math.rint(request.param(0, 0.0))) {
+            statuses.add(RequestStatus.rejected(
+                    request.id(), "SHOOT requires a positive integer count"));
+            return;
+        }
+        int count = (int) request.param(0, 0.0);
+        RequestStatus result = request.params().length >= 2
+                ? shooter.requestShot(request.id(), count, request.param(1, Double.NaN))
+                : shooter.requestShot(request.id(), count);
+        addIfRejected(statuses, result);
     }
 
     private void handleResetPose(Request request, List<RequestStatus> statuses) {

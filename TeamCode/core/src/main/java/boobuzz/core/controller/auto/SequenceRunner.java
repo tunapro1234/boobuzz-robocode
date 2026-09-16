@@ -108,7 +108,9 @@ public final class SequenceRunner {
             primaryRequestId = id;
             attachedRequestIds = List.of();
             phase = Phase.REQUEST;
-            return intent(Request.shoot(id, shoot.count(), shoot.rpm()));
+            return intent(Double.isNaN(shoot.rpm())
+                    ? Request.shoot(id, shoot.count())
+                    : Request.shoot(id, shoot.count(), shoot.rpm()));
         }
         if (step instanceof AutoStep.SpinUp spinUp) {
             int id = allocateId();

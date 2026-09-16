@@ -34,13 +34,20 @@ public final class ShooterLogic {
     }
 
     public RequestStatus requestShot(int id, int count) {
+        return requestShot(id, count, calibratedRpm(lastPose));
+    }
+
+    public RequestStatus requestShot(int id, int count, double targetRpm) {
         if (busy()) {
             return RequestStatus.rejected(id, "shooter already has a request");
         }
         if (count <= 0) {
             return RequestStatus.rejected(id, "SHOOT requires a positive count");
         }
-        begin(id, count, true, rpmFor(turret.distanceFrom(lastPose)));
+        if (!Double.isFinite(targetRpm) || targetRpm <= 0.0) {
+            return RequestStatus.rejected(id, "SHOOT requires a positive finite rpm");
+        }
+        begin(id, count, true, targetRpm);
         return active(id, 0.0, "spinning up and aiming");
     }
 
@@ -98,6 +105,16 @@ public final class ShooterLogic {
     public double rpmFor(double distanceInches) {
         return RobotConstants.SHOOTER_RPM_BASE
                 + RobotConstants.SHOOTER_RPM_PER_IN * distanceInches;
+    }
+
+    /** Calibrated count-only shot speed shared by both engines. */
+    public static double calibratedRpm(Pose pose) {
+        double distance = pose == null ? 0.0 : Math.hypot(
+                (RobotConstants.ALLIANCE_BLUE ? RobotConstants.GOAL_X : RobotConstants.RED_GOAL_X)
+                        - pose.x(),
+                RobotConstants.GOAL_Y - pose.y());
+        return RobotConstants.SHOOTER_RPM_BASE
+                + RobotConstants.SHOOTER_RPM_PER_IN * distance;
     }
 
     public double hoodFor(double distanceInches) {

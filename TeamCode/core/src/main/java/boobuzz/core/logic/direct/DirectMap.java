@@ -4,6 +4,7 @@ import boobuzz.core.contract.PathRequest;
 import boobuzz.core.contract.Request;
 import boobuzz.core.contract.RequestStatus;
 import boobuzz.core.contract.RequestType;
+import boobuzz.core.logic.cplx1.ShooterLogic;
 import boobuzz.core.subsystem.Subsystems;
 
 import com.pedropathing.math.Pose;
@@ -140,10 +141,21 @@ public final class DirectMap {
     }
 
     private Job startShoot(Request request, List<RequestStatus> statuses) {
-        int count = (int) Math.round(request.param(0, 1.0));
-        double rpm = request.param(1, 1.0);
-        if (count <= 0 || !Double.isFinite(rpm) || rpm <= 0.0) {
-            statuses.add(RequestStatus.rejected(request.id(), "SHOOT requires positive count and rpm"));
+        if (request.params().length < 1
+                || !Double.isFinite(request.param(0, Double.NaN))
+                || request.param(0, 0.0) <= 0.0
+                || request.param(0, 0.0) != Math.rint(request.param(0, 0.0))) {
+            statuses.add(RequestStatus.rejected(
+                    request.id(), "SHOOT requires a positive integer count"));
+            return null;
+        }
+        int count = (int) request.param(0, 0.0);
+        double rpm = request.params().length >= 2
+                ? request.param(1, Double.NaN)
+                : ShooterLogic.calibratedRpm(subsystems.drive().pose());
+        if (!Double.isFinite(rpm) || rpm <= 0.0) {
+            statuses.add(RequestStatus.rejected(request.id(),
+                    "SHOOT requires a positive finite rpm"));
             return null;
         }
         subsystems.shooter().spinUp(rpm);

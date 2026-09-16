@@ -81,13 +81,13 @@ public sealed interface AutoStep
             if (count <= 0) {
                 throw new IllegalArgumentException("shoot count must be positive");
             }
-            if (!Double.isFinite(rpm) || rpm <= 0.0) {
+            if (!Double.isNaN(rpm) && (!Double.isFinite(rpm) || rpm <= 0.0)) {
                 throw new IllegalArgumentException("shoot RPM must be positive and finite");
             }
         }
 
         public Shoot(int count) {
-            this(count, 1.0);
+            this(count, Double.NaN);
         }
 
         @Override

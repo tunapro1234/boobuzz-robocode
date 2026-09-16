@@ -3,6 +3,7 @@ package boobuzz.core.controller.auto;
 import boobuzz.core.contract.PathRequest;
 
 import com.pedropathing.math.Pose;
+import boobuzz.core.hal.RobotConstants;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -14,7 +15,7 @@ public final class AutoBuilder {
 
     private static final double SAME_HEADING_EPS_RAD = 0.01;
     private static final double DEFAULT_INTAKE_POWER = 0.8;
-    private static final double DEFAULT_SHOOTER_RPM = 1.0;
+    private static final double DEFAULT_SHOOTER_RPM = RobotConstants.SHOOTER_RPM_BASE;
 
     private final List<AutoStep> steps = new ArrayList<>();
     private Pose currentPose;
@@ -113,7 +114,7 @@ public final class AutoBuilder {
     }
 
     public AutoBuilder shoot(int ballCount) {
-        steps.add(new AutoStep.Shoot(ballCount, DEFAULT_SHOOTER_RPM));
+        steps.add(new AutoStep.Shoot(ballCount));
         return this;
     }
 
