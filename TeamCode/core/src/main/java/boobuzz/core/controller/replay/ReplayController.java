@@ -63,7 +63,8 @@ public final class ReplayController implements IController {
             }
         }
         batches = Collections.unmodifiableList(new ArrayList<>(loadedBatches));
-        initialPose = loadedPose == null ? headerPose : loadedPose;
+        // The header is the reset pose; the first HAL seam is already post-reset.
+        initialPose = headerPose == null ? loadedPose : headerPose;
         engineName = loadedEngine;
     }
 

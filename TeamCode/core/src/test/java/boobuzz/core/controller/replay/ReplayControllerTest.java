@@ -3,6 +3,8 @@ package boobuzz.core.controller.replay;
 import boobuzz.core.contract.Feedback;
 import boobuzz.core.contract.Request;
 import boobuzz.core.contract.RequestBatch;
+import boobuzz.core.contract.RobotAction;
+import boobuzz.core.contract.RobotState;
 import boobuzz.core.debug.JsonCodec;
 import boobuzz.core.debug.SeamJson;
 
@@ -39,6 +41,26 @@ public class ReplayControllerTest {
             assertEquals(1, replay.tickCount());
             assertEquals(7, replay.decide(null).requests().get(0).id());
             assertTrue(replay.isDone());
+        } finally {
+            Files.deleteIfExists(bag);
+        }
+    }
+
+    @Test
+    public void headerResetPoseWinsOverFirstHalPose() throws Exception {
+        Path bag = Files.createTempFile("replay-header", ".jsonl");
+        String header = JsonCodec.stringify(Map.of(
+                "bag", 1, "engine", "cplx1",
+                "start_pose", Map.of("x", 12.0, "y", 34.0, "h", 0.5)));
+        RobotState firstHal = new RobotState(0, Map.of(), Map.of(), 0.0,
+                new Pose(99.0, 88.0, 0.25), 12.0);
+        String hal = SeamJson.hal(0, firstHal, RobotAction.zero());
+        Files.write(bag, List.of(header, hal));
+        try {
+            ReplayController replay = new ReplayController(bag.toFile());
+            assertEquals(12.0, replay.initialPose().x(), 0.0);
+            assertEquals(34.0, replay.initialPose().y(), 0.0);
+            assertEquals(0.5, replay.initialPose().heading(), 0.0);
         } finally {
             Files.deleteIfExists(bag);
         }
