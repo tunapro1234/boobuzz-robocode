@@ -10,5 +10,7 @@ public enum RequestType {
     INTAKE_ON,
     INTAKE_OFF,
     TURN_TO,
-    TURRET_AIM
+    TURRET_AIM,
+    RESET_POSE,
+    SWITCH_ENGINE
 }

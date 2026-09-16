@@ -13,7 +13,24 @@ public record GamepadState(double lx, double ly, double rx, double ry,
                            boolean a, boolean b, boolean x, boolean y,
                            boolean lb, boolean rb,
                            double lt, double rt,
-                           Dpad dpad) {
+                           Dpad dpad,
+                           boolean back, boolean start) {
+
+    /** Source-compatible constructor for callers that predate BACK and START. */
+    public GamepadState(double lx, double ly, double rx, double ry,
+                        boolean a, boolean b, boolean x, boolean y,
+                        boolean lb, boolean rb,
+                        double lt, double rt, Dpad dpad) {
+        this(lx, ly, rx, ry, a, b, x, y, lb, rb, lt, rt, dpad, false, false);
+    }
+
+    /** Alternate constructor matching the physical button order used by FTC. */
+    public GamepadState(double lx, double ly, double rx, double ry,
+                        boolean a, boolean b, boolean x, boolean y,
+                        boolean lb, boolean rb, boolean back, boolean start,
+                        double lt, double rt, Dpad dpad) {
+        this(lx, ly, rx, ry, a, b, x, y, lb, rb, lt, rt, dpad, back, start);
+    }
 
     public enum Dpad { NONE, UP, DOWN, LEFT, RIGHT }
 
@@ -22,6 +39,6 @@ public record GamepadState(double lx, double ly, double rx, double ry,
                 false, false, false, false,
                 false, false,
                 0, 0,
-                Dpad.NONE);
+                Dpad.NONE, false, false);
     }
 }

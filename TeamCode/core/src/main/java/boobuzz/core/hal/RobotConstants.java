@@ -48,6 +48,11 @@ public final class RobotConstants {
     public static final double SHOOTER_HOOD_BASE = 0.0;
     public static final double SHOOTER_HOOD_PER_IN = 0.0;
 
+    // TeleOp BACK reset pose: the fixed blue-side field pose used last season.
+    public static final double TELEOP_RESET_POSE_X = 24.0;
+    public static final double TELEOP_RESET_POSE_Y = 96.0;
+    public static final double TELEOP_RESET_POSE_H = 1.5707963267948966;
+
     // free_rpm = 73.63 in/s * 60 / (pi * 4 in); no direct RPM data was found.
     public static final Motor FL = new Motor("fl", "wheel", 6.5, 5.5, 45.0, 537.7, 351.55735379568756);
     public static final Motor FR = new Motor("fr", "wheel", 6.5, -5.5, -45.0, 537.7, 351.55735379568756);

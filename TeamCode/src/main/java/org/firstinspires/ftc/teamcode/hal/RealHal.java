@@ -79,7 +79,7 @@ public final class RealHal implements IHal {
                 gamepad.a, gamepad.b, gamepad.x, gamepad.y,
                 gamepad.left_bumper, gamepad.right_bumper,
                 gamepad.left_trigger, gamepad.right_trigger,
-                dpad(gamepad));
+                dpad(gamepad), gamepad.back, gamepad.start);
     }
 
     private double voltage() {

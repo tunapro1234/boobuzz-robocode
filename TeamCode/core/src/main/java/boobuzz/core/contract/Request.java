@@ -69,6 +69,14 @@ public record Request(int id, RequestType type, double[] params, PathRequest pat
         return of(id, RequestType.TURRET_AIM, fieldX, fieldY);
     }
 
+    public static Request resetPose(int id, double x, double y, double headingRad) {
+        return of(id, RequestType.RESET_POSE, x, y, headingRad);
+    }
+
+    public static Request switchEngine(int id, int engineIndex) {
+        return of(id, RequestType.SWITCH_ENGINE, engineIndex);
+    }
+
     public double param(int index, double fallback) {
         return index >= 0 && index < params.length ? params[index] : fallback;
     }

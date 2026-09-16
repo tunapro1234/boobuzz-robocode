@@ -222,7 +222,7 @@ public final class SimHal implements IHal, Closeable {
                 Json.bool(g, "a"), Json.bool(g, "b"), Json.bool(g, "x"), Json.bool(g, "y"),
                 Json.bool(g, "lb"), Json.bool(g, "rb"),
                 Json.num(g, "lt", 0), Json.num(g, "rt", 0),
-                d);
+                d, Json.bool(g, "back"), Json.bool(g, "start"));
     }
 
     // ----------------------------------------------------------------- utilities

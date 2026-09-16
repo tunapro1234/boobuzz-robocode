@@ -81,7 +81,8 @@ public class DependencyTest {
                     || (importedLayer.equals("hal") && isAllowedSubsystemHal(imported));
             case "logic" -> importedLayer.equals("contract") || importedLayer.equals("subsystem")
                     || imported.equals("boobuzz.core.hal.RobotConstants");
-            case "controller" -> importedLayer.equals("contract");
+            case "controller" -> importedLayer.equals("contract")
+                    || imported.equals("boobuzz.core.hal.RobotConstants");
             default -> false;
         };
     }
