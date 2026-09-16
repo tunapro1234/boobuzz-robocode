@@ -91,6 +91,31 @@ public record PathRequest(
         return pathId != null;
     }
 
+    public PathRequest withHeading(Heading value) {
+        return new PathRequest(pathId, target, constraints, segments, value, holdEnd,
+                velocityConstraint, braking);
+    }
+
+    public PathRequest withHoldEnd(boolean value) {
+        return new PathRequest(pathId, target, constraints, segments, heading, value,
+                velocityConstraint, braking);
+    }
+
+    public PathRequest withConstraints(Drive.Constraints value) {
+        return new PathRequest(pathId, target, value, segments, heading, holdEnd,
+                velocityConstraint, braking);
+    }
+
+    public PathRequest withVelocityConstraint(Double value) {
+        return new PathRequest(pathId, target, constraints, segments, heading, holdEnd,
+                value, braking);
+    }
+
+    public PathRequest withBraking(Braking value) {
+        return new PathRequest(pathId, target, constraints, segments, heading, holdEnd,
+                velocityConstraint, value);
+    }
+
     public enum HeadingMode {
         TANGENT,
         TANGENT_REVERSE,
