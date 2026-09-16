@@ -2,6 +2,7 @@ package boobuzz.sim;
 
 import boobuzz.core.hal.GamepadState;
 import boobuzz.core.hal.Hal;
+import boobuzz.core.contract.Event;
 import boobuzz.core.contract.RobotAction;
 import boobuzz.core.contract.RobotState;
 import boobuzz.core.hal.Mechanism;
@@ -146,6 +147,19 @@ public final class SimHal implements Hal, Closeable {
         Json.writeNumberMap(sb, fill(action.motors(), mechanism.motorNames()));
         sb.append(",\"servos\":");
         Json.writeNumberMap(sb, fill(action.servos(), mechanism.servoNames()));
+        sb.append(",\"events\":[");
+        for (int i = 0; i < action.events().size(); i++) {
+            if (i > 0) {
+                sb.append(',');
+            }
+            Event event = action.events().get(i);
+            sb.append("{\"name\":\"").append(Json.escape(event.name()))
+                    .append("\",\"t_ms\":").append(event.tMs())
+                    .append(",\"data\":");
+            Json.writeNumberMap(sb, event.data());
+            sb.append('}');
+        }
+        sb.append(']');
         sb.append('}');
         send(sb.toString());
 
