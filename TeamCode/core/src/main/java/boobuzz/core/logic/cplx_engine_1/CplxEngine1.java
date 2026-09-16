@@ -30,7 +30,7 @@ public final class CplxEngine1 implements RobotEngine {
     @Override
     public Feedback sense(long now, RobotState state) {
         for (Subsystem subsystem : subsystems) {
-            subsystem.observe(now, state);
+            subsystem.observe(state);
         }
         WorldSnapshot world = new WorldSnapshot(
                 state.t(), drive.pose(), state.yaw(), state.voltage());

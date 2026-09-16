@@ -13,9 +13,7 @@ import boobuzz.core.hal.RobotState;
  */
 public interface Subsystem {
 
-    String name();
-
-    void observe(long now, RobotState state);
+    void observe(RobotState state);
 
     void update(Intent intent, RobotAction.Builder out);
 }

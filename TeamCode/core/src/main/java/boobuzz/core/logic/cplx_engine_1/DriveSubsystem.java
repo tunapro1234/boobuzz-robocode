@@ -45,12 +45,7 @@ public final class DriveSubsystem implements Subsystem {
     }
 
     @Override
-    public String name() {
-        return "drive";
-    }
-
-    @Override
-    public void observe(long now, RobotState state) {
+    public void observe(RobotState state) {
         localizer.feed(state);
         deltaTimeSeconds = 0.0;
         if (hasPreviousState && state.t() > previousStateTimeMs) {

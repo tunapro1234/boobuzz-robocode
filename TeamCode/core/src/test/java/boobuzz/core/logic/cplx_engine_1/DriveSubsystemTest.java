@@ -47,7 +47,7 @@ public class DriveSubsystemTest {
     @Test
     public void goToHoldVelocityGecisleriMotorEylemineYansir() {
         DriveSubsystem drive = new DriveSubsystem(mechanism, new PathRegistry());
-        drive.observe(0L, state(0L, 0.0));
+        drive.observe(state(0L, 0.0));
 
         RobotAction goTo = update(drive, new Drive.GoTo(
                 new Pose(24.0, 0.0, 0.0), Drive.Constraints.defaults()));
@@ -78,9 +78,9 @@ public class DriveSubsystemTest {
         Drive.GoTo goTo = new Drive.GoTo(
                 new Pose(24.0, 0.0, 0.0), Drive.Constraints.defaults());
 
-        drive.observe(10L, state(100L, 0.0));
+        drive.observe(state(100L, 0.0));
         RobotAction first = update(drive, goTo);
-        drive.observe(20L, state(100L, 0.0));
+        drive.observe(state(100L, 0.0));
         RobotAction sameTime = update(drive, goTo);
 
         assertEquals(first, sameTime);
@@ -92,9 +92,9 @@ public class DriveSubsystemTest {
         Drive.GoTo goTo = new Drive.GoTo(
                 new Pose(24.0, 0.0, 0.0), Drive.Constraints.defaults());
 
-        drive.observe(999L, state(100L, 0.0));
+        drive.observe(state(100L, 0.0));
         RobotAction first = update(drive, goTo);
-        drive.observe(1_999L, state(125L, 1.0));
+        drive.observe(state(125L, 1.0));
         RobotAction later = update(drive, goTo);
 
         assertTrue(!first.equals(later));
