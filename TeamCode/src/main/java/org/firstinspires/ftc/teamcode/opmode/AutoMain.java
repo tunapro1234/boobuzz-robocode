@@ -39,6 +39,8 @@ public abstract class AutoMain extends LinearOpMode {
             telemetry.addData("step", sequence.index() + "/" + sequence.size());
             telemetry.addData("command", sequence.currentName());
             telemetry.update();
+            // Yield to the FTC scheduler so the watchdog and hardware threads run.
+            idle();
         }
 
         if (controller.isFailed()) {

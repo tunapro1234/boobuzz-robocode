@@ -50,6 +50,8 @@ public class TeleopMain extends LinearOpMode {
             telemetry.addData("engine", robot.engine().name());
             telemetry.addData("ticks", robot.ticks());
             telemetry.update();
+            // Yield to the FTC scheduler so the watchdog and hardware threads run.
+            idle();
         }
         if (socketController != null) {
             socketController.close();
