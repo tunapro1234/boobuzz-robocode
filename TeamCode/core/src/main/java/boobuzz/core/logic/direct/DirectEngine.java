@@ -1,37 +1,31 @@
 package boobuzz.core.logic.direct;
 
-import boobuzz.core.contract.PathRequest;
 import boobuzz.core.contract.Request;
 import boobuzz.core.contract.RequestBatch;
 import boobuzz.core.contract.RequestStatus;
-import boobuzz.core.contract.RequestType;
 import boobuzz.core.contract.RobotAction;
 import boobuzz.core.contract.RobotState;
 import boobuzz.core.contract.WorldSnapshot;
 import boobuzz.core.logic.IRobotEngine;
-import boobuzz.core.subsystem.IIntake;
-import boobuzz.core.subsystem.IShooter;
 import boobuzz.core.subsystem.Subsystems;
-
-import com.pedropathing.math.Pose;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-/** Zero-intelligence engine that forwards intents directly to mechanisms. */
+/** Wiring-only engine: stream arbitration, job ownership, and status draining. */
 public final class DirectEngine implements IRobotEngine {
 
     private final Subsystems subsystems;
+    private final DirectMap map;
+    private DirectMap.Job driveJob;
+    private DirectMap.Job shooterJob;
     private List<RequestStatus> pendingStatuses = List.of();
     private RobotAction action = RobotAction.zero();
-    private ShootJob shoot;
-    private SpinJob spin;
-    private GotoJob goTo;
-    private MotionJob motion;
 
     public DirectEngine(Subsystems subsystems) {
         this.subsystems = Objects.requireNonNull(subsystems, "subsystems");
+        this.map = new DirectMap(subsystems);
     }
 
     @Override
@@ -52,18 +46,46 @@ public final class DirectEngine implements IRobotEngine {
             batch = RequestBatch.idle();
         }
         List<RequestStatus> statuses = new ArrayList<>();
-        boolean driveRequest = batch.requests().stream().anyMatch(request -> isDrive(request.type()));
-        applyStream(batch.stream(), statuses);
-        for (int cancelId : batch.cancels()) {
-            cancel(cancelId, statuses);
+        boolean driveRequest = batch.requests().stream()
+                .anyMatch(request -> DirectMap.isDrive(request.type()));
+
+        if (batch.stream().manualDrive()) {
+            cancelDrive(statuses, "overridden by manual drive");
+            subsystems.drive().manual(batch.stream().vx(), batch.stream().vy(),
+                    batch.stream().omega());
         }
+
+        for (int id : batch.cancels()) {
+            cancel(id, statuses);
+        }
+
         for (Request request : batch.requests()) {
-            start(request, statuses, batch.stream().manualDrive());
+            if (batch.stream().manualDrive() && DirectMap.isDrive(request.type())) {
+                statuses.add(RequestStatus.rejected(request.id(), "overridden by manual drive"));
+                continue;
+            }
+            DirectMap.Job job = map.start(request, driveJob != null, shooterJob != null, statuses);
+            if (job == null) {
+                continue;
+            }
+            if (DirectMap.isDrive(request.type())) {
+                driveJob = job;
+            } else if (isShooter(request)) {
+                shooterJob = job;
+            }
         }
-        if (!batch.stream().manualDrive() && !driveRequest && motion == null && goTo == null) {
+
+        if (!batch.stream().manualDrive() && !driveRequest && driveJob == null) {
             subsystems.drive().stop();
         }
-        advance(statuses);
+
+        if (driveJob != null && map.advance(driveJob, statuses)) {
+            driveJob = null;
+        }
+        if (shooterJob != null && map.advance(shooterJob, statuses)) {
+            shooterJob = null;
+        }
+
         pendingStatuses = List.copyOf(statuses);
         action = subsystems.update();
     }
@@ -84,235 +106,25 @@ public final class DirectEngine implements IRobotEngine {
         return subsystems;
     }
 
-    private void applyStream(boobuzz.core.contract.RequestStream stream,
-                             List<RequestStatus> statuses) {
-        if (!stream.manualDrive()) {
-            return;
-        }
-        rejectActiveDrive(statuses, "overridden by manual drive");
-        subsystems.drive().manual(stream.vx(), stream.vy(), stream.omega());
-    }
-
-    private void start(Request request, List<RequestStatus> statuses, boolean manualDrive) {
-        RequestType type = request.type();
-        if (manualDrive && isDrive(type)) {
-            statuses.add(RequestStatus.rejected(request.id(), "overridden by manual drive"));
-            return;
-        }
-        switch (type) {
-            case SHOOT -> startShoot(request, statuses);
-            case SPIN_UP -> startSpin(request, statuses);
-            case GOTO -> startGoto(request, statuses);
-            case PATH -> startPath(request, statuses);
-            case TURN_TO -> startTurn(request, statuses);
-            case INTAKE, INTAKE_ON -> startIntake(request, statuses);
-            case INTAKE_OFF -> {
-                subsystems.intake().stop();
-                statuses.add(RequestStatus.done(request.id()));
-            }
-        }
-    }
-
     private void cancel(int id, List<RequestStatus> statuses) {
-        if (motion != null && motion.id == id) {
-            motion = null;
-            subsystems.drive().stop();
-            statuses.add(RequestStatus.rejected(id, "cancelled"));
-        } else if (goTo != null && goTo.id == id) {
-            goTo = null;
-            subsystems.drive().stop();
-            statuses.add(RequestStatus.rejected(id, "cancelled"));
+        if (driveJob != null && driveJob.id() == id) {
+            map.cancel(driveJob, "cancelled", statuses);
+            driveJob = null;
+        } else if (shooterJob != null && shooterJob.id() == id) {
+            map.cancel(shooterJob, "cancelled", statuses);
+            shooterJob = null;
         }
     }
 
-    private void rejectActiveDrive(List<RequestStatus> statuses, String note) {
-        if (motion != null) {
-            statuses.add(RequestStatus.rejected(motion.id, note));
-            motion = null;
-        }
-        if (goTo != null) {
-            statuses.add(RequestStatus.rejected(goTo.id, note));
-            goTo = null;
+    private void cancelDrive(List<RequestStatus> statuses, String note) {
+        if (driveJob != null) {
+            map.cancel(driveJob, note, statuses);
+            driveJob = null;
         }
     }
 
-    private static boolean isDrive(RequestType type) {
-        return type == RequestType.GOTO || type == RequestType.PATH || type == RequestType.TURN_TO;
-    }
-
-    private void startPath(Request request, List<RequestStatus> statuses) {
-        if (motion != null || request.path() == null) {
-            statuses.add(RequestStatus.rejected(request.id(), "drive already has a request"));
-            return;
-        }
-        subsystems.drive().follow(request.path());
-        motion = new MotionJob(request.id(), "following");
-    }
-
-    private void startTurn(Request request, List<RequestStatus> statuses) {
-        if (motion != null) {
-            statuses.add(RequestStatus.rejected(request.id(), "drive already has a request"));
-            return;
-        }
-        double heading = request.param(0, Double.NaN);
-        if (!Double.isFinite(heading)) {
-            statuses.add(RequestStatus.rejected(request.id(), "TURN_TO requires a finite heading"));
-            return;
-        }
-        subsystems.drive().turnTo(heading);
-        motion = new MotionJob(request.id(), "turning");
-    }
-
-    private void startShoot(Request request, List<RequestStatus> statuses) {
-        if (shoot != null || spin != null) {
-            statuses.add(RequestStatus.rejected(request.id(), "shooter already has a request"));
-            return;
-        }
-        int count = (int) Math.round(request.param(0, 1.0));
-        double rpm = request.param(1, 1.0);
-        if (count <= 0 || !Double.isFinite(rpm) || rpm <= 0.0) {
-            statuses.add(RequestStatus.rejected(request.id(), "SHOOT requires positive count and rpm"));
-            return;
-        }
-        subsystems.shooter().spinUp(rpm);
-        shoot = new ShootJob(request.id(), count, rpm);
-    }
-
-    private void startSpin(Request request, List<RequestStatus> statuses) {
-        if (shoot != null || spin != null) {
-            statuses.add(RequestStatus.rejected(request.id(), "shooter already has a request"));
-            return;
-        }
-        double rpm = request.param(0, 1.0);
-        if (!Double.isFinite(rpm) || rpm <= 0.0) {
-            statuses.add(RequestStatus.rejected(request.id(), "SPIN_UP requires positive rpm"));
-            return;
-        }
-        subsystems.shooter().spinUp(rpm);
-        spin = new SpinJob(request.id());
-    }
-
-    private void startGoto(Request request, List<RequestStatus> statuses) {
-        if (motion != null) {
-            statuses.add(RequestStatus.rejected(request.id(), "drive already has a request"));
-            return;
-        }
-        if (request.params() == null || request.params().length < 3) {
-            statuses.add(RequestStatus.rejected(request.id(), "GOTO requires x, y, heading"));
-            return;
-        }
-        Pose target = new Pose(request.param(0, 0), request.param(1, 0), request.param(2, 0));
-        subsystems.drive().follow(PathRequest.goTo(target, PathRequest.Constraints.defaults()));
-        goTo = new GotoJob(request.id(), false);
-    }
-
-    private void startIntake(Request request, List<RequestStatus> statuses) {
-        IIntake intake = subsystems.intake();
-        if (request.type() == RequestType.INTAKE_ON) {
-            intake.run(request.param(0, 1.0));
-        } else if (request.param(0, 0.0) == 0.0) {
-            intake.stop();
-        } else {
-            intake.run(request.param(0, 1.0));
-        }
-        statuses.add(RequestStatus.done(request.id()));
-    }
-
-    private void advance(List<RequestStatus> statuses) {
-        IShooter shooter = subsystems.shooter();
-        if (spin != null) {
-            if (shooter.isReady()) {
-                statuses.add(RequestStatus.done(spin.id));
-                spin = null;
-            } else {
-                statuses.add(active(spin.id, 0.0, "spinning up"));
-            }
-        }
-        if (shoot != null) {
-            shooter.spinUp(shoot.rpm);
-            if (shooter.isFeeding()) {
-                statuses.add(active(shoot.id, 0.5, "feeding"));
-            } else if (!shooter.isReady()) {
-                statuses.add(active(shoot.id, 0.0, "spinning up"));
-            } else if (shoot.remaining > 0) {
-                shooter.feed();
-                if (shooter.isFeeding()) {
-                    shoot.remaining--;
-                    statuses.add(active(shoot.id, 0.5, "feeding"));
-                } else {
-                    statuses.add(active(shoot.id, 0.0, "feed not accepted"));
-                }
-            } else {
-                statuses.add(RequestStatus.done(shoot.id));
-                shoot = null;
-            }
-        }
-        if (goTo != null) {
-            if (!goTo.started) {
-                goTo.started = true;
-                statuses.add(active(goTo.id, 0.0, "following"));
-            } else if (subsystems.drive().pathDone()) {
-                statuses.add(RequestStatus.done(goTo.id));
-                goTo = null;
-            } else {
-                statuses.add(active(goTo.id, 0.0, "following"));
-            }
-        }
-        if (motion != null) {
-            if (!motion.started) {
-                motion.started = true;
-                statuses.add(active(motion.id, 0.0, motion.note));
-            } else if (subsystems.drive().pathDone()) {
-                statuses.add(RequestStatus.done(motion.id));
-                motion = null;
-            } else {
-                statuses.add(active(motion.id, 0.0, motion.note));
-            }
-        }
-    }
-
-    private static RequestStatus active(int id, double progress, String note) {
-        return new RequestStatus(id, RequestStatus.State.ACTIVE, progress, note);
-    }
-
-    private static final class ShootJob {
-        private final int id;
-        private final double rpm;
-        private int remaining;
-
-        private ShootJob(int id, int remaining, double rpm) {
-            this.id = id;
-            this.remaining = remaining;
-            this.rpm = rpm;
-        }
-    }
-
-    private static final class SpinJob {
-        private final int id;
-
-        private SpinJob(int id) {
-            this.id = id;
-        }
-    }
-
-    private static final class GotoJob {
-        private final int id;
-        private boolean started;
-
-        private GotoJob(int id, boolean started) {
-            this.id = id;
-            this.started = started;
-        }
-    }
-
-    private static final class MotionJob {
-        private final int id;
-        private final String note;
-        private boolean started;
-
-        private MotionJob(int id, String note) {
-            this.id = id;
-            this.note = note;
-        }
+    private static boolean isShooter(Request request) {
+        return request.type() == boobuzz.core.contract.RequestType.SHOOT
+                || request.type() == boobuzz.core.contract.RequestType.SPIN_UP;
     }
 }
