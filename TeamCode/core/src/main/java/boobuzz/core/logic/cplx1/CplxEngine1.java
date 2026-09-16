@@ -25,7 +25,7 @@ public final class CplxEngine1 implements IRobotEngine {
     private final TurretLogic turret;
     private final ShooterLogic shooter;
     private WorldSnapshot latestWorld;
-    private List<RequestStatus> pendingStatuses = List.of();
+    private List<RequestStatus> pendingStatuses = Collections.emptyList();
     private RobotAction action = RobotAction.zero();
     /** Actuator owner, separate from terminal request IDs. */
     private Integer intakeOwnerId;
@@ -102,7 +102,7 @@ public final class CplxEngine1 implements IRobotEngine {
     @Override
     public List<RequestStatus> drainStatuses() {
         List<RequestStatus> statuses = pendingStatuses;
-        pendingStatuses = List.of();
+        pendingStatuses = Collections.emptyList();
         return statuses;
     }
 

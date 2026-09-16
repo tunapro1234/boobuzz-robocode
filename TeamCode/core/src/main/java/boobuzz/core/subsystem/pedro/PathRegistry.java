@@ -19,11 +19,15 @@ public final class PathRegistry {
     public PathRegistry() {
         Pose lineStart = new Pose(72, 72, 0);
         Pose lineEnd = new Pose(120, 72, 0);
-        paths = Map.of(TEST_LINE, Paths.line(lineStart, lineEnd).constant(0));
+        Map<String, Path> pathMap = new java.util.LinkedHashMap<>();
+        pathMap.put(TEST_LINE, Paths.line(lineStart, lineEnd).constant(0));
+        paths = pathMap;
 
         // Pedro 3.0 rejects zero-length lines. A turn at the same (x,y) is
         // represented by the library's direct hold(Pose) method.
-        holdTargets = Map.of(TEST_TURN, new Pose(120, 72, Math.PI / 2.0));
+        Map<String, Pose> targetMap = new java.util.LinkedHashMap<>();
+        targetMap.put(TEST_TURN, new Pose(120, 72, Math.PI / 2.0));
+        holdTargets = targetMap;
     }
 
     /** Starts a registered command on the follower; unknown IDs are not swallowed. */

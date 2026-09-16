@@ -54,7 +54,8 @@ public final class RobotFactory {
                                    int debugTapPort, boolean traceEnabled) {
         IController controller = fixedStream == null
                 ? new TeleopController(hal)
-                : feedback -> new RequestBatch(fixedStream, java.util.List.of(), new int[0]);
+                : feedback -> new RequestBatch(fixedStream, java.util.Collections.emptyList(),
+                        new int[0]);
         return createWithController(hal, mechanism, engineName, controller,
                 debugTapPort, traceEnabled);
     }
@@ -93,7 +94,7 @@ public final class RobotFactory {
             default -> throw new IllegalArgumentException(
                     "unknown engine: " + engineName + " (expected direct or cplx1)");
         };
-        RobotLoop loop = new RobotLoop(hal, java.util.List.of(direct, cplx1), engine,
+        RobotLoop loop = new RobotLoop(hal, java.util.Arrays.asList(direct, cplx1), engine,
                 controller, debugTapPort);
         loop.setSubsystemTrace(trace);
         return loop;

@@ -8,6 +8,7 @@ import boobuzz.core.contract.RequestStatus;
 import boobuzz.core.contract.WorldSnapshot;
 
 import java.util.List;
+import java.util.Collections;
 
 /**
  * L2. Bidirectional: {@link #sense} reads upward, {@link #act} executes downward.
@@ -30,7 +31,7 @@ public interface IRobotEngine {
 
     /** Statuses produced by the preceding act call, consumed on the next tick. */
     default List<RequestStatus> drainStatuses() {
-        return List.of();
+        return Collections.emptyList();
     }
 
     /** Compatibility view for callers that still use the old feedback seam. */

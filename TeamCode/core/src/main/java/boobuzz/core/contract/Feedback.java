@@ -12,6 +12,6 @@ public record Feedback(WorldSnapshot world, List<RequestStatus> statuses, long t
     }
 
     public static Feedback of(WorldSnapshot world) {
-        return new Feedback(world, List.of(), world.t());
+        return new Feedback(world, java.util.Collections.emptyList(), world.t());
     }
 }

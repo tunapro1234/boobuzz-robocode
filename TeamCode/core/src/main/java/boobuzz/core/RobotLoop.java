@@ -36,15 +36,17 @@ public final class RobotLoop implements AutoCloseable {
     private long ticks;
     private long tickNanosTotal;
     private long maxTickNanos;
-    private List<boobuzz.core.contract.RequestStatus> pendingLoopStatuses = List.of();
+    private List<boobuzz.core.contract.RequestStatus> pendingLoopStatuses =
+            Collections.emptyList();
 
     public RobotLoop(IHal hal, IRobotEngine engine, IController controller) {
-        this(hal, List.of(Objects.requireNonNull(engine, "engine")), engine, controller);
+        this(hal, Collections.singletonList(Objects.requireNonNull(engine, "engine")),
+                engine, controller);
     }
 
     public RobotLoop(IHal hal, IRobotEngine engine, IController controller,
                      int debugTapPort) {
-        this(hal, List.of(Objects.requireNonNull(engine, "engine")), engine,
+        this(hal, Collections.singletonList(Objects.requireNonNull(engine, "engine")), engine,
                 controller, debugTapPort);
     }
 
@@ -79,7 +81,7 @@ public final class RobotLoop implements AutoCloseable {
             List<boobuzz.core.contract.RequestStatus> feedbackStatuses = new ArrayList<>(
                     engine.drainStatuses());
             feedbackStatuses.addAll(pendingLoopStatuses);
-            pendingLoopStatuses = List.of();
+            pendingLoopStatuses = Collections.emptyList();
             Feedback feedback = new Feedback(snapshot, feedbackStatuses, state.t());
             RequestBatch controllerBatch = controller.decide(feedback); // L3
             RequestBatch batch = controllerBatch;
@@ -219,7 +221,7 @@ public final class RobotLoop implements AutoCloseable {
             return;
         }
         List<SubsystemTrace.Call> calls = subsystemTrace == null
-                ? List.of() : subsystemTrace.drainCalls();
+                ? Collections.emptyList() : subsystemTrace.drainCalls();
         // The loop only hands immutable record references to the dispatcher.
         debugTap.offer(new DebugFrame(state, action, calls, feedback, batch));
     }

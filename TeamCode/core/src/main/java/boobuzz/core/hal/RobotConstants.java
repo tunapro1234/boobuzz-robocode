@@ -2,6 +2,7 @@ package boobuzz.core.hal;
 
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Arrays;
 import java.util.Map;
 
 /**
@@ -113,8 +114,8 @@ public final class RobotConstants {
         efficiency.put(BL.name(), EFFICIENCY_BL);
         efficiency.put(BR.name(), EFFICIENCY_BR);
         return new Mechanism(
-                List.of(FL.name(), FR.name(), BL.name(), BR.name()),
-                List.of(SERVOS),
+                Arrays.asList(FL.name(), FR.name(), BL.name(), BR.name()),
+                Arrays.asList(SERVOS),
                 motors,
                 new Mechanism.Drivetrain(WHEEL_DIAMETER),
                 new Mechanism.Pinpoint(

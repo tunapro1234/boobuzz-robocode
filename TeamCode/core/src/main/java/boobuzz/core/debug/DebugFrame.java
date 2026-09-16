@@ -18,7 +18,7 @@ public record DebugFrame(RobotState state, RobotAction action,
     public DebugFrame {
         state = Objects.requireNonNull(state, "state");
         action = Objects.requireNonNull(action, "action");
-        calls = calls == null ? List.of()
+        calls = calls == null ? Collections.emptyList()
                 : Collections.unmodifiableList(new ArrayList<>(calls));
         feedback = Objects.requireNonNull(feedback, "feedback");
         batch = batch == null ? RequestBatch.idle() : batch;

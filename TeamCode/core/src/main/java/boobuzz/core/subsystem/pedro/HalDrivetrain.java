@@ -87,7 +87,7 @@ public final class HalDrivetrain implements Drivetrain {
 
     @Override
     public Map<String, Object> debug() {
-        return Map.of();
+        return java.util.Collections.emptyMap();
     }
 
     @Override

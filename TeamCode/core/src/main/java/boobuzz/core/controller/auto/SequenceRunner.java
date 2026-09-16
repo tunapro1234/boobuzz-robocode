@@ -21,7 +21,7 @@ public final class SequenceRunner {
     private int nextRequestId = 1;
     private Phase phase = Phase.READY;
     private int primaryRequestId = -1;
-    private List<Integer> attachedRequestIds = List.of();
+    private List<Integer> attachedRequestIds = java.util.Collections.emptyList();
     private long timerStartMs;
     private RequestStatus failure;
     private final Map<Integer, RequestStatus> terminalStatuses = new HashMap<>();
@@ -32,7 +32,8 @@ public final class SequenceRunner {
 
     public RequestBatch decide(Feedback feedback) {
         long now = feedback == null ? timerStartMs : feedback.t();
-        List<RequestStatus> statuses = feedback == null ? List.of() : feedback.statuses();
+        List<RequestStatus> statuses = feedback == null
+                ? java.util.Collections.emptyList() : feedback.statuses();
         rememberTerminalStatuses(statuses);
 
         if (failure != null || sequence.isDone()) {
@@ -55,7 +56,7 @@ public final class SequenceRunner {
                     >= secondsToMillis(((AutoStep.Intake) sequence.current()).seconds())) {
                 int offId = allocateId();
                 primaryRequestId = offId;
-                attachedRequestIds = List.of();
+                attachedRequestIds = java.util.Collections.emptyList();
                 phase = Phase.REQUEST;
                 return intent(Request.intakeOff(offId));
             }
@@ -76,7 +77,7 @@ public final class SequenceRunner {
                         && path.intake()) {
                     int offId = allocateId();
                     primaryRequestId = offId;
-                    attachedRequestIds = List.of();
+                    attachedRequestIds = java.util.Collections.emptyList();
                     phase = Phase.REQUEST;
                     return intent(Request.intakeOff(offId));
                 }
@@ -110,14 +111,14 @@ public final class SequenceRunner {
         if (step instanceof AutoStep.Turn turn) {
             int id = allocateId();
             primaryRequestId = id;
-            attachedRequestIds = List.of();
+            attachedRequestIds = java.util.Collections.emptyList();
             phase = Phase.MOTION;
             return intent(Request.turnTo(id, turn.headingRad()));
         }
         if (step instanceof AutoStep.Shoot shoot) {
             int id = allocateId();
             primaryRequestId = id;
-            attachedRequestIds = List.of();
+            attachedRequestIds = java.util.Collections.emptyList();
             phase = Phase.REQUEST;
             return intent(Double.isNaN(shoot.rpm())
                     ? Request.shoot(id, shoot.count())
@@ -126,14 +127,14 @@ public final class SequenceRunner {
         if (step instanceof AutoStep.SpinUp spinUp) {
             int id = allocateId();
             primaryRequestId = id;
-            attachedRequestIds = List.of();
+            attachedRequestIds = java.util.Collections.emptyList();
             phase = Phase.REQUEST;
             return intent(Request.spinUp(id, spinUp.rpm()));
         }
         if (step instanceof AutoStep.Intake intake) {
             int id = allocateId();
             primaryRequestId = id;
-            attachedRequestIds = List.of();
+            attachedRequestIds = java.util.Collections.emptyList();
             timerStartMs = now;
             phase = Phase.INTAKE_TIME;
             return intent(Request.intakeOn(id, intake.power()));
@@ -184,7 +185,7 @@ public final class SequenceRunner {
     }
 
     private RequestBatch intent(Request request) {
-        return intent(List.of(request));
+        return intent(java.util.Collections.singletonList(request));
     }
 
     private RequestBatch intent(List<Request> requests) {
@@ -228,7 +229,7 @@ public final class SequenceRunner {
 
     private List<Integer> ownedRequestIds() {
         if (primaryRequestId < 0) {
-            return List.of();
+            return java.util.Collections.emptyList();
         }
         List<Integer> ids = new ArrayList<>(attachedRequestIds.size() + 1);
         ids.add(primaryRequestId);
@@ -253,7 +254,7 @@ public final class SequenceRunner {
     private void advance() {
         sequence.advance();
         primaryRequestId = -1;
-        attachedRequestIds = List.of();
+        attachedRequestIds = java.util.Collections.emptyList();
         phase = Phase.READY;
     }
 

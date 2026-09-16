@@ -40,7 +40,7 @@ public final class AutoBuilder {
         PathRequest.Heading heading = Math.abs(delta) < SAME_HEADING_EPS_RAD
                 ? PathRequest.Heading.constant(targetPose.heading())
                 : PathRequest.Heading.linear(currentPose.heading(), targetPose.heading());
-        addPath(targetPose, heading, List.of());
+        addPath(targetPose, heading, java.util.Collections.emptyList());
         return this;
     }
 
@@ -56,14 +56,15 @@ public final class AutoBuilder {
 
     public AutoBuilder lineTo(Pose point) {
         Objects.requireNonNull(point, "line endpoint");
-        addPath(point, PathRequest.Heading.tangent(), List.of());
+        addPath(point, PathRequest.Heading.tangent(), java.util.Collections.emptyList());
         return this;
     }
 
     /** Follow a Bezier curve; endpoint and controls are points, not headings. */
     public AutoBuilder curveTo(Pose endPoint, Pose... controlPoints) {
         Objects.requireNonNull(endPoint, "curve endpoint");
-        List<Pose> controls = controlPoints == null ? List.of() : List.of(controlPoints);
+        List<Pose> controls = controlPoints == null ? java.util.Collections.emptyList()
+                : java.util.Arrays.asList(controlPoints);
         addPath(endPoint, PathRequest.Heading.tangent(), controls);
         return this;
     }
@@ -74,7 +75,8 @@ public final class AutoBuilder {
 
     public AutoBuilder curveToPose(Pose targetPose, Pose... controlPoints) {
         Objects.requireNonNull(targetPose, "curve target pose");
-        List<Pose> controls = controlPoints == null ? List.of() : List.of(controlPoints);
+        List<Pose> controls = controlPoints == null ? java.util.Collections.emptyList()
+                : java.util.Arrays.asList(controlPoints);
         double delta = normalizeAngle(targetPose.heading() - currentPose.heading());
         PathRequest.Heading heading = Math.abs(delta) < SAME_HEADING_EPS_RAD
                 ? PathRequest.Heading.constant(targetPose.heading())
@@ -202,7 +204,8 @@ public final class AutoBuilder {
         PathRequest.Segment segment = controls.isEmpty()
                 ? PathRequest.line(point(endpoint))
                 : new PathRequest.Curve(point(endpoint), controls);
-        PathRequest request = new PathRequest(List.of(segment), heading, true, null, null);
+        PathRequest request = new PathRequest(java.util.Collections.singletonList(segment),
+                heading, true, null, null);
         Pose start = currentPose;
         steps.add(new AutoStep.Path(request, start, false,
                 DEFAULT_INTAKE_POWER, null));

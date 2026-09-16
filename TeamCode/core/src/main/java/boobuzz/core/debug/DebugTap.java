@@ -11,6 +11,7 @@ import java.net.Socket;
 import java.net.SocketException;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -169,7 +170,7 @@ public final class DebugTap implements AutoCloseable {
                 // Configuration may race the first offered tick; resolve it before
                 // serializing so the first seam is never silently omitted from a bag.
                 ensureBag();
-                List<String> lines = List.of(
+                List<String> lines = Arrays.asList(
                         SeamJson.hal(frame.state().t(), frame.state(), frame.action()),
                         SeamJson.subsystem(frame.state().t(), frame.calls(), frame.action().events()),
                         SeamJson.logic(frame.state().t(), frame.feedback(), frame.batch()));
@@ -195,7 +196,7 @@ public final class DebugTap implements AutoCloseable {
                 if (frame == null) break;
                 try {
                     ensureBag();
-                    writeLines(List.of(
+                    writeLines(Arrays.asList(
                             SeamJson.hal(frame.state().t(), frame.state(), frame.action()),
                             SeamJson.subsystem(frame.state().t(), frame.calls(), frame.action().events()),
                             SeamJson.logic(frame.state().t(), frame.feedback(), frame.batch())));

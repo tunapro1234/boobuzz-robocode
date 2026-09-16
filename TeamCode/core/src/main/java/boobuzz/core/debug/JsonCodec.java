@@ -47,13 +47,15 @@ public final class JsonCodec {
     @SuppressWarnings("unchecked")
     public static Map<String, Object> object(Map<String, Object> object, String key) {
         Object value = object.get(key);
-        return value instanceof Map<?, ?> map ? (Map<String, Object>) map : Map.of();
+        return value instanceof Map<?, ?> map ? (Map<String, Object>) map
+                : java.util.Collections.emptyMap();
     }
 
     @SuppressWarnings("unchecked")
     public static List<Object> list(Map<String, Object> object, String key) {
         Object value = object.get(key);
-        return value instanceof List<?> list ? (List<Object>) list : List.of();
+        return value instanceof List<?> list ? (List<Object>) list
+                : java.util.Collections.emptyList();
     }
 
     private static void write(StringBuilder out, Object value) {

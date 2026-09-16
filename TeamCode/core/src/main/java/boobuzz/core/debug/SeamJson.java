@@ -40,9 +40,9 @@ public final class SeamJson {
     public static String subsystem(long tMs, List<SubsystemTrace.Call> calls,
                                    List<Event> events) {
         Map<String, Object> root = root("subsystem", tMs);
-        root.put("calls", calls == null ? List.of() : calls.stream()
+        root.put("calls", calls == null ? java.util.Collections.emptyList() : calls.stream()
                 .map(SeamJson::call).collect(java.util.stream.Collectors.toList()));
-        root.put("events", events == null ? List.of() : events.stream()
+        root.put("events", events == null ? java.util.Collections.emptyList() : events.stream()
                 .map(SeamJson::event).collect(java.util.stream.Collectors.toList()));
         return JsonCodec.stringify(root);
     }
@@ -324,8 +324,8 @@ public final class SeamJson {
     public static Map<String, Object> feedbackMap(Feedback value) {
         Map<String, Object> result = new LinkedHashMap<>();
         if (value == null) {
-            result.put("snapshot", Map.of());
-            result.put("statuses", List.of());
+            result.put("snapshot", java.util.Collections.emptyMap());
+            result.put("statuses", java.util.Collections.emptyList());
             return result;
         }
         result.put("snapshot", snapshot(value.world()));
@@ -368,15 +368,15 @@ public final class SeamJson {
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("pathId", value.pathId());
         result.put("target", pose(value.target()));
-        result.put("constraints", Map.of("maxPower", value.constraints().maxPower(),
+        result.put("constraints", mapOf("maxPower", value.constraints().maxPower(),
                 "maxVelocity", value.constraints().maxVelocity()));
         result.put("segments", value.segments().stream().map(SeamJson::segment)
                 .collect(java.util.stream.Collectors.toList()));
-        result.put("heading", Map.of("mode", value.heading().mode().name(),
+        result.put("heading", mapOf("mode", value.heading().mode().name(),
                 "start", value.heading().start(), "end", value.heading().end()));
         result.put("holdEnd", value.holdEnd());
         result.put("velocityConstraint", value.velocityConstraint());
-        result.put("braking", value.braking() == null ? null : Map.of(
+        result.put("braking", value.braking() == null ? null : mapOf(
                 "strength", value.braking().strength(),
                 "startMultiplier", value.braking().startMultiplier()));
         return result;
@@ -466,5 +466,16 @@ public final class SeamJson {
                 JsonCodec.num(value, "x", 0.0),
                 JsonCodec.num(value, "y", 0.0),
                 JsonCodec.num(value, "h", 0.0));
+    }
+
+    private static Map<String, Object> mapOf(Object... entries) {
+        if ((entries.length & 1) != 0) {
+            throw new IllegalArgumentException("map entries must be key/value pairs");
+        }
+        Map<String, Object> result = new LinkedHashMap<>();
+        for (int i = 0; i < entries.length; i += 2) {
+            result.put(String.valueOf(entries[i]), entries[i + 1]);
+        }
+        return result;
     }
 }

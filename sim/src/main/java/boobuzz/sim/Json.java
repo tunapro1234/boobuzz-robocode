@@ -52,14 +52,14 @@ final class Json {
     @SuppressWarnings("unchecked")
     static Map<String, Object> obj(Map<String, Object> node, String key) {
         Object v = node.get(key);
-        return (v instanceof Map) ? (Map<String, Object>) v : Map.of();
+        return (v instanceof Map) ? (Map<String, Object>) v : java.util.Collections.emptyMap();
     }
 
     @SuppressWarnings("unchecked")
     static List<String> strings(Map<String, Object> node, String key) {
         Object v = node.get(key);
         if (!(v instanceof List)) {
-            return List.of();
+            return java.util.Collections.emptyList();
         }
         List<String> result = new ArrayList<>();
         for (Object item : (List<Object>) v) {

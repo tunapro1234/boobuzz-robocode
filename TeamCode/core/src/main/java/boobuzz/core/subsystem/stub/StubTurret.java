@@ -75,11 +75,11 @@ public final class StubTurret implements ITurret {
     @Override
     public void update(RobotAction.Builder out) {
         if (scanEventPending) {
-            out.event("turret.scan", nowMs, Map.of());
+            out.event("turret.scan", nowMs, java.util.Collections.emptyMap());
             scanEventPending = false;
         }
         if (lockedEventPending) {
-            out.event("turret.locked", nowMs, Map.of());
+            out.event("turret.locked", nowMs, java.util.Collections.emptyMap());
             lockedEventPending = false;
         }
     }

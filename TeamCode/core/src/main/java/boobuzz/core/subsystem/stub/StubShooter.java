@@ -72,11 +72,11 @@ public final class StubShooter implements IShooter {
     @Override
     public void update(RobotAction.Builder out) {
         if (feedStartPending) {
-            out.event("shooter.feed.start", nowMs, Map.of());
+            out.event("shooter.feed.start", nowMs, java.util.Collections.emptyMap());
             feedStartPending = false;
         }
         if (feedEndPending) {
-            out.event("shooter.feed.end", nowMs, Map.of());
+            out.event("shooter.feed.end", nowMs, java.util.Collections.emptyMap());
             feedEndPending = false;
         }
     }

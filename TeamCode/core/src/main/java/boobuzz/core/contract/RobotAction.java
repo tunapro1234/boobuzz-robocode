@@ -20,20 +20,21 @@ public record RobotAction(Map<String, Double> motors, Map<String, Double> servos
     public RobotAction {
         motors = Collections.unmodifiableMap(new LinkedHashMap<>(motors));
         servos = Collections.unmodifiableMap(new LinkedHashMap<>(servos));
-        events = events == null ? List.of()
+        events = events == null ? Collections.emptyList()
                 : Collections.unmodifiableList(new java.util.ArrayList<>(events));
     }
 
     public RobotAction(Map<String, Double> motors, Map<String, Double> servos) {
-        this(motors, servos, List.of());
+        this(motors, servos, Collections.emptyList());
     }
 
     public static RobotAction zero() {
-        return new RobotAction(Collections.emptyMap(), Collections.emptyMap(), List.of());
+        return new RobotAction(Collections.emptyMap(), Collections.emptyMap(),
+                Collections.emptyList());
     }
 
     public static RobotAction ofMotors(Map<String, Double> motors) {
-        return new RobotAction(motors, Collections.emptyMap(), List.of());
+        return new RobotAction(motors, Collections.emptyMap(), Collections.emptyList());
     }
 
     public static double clamp(double value, double min, double max) {

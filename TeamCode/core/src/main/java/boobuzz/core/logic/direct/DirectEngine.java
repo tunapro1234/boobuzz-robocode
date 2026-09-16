@@ -21,7 +21,7 @@ public final class DirectEngine implements IRobotEngine {
     private final DirectMap map;
     private DirectMap.Job driveJob;
     private DirectMap.Job shooterJob;
-    private List<RequestStatus> pendingStatuses = List.of();
+    private List<RequestStatus> pendingStatuses = Collections.emptyList();
     private RobotAction action = RobotAction.zero();
     /** Actuator owner, separate from terminal request IDs. */
     private Integer intakeOwnerId;
@@ -126,7 +126,7 @@ public final class DirectEngine implements IRobotEngine {
     @Override
     public List<RequestStatus> drainStatuses() {
         List<RequestStatus> statuses = pendingStatuses;
-        pendingStatuses = List.of();
+        pendingStatuses = Collections.emptyList();
         return statuses;
     }
 

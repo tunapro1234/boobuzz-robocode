@@ -2,6 +2,7 @@ package boobuzz.core.contract;
 
 import com.pedropathing.math.Pose;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -23,7 +24,7 @@ public record PathRequest(
             throw new IllegalArgumentException("path request ID must not be blank");
         }
         constraints = constraints == null ? Constraints.defaults() : constraints;
-        segments = segments == null ? List.of()
+        segments = segments == null ? Collections.emptyList()
                 : Collections.unmodifiableList(new ArrayList<>(segments));
         heading = heading == null ? Heading.tangent() : heading;
         for (Segment segment : segments) {
@@ -44,18 +45,19 @@ public record PathRequest(
     /** Direct-target constructor used by a GOTO request. */
     public PathRequest(Pose target, Constraints constraints) {
         this(null, Objects.requireNonNull(target, "target"), constraints,
-                List.of(), Heading.constant(target.heading()), true, null, null);
+                Collections.emptyList(), Heading.constant(target.heading()), true, null, null);
     }
 
     /** Legacy named-path constructor. */
     public PathRequest(String pathId) {
-        this(pathId, null, Constraints.defaults(), List.of(), Heading.tangent(),
+        this(pathId, null, Constraints.defaults(), Collections.emptyList(), Heading.tangent(),
                 true, null, null);
     }
 
     /** Compatibility constructor retained for older callers. */
     public PathRequest(String pathId, Pose target, Constraints constraints) {
-        this(pathId, target, constraints, List.of(), Heading.tangent(), true, null, null);
+        this(pathId, target, constraints, Collections.emptyList(), Heading.tangent(),
+                true, null, null);
     }
 
     /** Full path constructor for the auto request contract. */
@@ -87,7 +89,8 @@ public record PathRequest(
     }
 
     public static Curve curve(Pose end, Pose... controlPoints) {
-        return new Curve(end, controlPoints == null ? List.of() : List.of(controlPoints));
+        return new Curve(end, controlPoints == null ? Collections.emptyList()
+                : Arrays.asList(controlPoints));
     }
 
     public boolean isNamed() {
@@ -196,7 +199,7 @@ public record PathRequest(
     public record Curve(Pose end, List<Pose> controlPoints) implements Segment {
         public Curve {
             Objects.requireNonNull(end, "curve end");
-            controlPoints = controlPoints == null ? List.of()
+            controlPoints = controlPoints == null ? Collections.emptyList()
                     : Collections.unmodifiableList(new ArrayList<>(controlPoints));
             for (Pose point : controlPoints) {
                 Objects.requireNonNull(point, "curve control point");
@@ -204,7 +207,8 @@ public record PathRequest(
         }
 
         public Curve(Pose end, Pose... controlPoints) {
-            this(end, controlPoints == null ? List.of() : List.of(controlPoints));
+            this(end, controlPoints == null ? Collections.emptyList()
+                    : Arrays.asList(controlPoints));
         }
     }
 }

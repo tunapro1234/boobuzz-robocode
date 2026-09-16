@@ -40,9 +40,9 @@ public final class StubIntake implements IIntake {
             return;
         }
         if (power == 0.0) {
-            out.event("intake.off", nowMs, Map.of());
+            out.event("intake.off", nowMs, java.util.Collections.emptyMap());
         } else {
-            out.event("intake.on", nowMs, Map.of());
+            out.event("intake.on", nowMs, java.util.Collections.emptyMap());
         }
         emittedPower = power;
     }

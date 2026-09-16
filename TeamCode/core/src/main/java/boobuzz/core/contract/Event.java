@@ -10,6 +10,7 @@ public record Event(String name, long tMs, Map<String, Double> data) {
 
     public Event {
         name = Objects.requireNonNull(name, "name");
-        data = data == null ? Map.of() : Collections.unmodifiableMap(new LinkedHashMap<>(data));
+        data = data == null ? Collections.emptyMap()
+                : Collections.unmodifiableMap(new LinkedHashMap<>(data));
     }
 }

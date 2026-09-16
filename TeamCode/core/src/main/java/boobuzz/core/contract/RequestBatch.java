@@ -12,7 +12,7 @@ public record RequestBatch(RequestStream stream, List<Request> requests, int[] c
 
     public RequestBatch {
         stream = stream == null ? RequestStream.idle() : stream;
-        requests = requests == null ? List.of()
+        requests = requests == null ? Collections.emptyList()
                 : Collections.unmodifiableList(new ArrayList<>(requests));
         cancels = cancels == null ? new int[0] : cancels.clone();
     }
@@ -22,15 +22,16 @@ public record RequestBatch(RequestStream stream, List<Request> requests, int[] c
     }
 
     public static RequestBatch idle() {
-        return new RequestBatch(RequestStream.idle(), List.of(), new int[0]);
+        return new RequestBatch(RequestStream.idle(), Collections.emptyList(), new int[0]);
     }
 
     public static RequestBatch of(Request request) {
-        return new RequestBatch(RequestStream.idle(), List.of(request), new int[0]);
+        return new RequestBatch(RequestStream.idle(), Collections.singletonList(request), new int[0]);
     }
 
     public static RequestBatch cancelAll() {
-        return new RequestBatch(RequestStream.idle(), List.of(), new int[] {CANCEL_ALL});
+        return new RequestBatch(RequestStream.idle(), Collections.emptyList(),
+                new int[] {CANCEL_ALL});
     }
 
     @Override

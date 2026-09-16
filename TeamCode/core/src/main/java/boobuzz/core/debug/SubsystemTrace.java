@@ -24,7 +24,7 @@ public final class SubsystemTrace {
     /** Immutable call reference retained until the dispatcher serializes it. */
     public record Call(String sub, String op, List<Object> args) {
         public Call {
-            args = args == null ? List.of()
+            args = args == null ? Collections.emptyList()
                     : Collections.unmodifiableList(new ArrayList<>(args));
         }
     }
@@ -38,7 +38,7 @@ public final class SubsystemTrace {
     }
 
     public synchronized void call(String subsystem, String operation, Object... args) {
-        calls.add(new Call(subsystem, operation, List.of(args)));
+        calls.add(new Call(subsystem, operation, java.util.Arrays.asList(args)));
     }
 
     public synchronized List<Call> drainCalls() {

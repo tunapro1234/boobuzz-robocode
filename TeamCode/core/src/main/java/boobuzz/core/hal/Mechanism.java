@@ -26,9 +26,11 @@ public record Mechanism(
     /** Validates the mechanism schema against names reported by the server. */
     public void requireNames(List<String> actualMotors, List<String> actualServos) {
         List<String> expectedM = sorted(motorNames);
-        List<String> gotM = sorted(actualMotors == null ? List.of() : actualMotors);
+        List<String> gotM = sorted(actualMotors == null
+                ? Collections.emptyList() : actualMotors);
         List<String> expectedS = sorted(servoNames);
-        List<String> gotS = sorted(actualServos == null ? List.of() : actualServos);
+        List<String> gotS = sorted(actualServos == null
+                ? Collections.emptyList() : actualServos);
         if (!expectedM.equals(gotM) || !expectedS.equals(gotS)) {
             throw new MechanismException(
                     "RobotConstants motor/servo name lists do not match.\n"
