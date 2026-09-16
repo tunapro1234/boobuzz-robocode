@@ -1,29 +1,25 @@
 package boobuzz.core.logic.cplx_engine_1;
 
-import boobuzz.core.contract.Drive;
 import boobuzz.core.contract.Intent;
-import boobuzz.core.contract.PathRequest;
-import boobuzz.core.contract.Request;
 import boobuzz.core.contract.RequestStatus;
 import boobuzz.core.contract.RobotAction;
 import boobuzz.core.contract.RobotState;
 import boobuzz.core.contract.WorldSnapshot;
+import boobuzz.core.logic.direct_engine.DirectEngine;
 import boobuzz.core.logic.RobotEngine;
 import boobuzz.core.subsystem.Subsystems;
-import boobuzz.core.subsystem.pedro.PedroDrive;
 
-import java.util.ArrayList;
 import java.util.List;
 
 /** Engine that combines the Pedro drive with the shared subsystem set. */
 public final class CplxEngine1 implements RobotEngine {
 
     private final Subsystems subsystems;
-    private List<RequestStatus> pendingStatuses = List.of();
-    private RobotAction lastAction = RobotAction.zero();
+    private final DirectEngine requestEngine;
 
     public CplxEngine1(Subsystems subsystems) {
         this.subsystems = subsystems;
+        this.requestEngine = new DirectEngine(subsystems);
     }
 
     @Override
@@ -40,9 +36,7 @@ public final class CplxEngine1 implements RobotEngine {
 
     @Override
     public void act(Intent intent) {
-        applyDrive(intent.drive());
-        rejectUnsupportedRequests(intent.newRequests());
-        lastAction = subsystems.update();
+        requestEngine.act(intent);
     }
 
     public Subsystems subsystems() {
@@ -51,37 +45,11 @@ public final class CplxEngine1 implements RobotEngine {
 
     @Override
     public RobotAction action() {
-        return lastAction;
+        return requestEngine.action();
     }
 
     @Override
     public List<RequestStatus> drainStatuses() {
-        List<RequestStatus> statuses = pendingStatuses;
-        pendingStatuses = List.of();
-        return statuses;
-    }
-
-    private void applyDrive(Drive command) {
-        if (command instanceof Drive.Manual manual) {
-            subsystems.drive().manual(manual.vx(), manual.vy(), manual.omega());
-        } else if (command instanceof Drive.GoTo goTo) {
-            subsystems.drive().follow(PathRequest.goTo(goTo.target(), goTo.constraints()));
-        } else if (command instanceof Drive.FollowPath path) {
-            subsystems.drive().follow(PathRequest.named(path.pathId()));
-        } else {
-            subsystems.drive().stop();
-        }
-    }
-
-    private void rejectUnsupportedRequests(List<Request> requests) {
-        if (requests.isEmpty()) {
-            return;
-        }
-        List<RequestStatus> statuses = new ArrayList<>(requests.size());
-        for (Request request : requests) {
-            statuses.add(RequestStatus.rejected(
-                    request.id(), "cplx_engine_1 has no subsystem for this request"));
-        }
-        pendingStatuses = List.copyOf(statuses);
+        return requestEngine.drainStatuses();
     }
 }

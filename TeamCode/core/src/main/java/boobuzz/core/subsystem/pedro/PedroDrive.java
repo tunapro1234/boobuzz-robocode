@@ -5,10 +5,15 @@ import boobuzz.core.contract.RobotAction;
 import boobuzz.core.contract.RobotState;
 import boobuzz.core.hal.Mechanism;
 
+import com.pedropathing.algorithm.Foresight;
+import com.pedropathing.config.Modifier;
+import com.pedropathing.api.Paths;
 import com.pedropathing.drivetrain.DrivePowers;
 import com.pedropathing.follower.Follower;
 import com.pedropathing.math.Pose;
+import com.pedropathing.paths.Path;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -28,6 +33,8 @@ public final class PedroDrive implements boobuzz.core.subsystem.Drive {
 
     private boobuzz.core.contract.Drive activeCommand = boobuzz.core.contract.Drive.HOLD;
     private boobuzz.core.contract.Drive startedCommand;
+    private PathRequest activePathRequest;
+    private PathRequest startedPathRequest;
     private long previousStateTimeMs;
     private boolean hasPreviousState;
     private double deltaTimeSeconds;
@@ -58,6 +65,8 @@ public final class PedroDrive implements boobuzz.core.subsystem.Drive {
 
     @Override
     public void manual(double vx, double vy, double omega) {
+        activePathRequest = null;
+        startedPathRequest = null;
         if (!(activeCommand instanceof boobuzz.core.contract.Drive.Manual)) {
             follower.stop();
             startedCommand = null;
@@ -68,13 +77,31 @@ public final class PedroDrive implements boobuzz.core.subsystem.Drive {
     @Override
     public void follow(PathRequest request) {
         Objects.requireNonNull(request, "request");
+        activePathRequest = request;
         activeCommand = request.isNamed()
                 ? new boobuzz.core.contract.Drive.FollowPath(request.pathId())
-                : new boobuzz.core.contract.Drive.GoTo(request.target(), request.constraints());
+                : request.segments().isEmpty()
+                        ? new boobuzz.core.contract.Drive.GoTo(request.target(), request.constraints())
+                        : boobuzz.core.contract.Drive.HOLD;
+    }
+
+    @Override
+    public void turnTo(double headingRad) {
+        Objects.requireNonNull(pose(), "pose");
+        activePathRequest = null;
+        startedPathRequest = null;
+        follower.stop();
+        Pose current = pose();
+        activeCommand = new boobuzz.core.contract.Drive.GoTo(
+                new Pose(current.x(), current.y(), headingRad),
+                boobuzz.core.contract.Drive.Constraints.defaults());
+        startedCommand = null;
     }
 
     @Override
     public void stop() {
+        activePathRequest = null;
+        startedPathRequest = null;
         activeCommand = boobuzz.core.contract.Drive.HOLD;
         follower.stop();
         startedCommand = activeCommand;
@@ -92,6 +119,16 @@ public final class PedroDrive implements boobuzz.core.subsystem.Drive {
 
     @Override
     public void update(RobotAction.Builder out) {
+        if (activePathRequest != null) {
+            if (!Objects.equals(startedPathRequest, activePathRequest)) {
+                start(activePathRequest);
+                startedPathRequest = activePathRequest;
+            }
+            follower.update(deltaTimeSeconds);
+            writeFollowerAction(out);
+            return;
+        }
+
         if (activeCommand instanceof boobuzz.core.contract.Drive.Manual manual) {
             writeManual(manual, out);
             return;
@@ -102,6 +139,10 @@ public final class PedroDrive implements boobuzz.core.subsystem.Drive {
             startedCommand = activeCommand;
         }
         follower.update(deltaTimeSeconds);
+        writeFollowerAction(out);
+    }
+
+    private void writeFollowerAction(RobotAction.Builder out) {
         RobotAction action = drivetrain.lastAction();
         action.motors().forEach(out::motor);
         action.servos().forEach(out::servo);
@@ -116,6 +157,19 @@ public final class PedroDrive implements boobuzz.core.subsystem.Drive {
         }
     }
 
+    private void start(PathRequest request) {
+        if (request.isNamed()) {
+            paths.start(follower, request.pathId());
+            return;
+        }
+        if (request.segments().isEmpty()) {
+            follower.hold(request.target(), request.holdEnd());
+            return;
+        }
+        follower.holdEnd.set(request.holdEnd());
+        follower.follow(withHeadingAndConstraints(buildPath(request), request));
+    }
+
     private void start(boobuzz.core.contract.Drive command) {
         if (command instanceof boobuzz.core.contract.Drive.GoTo goTo) {
             follower.hold(goTo.target());
@@ -126,6 +180,50 @@ public final class PedroDrive implements boobuzz.core.subsystem.Drive {
         } else {
             follower.stop();
         }
+    }
+
+    private Path buildPath(PathRequest request) {
+        Pose start = localizer.pose();
+        List<Path> pieces = new ArrayList<>(request.segments().size());
+        Pose previous = start;
+        for (PathRequest.Segment segment : request.segments()) {
+            if (segment instanceof PathRequest.Line line) {
+                pieces.add(Paths.line(previous, line.end()));
+            } else if (segment instanceof PathRequest.Curve curve) {
+                List<Pose> points = new ArrayList<>(curve.controlPoints().size() + 2);
+                points.add(previous);
+                points.addAll(curve.controlPoints());
+                points.add(curve.end());
+                pieces.add(points.size() == 2
+                        ? Paths.line(previous, curve.end())
+                        : Paths.curve(points.toArray(Pose[]::new)));
+            }
+            previous = segment.end();
+        }
+        return Paths.path(pieces.toArray(Path[]::new));
+    }
+
+    private Path withHeadingAndConstraints(Path path, PathRequest request) {
+        PathRequest.Heading heading = request.heading();
+        path = switch (heading.mode()) {
+            case TANGENT -> path.tangent();
+            case TANGENT_REVERSE -> path.reverseTangent();
+            case CONSTANT -> path.constant(heading.start());
+            case LINEAR -> path.linear(heading.start(), heading.end());
+        };
+        if (!(follower.algorithm() instanceof Foresight foresight)) {
+            return path;
+        }
+        List<Modifier> modifiers = new ArrayList<>(3);
+        if (request.velocityConstraint() != null) {
+            modifiers.add(foresight.config.velocityConstraint.at(request.velocityConstraint()));
+        }
+        if (request.braking() != null) {
+            modifiers.add(foresight.config.maxBrakingPower.at(request.braking().strength()));
+            modifiers.add(foresight.config.maxDecelerationScale.at(
+                    request.braking().startMultiplier()));
+        }
+        return modifiers.isEmpty() ? path : path.with(modifiers.toArray(Modifier[]::new));
     }
 
     static String[] wheelNames(Mechanism mechanism) {

@@ -29,6 +29,7 @@ public final class DirectEngine implements RobotEngine {
     private ShootJob shoot;
     private SpinJob spin;
     private GotoJob goTo;
+    private MotionJob motion;
 
     public DirectEngine(Subsystems subsystems) {
         this.subsystems = Objects.requireNonNull(subsystems, "subsystems");
@@ -75,14 +76,20 @@ public final class DirectEngine implements RobotEngine {
     }
 
     private void applyDrive(Drive command) {
+        if (command == null) {
+            return;
+        }
         if (command instanceof Drive.Manual manual) {
+            motion = null;
             subsystems.drive().manual(manual.vx(), manual.vy(), manual.omega());
         } else if (command instanceof Drive.GoTo goToCommand) {
+            motion = null;
             subsystems.drive().follow(
                     PathRequest.goTo(goToCommand.target(), goToCommand.constraints()));
         } else if (command instanceof Drive.FollowPath path) {
+            motion = null;
             subsystems.drive().follow(PathRequest.named(path.pathId()));
-        } else {
+        } else if (motion == null) {
             subsystems.drive().stop();
         }
     }
@@ -93,14 +100,37 @@ public final class DirectEngine implements RobotEngine {
             case SHOOT -> startShoot(request, statuses);
             case SPIN_UP -> startSpin(request, statuses);
             case GOTO -> startGoto(request, statuses);
+            case PATH -> startPath(request, statuses);
+            case TURN_TO -> startTurn(request, statuses);
             case INTAKE, INTAKE_ON -> startIntake(request, statuses);
             case INTAKE_OFF -> {
                 subsystems.intake().stop();
                 statuses.add(RequestStatus.done(request.id()));
             }
-            case PATH, TURN_TO -> statuses.add(RequestStatus.rejected(
-                    request.id(), type + " is not supported by the direct engine"));
         }
+    }
+
+    private void startPath(Request request, List<RequestStatus> statuses) {
+        if (motion != null || request.path() == null) {
+            statuses.add(RequestStatus.rejected(request.id(), "drive already has a request"));
+            return;
+        }
+        subsystems.drive().follow(request.path());
+        motion = new MotionJob(request.id(), "following");
+    }
+
+    private void startTurn(Request request, List<RequestStatus> statuses) {
+        if (motion != null) {
+            statuses.add(RequestStatus.rejected(request.id(), "drive already has a request"));
+            return;
+        }
+        double heading = request.param(0, Double.NaN);
+        if (!Double.isFinite(heading)) {
+            statuses.add(RequestStatus.rejected(request.id(), "TURN_TO requires a finite heading"));
+            return;
+        }
+        subsystems.drive().turnTo(heading);
+        motion = new MotionJob(request.id(), "turning");
     }
 
     private void startShoot(Request request, List<RequestStatus> statuses) {
@@ -133,6 +163,10 @@ public final class DirectEngine implements RobotEngine {
     }
 
     private void startGoto(Request request, List<RequestStatus> statuses) {
+        if (motion != null) {
+            statuses.add(RequestStatus.rejected(request.id(), "drive already has a request"));
+            return;
+        }
         if (request.params() == null || request.params().length < 3) {
             statuses.add(RequestStatus.rejected(request.id(), "GOTO requires x, y, heading"));
             return;
@@ -194,6 +228,17 @@ public final class DirectEngine implements RobotEngine {
                 statuses.add(active(goTo.id, 0.0, "following"));
             }
         }
+        if (motion != null) {
+            if (!motion.started) {
+                motion.started = true;
+                statuses.add(active(motion.id, 0.0, motion.note));
+            } else if (subsystems.drive().pathDone()) {
+                statuses.add(RequestStatus.done(motion.id));
+                motion = null;
+            } else {
+                statuses.add(active(motion.id, 0.0, motion.note));
+            }
+        }
     }
 
     private static RequestStatus active(int id, double progress, String note) {
@@ -227,6 +272,17 @@ public final class DirectEngine implements RobotEngine {
         private GotoJob(int id, boolean started) {
             this.id = id;
             this.started = started;
+        }
+    }
+
+    private static final class MotionJob {
+        private final int id;
+        private final String note;
+        private boolean started;
+
+        private MotionJob(int id, String note) {
+            this.id = id;
+            this.note = note;
         }
     }
 }

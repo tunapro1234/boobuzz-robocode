@@ -11,6 +11,13 @@ public interface Drive extends Subsystem {
 
     void follow(PathRequest request);
 
+    /** Rotate in place to a heading without translating. */
+    default void turnTo(double headingRad) {
+        Pose current = pose();
+        follow(PathRequest.goTo(new Pose(current.x(), current.y(), headingRad),
+                boobuzz.core.contract.Drive.Constraints.defaults()));
+    }
+
     void stop();
 
     boolean pathDone();
