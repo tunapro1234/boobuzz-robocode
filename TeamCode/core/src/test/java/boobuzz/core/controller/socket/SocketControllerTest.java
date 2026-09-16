@@ -4,6 +4,7 @@ import boobuzz.core.contract.Feedback;
 import boobuzz.core.contract.PathRequest;
 import boobuzz.core.contract.Request;
 import boobuzz.core.contract.RequestBatch;
+import boobuzz.core.contract.RequestStatus;
 import boobuzz.core.contract.RobotAction;
 import boobuzz.core.contract.RobotState;
 import boobuzz.core.logic.IRobotEngine;
@@ -145,6 +146,52 @@ public class SocketControllerTest {
         assertThreadsGone("control-socket-accept-", 1000);
         assertThreadsGone("control-socket-reader-", 1000);
         assertThreadsGone("control-socket-feedback", 1000);
+    }
+
+    @Test
+    public void slowFeedbackClientCannotStarveAReconnect() throws Exception {
+        int port;
+        try (ServerSocket probe = new ServerSocket(0)) {
+            port = probe.getLocalPort();
+        }
+        try (SocketController controller = new SocketController(port, 1000);
+             Socket slow = new Socket("127.0.0.1", port)) {
+            slow.setReceiveBufferSize(128);
+            waitForClient(controller);
+            List<RequestStatus> statuses = new java.util.ArrayList<>();
+            for (int i = 0; i < 80; i++) {
+                statuses.add(new RequestStatus(i, RequestStatus.State.ACTIVE,
+                        0.0, "feedback-status-padding"));
+            }
+            Feedback feedback = new Feedback(
+                    new boobuzz.core.contract.WorldSnapshot(9, Pose.zero(), 0.0, 12.0),
+                    statuses, 9);
+            long start = System.nanoTime();
+            for (int i = 0; i < 5000; i++) {
+                controller.decide(feedback);
+            }
+            long elapsedMs = (System.nanoTime() - start) / 1_000_000L;
+            assertTrue("feedback publication must remain bounded", elapsedMs < 500);
+            for (int i = 0; i < 100 && controller.feedbackDrops() == 0; i++) {
+                Thread.sleep(5);
+            }
+            assertTrue("slow feedback pressure should be accounted for",
+                    controller.feedbackDrops() > 0);
+
+            slow.close();
+            for (int i = 0; i < 100 && controller.clientConnected(); i++) {
+                Thread.sleep(5);
+            }
+            try (Socket fast = new Socket("127.0.0.1", port)) {
+                fast.setSoTimeout(2000);
+                waitForClient(controller);
+                controller.decide(feedback);
+                BufferedReader reader = new BufferedReader(new InputStreamReader(
+                        fast.getInputStream(), StandardCharsets.UTF_8));
+                Map<String, Object> echo = JsonCodec.parseObject(reader.readLine());
+                assertEquals("feedback", JsonCodec.str(echo, "type", ""));
+            }
+        }
     }
 
     private static void assertTimeoutStops(IRobotEngine engine) throws Exception {

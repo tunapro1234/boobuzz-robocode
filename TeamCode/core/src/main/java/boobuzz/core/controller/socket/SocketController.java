@@ -34,7 +34,7 @@ public final class SocketController implements boobuzz.core.controller.IControll
     private final long timeoutNanos;
     private final ServerSocket server;
     private final Thread acceptThread;
-    private final Thread writerThread;
+    private final Thread feedbackDispatchThread;
     private final AtomicReference<Connection> connection = new AtomicReference<>();
     private final AtomicReference<RequestBatch> latest =
             new AtomicReference<>(RequestBatch.idle());
@@ -77,9 +77,9 @@ public final class SocketController implements boobuzz.core.controller.IControll
             acceptThread.setDaemon(true);
             acceptThread.start();
         }
-        writerThread = new Thread(this::writeLoop, "control-socket-feedback");
-        writerThread.setDaemon(true);
-        writerThread.start();
+        feedbackDispatchThread = new Thread(this::writeLoop, "control-socket-feedback");
+        feedbackDispatchThread.setDaemon(true);
+        feedbackDispatchThread.start();
     }
 
     public int port() {
@@ -143,9 +143,9 @@ public final class SocketController implements boobuzz.core.controller.IControll
                 Thread.currentThread().interrupt();
             }
         }
-        writerThread.interrupt();
+        feedbackDispatchThread.interrupt();
         try {
-            writerThread.join(1000);
+            feedbackDispatchThread.join(1000);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
@@ -208,12 +208,7 @@ public final class SocketController implements boobuzz.core.controller.IControll
                 root.put("type", "feedback");
                 root.put("t_ms", feedback.t());
                 root.put("feedback", SeamJson.feedbackMap(feedback));
-                try {
-                    target.write(JsonCodec.stringify(root));
-                } catch (IOException e) {
-                    connection.compareAndSet(target, null);
-                    target.close();
-                }
+                target.offer(JsonCodec.stringify(root));
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -227,6 +222,9 @@ public final class SocketController implements boobuzz.core.controller.IControll
         private final BufferedReader reader;
         private final BufferedWriter writer;
         private final Thread readerThread;
+        private final ArrayBlockingQueue<String> outbound =
+                new ArrayBlockingQueue<>(FEEDBACK_QUEUE_CAPACITY);
+        private final Thread writerThread;
         private volatile boolean open = true;
 
         private Connection(Socket socket) throws IOException {
@@ -238,13 +236,37 @@ public final class SocketController implements boobuzz.core.controller.IControll
             readerThread = new Thread(() -> readLoop(this),
                     "control-socket-reader-" + socket.getRemoteSocketAddress());
             readerThread.setDaemon(true);
+            writerThread = new Thread(this::writeLoop,
+                    "control-socket-writer-" + socket.getRemoteSocketAddress());
+            writerThread.setDaemon(true);
+            writerThread.start();
         }
 
-        private synchronized void write(String line) throws IOException {
-            if (!open) throw new SocketException("control socket is closed");
-            writer.write(line);
-            writer.newLine();
-            writer.flush();
+        private void offer(String line) {
+            if (!open || !running) return;
+            if (outbound.offer(line)) return;
+            outbound.poll();
+            feedbackDrops.incrementAndGet();
+            if (!outbound.offer(line)) feedbackDrops.incrementAndGet();
+        }
+
+        private void writeLoop() {
+            try {
+                while (open || !outbound.isEmpty()) {
+                    String line = outbound.poll(100, TimeUnit.MILLISECONDS);
+                    if (line == null) continue;
+                    writer.write(line);
+                    writer.newLine();
+                    writer.flush();
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            } catch (IOException e) {
+                if (open) {
+                    connection.compareAndSet(this, null);
+                    close();
+                }
+            }
         }
 
         @Override
@@ -268,6 +290,14 @@ public final class SocketController implements boobuzz.core.controller.IControll
             if (readerThread != Thread.currentThread()) {
                 try {
                     readerThread.join(1000);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+            writerThread.interrupt();
+            if (writerThread != Thread.currentThread()) {
+                try {
+                    writerThread.join(1000);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                 }
