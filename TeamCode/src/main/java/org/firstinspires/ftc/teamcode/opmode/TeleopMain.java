@@ -43,18 +43,22 @@ public class TeleopMain extends LinearOpMode {
 
         telemetry.addLine("RealHal + shared core ready. Press Start.");
         telemetry.update();
-        waitForStart();
+        try {
+            waitForStart();
 
-        while (opModeIsActive()) {
-            robot.tick();
-            telemetry.addData("engine", robot.engine().name());
-            telemetry.addData("ticks", robot.ticks());
-            telemetry.update();
-            // Yield to the FTC scheduler so the watchdog and hardware threads run.
-            idle();
-        }
-        if (socketController != null) {
-            socketController.close();
+            while (opModeIsActive()) {
+                robot.tick();
+                telemetry.addData("engine", robot.engine().name());
+                telemetry.addData("ticks", robot.ticks());
+                telemetry.update();
+                // Yield to the FTC scheduler so the watchdog and hardware threads run.
+                idle();
+            }
+        } finally {
+            robot.close();
+            if (socketController != null) {
+                socketController.close();
+            }
         }
     }
 }

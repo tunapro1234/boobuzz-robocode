@@ -128,6 +128,25 @@ public class SocketControllerTest {
         }
     }
 
+    @Test
+    public void closeJoinsSocketThreadsWithinBound() throws Exception {
+        int port;
+        try (ServerSocket probe = new ServerSocket(0)) {
+            port = probe.getLocalPort();
+        }
+        SocketController controller = new SocketController(port, 60);
+        Socket client = new Socket("127.0.0.1", port);
+        try {
+            waitForClient(controller);
+        } finally {
+            client.close();
+            controller.close();
+        }
+        assertThreadsGone("control-socket-accept-", 1000);
+        assertThreadsGone("control-socket-reader-", 1000);
+        assertThreadsGone("control-socket-feedback", 1000);
+    }
+
     private static void assertTimeoutStops(IRobotEngine engine) throws Exception {
         RecordingDrive drive = (RecordingDrive) (engine instanceof DirectEngine
                 ? ((DirectEngine) engine).subsystems().drive()
@@ -214,5 +233,29 @@ public class SocketControllerTest {
         }
         @Override public boolean pathDone() { return false; }
         @Override public Pose pose() { return Pose.zero(); }
+    }
+
+    private static void assertThreadsGone(String prefix, long timeoutMs)
+            throws InterruptedException {
+        long deadline = System.nanoTime() + timeoutMs * 1_000_000L;
+        while (System.nanoTime() < deadline) {
+            boolean alive = false;
+            for (Thread thread : Thread.getAllStackTraces().keySet()) {
+                if (thread.isAlive() && thread.getName().startsWith(prefix)) {
+                    alive = true;
+                    break;
+                }
+            }
+            if (!alive) return;
+            Thread.sleep(5);
+        }
+        assertTrue("thread still alive: " + prefix, noLiveThread(prefix));
+    }
+
+    private static boolean noLiveThread(String prefix) {
+        for (Thread thread : Thread.getAllStackTraces().keySet()) {
+            if (thread.isAlive() && thread.getName().startsWith(prefix)) return false;
+        }
+        return true;
     }
 }

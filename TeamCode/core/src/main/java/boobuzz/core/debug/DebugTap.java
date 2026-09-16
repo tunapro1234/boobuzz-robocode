@@ -127,6 +127,11 @@ public final class DebugTap implements AutoCloseable {
         }
         if (acceptThread != null) {
             acceptThread.interrupt();
+            try {
+                acceptThread.join(1000);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
         }
         dispatchThread.interrupt();
         try {

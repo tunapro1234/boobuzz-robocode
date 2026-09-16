@@ -32,25 +32,29 @@ public abstract class AutoMain extends LinearOpMode {
         telemetry.addData("steps", sequence.size());
         telemetry.addLine("Ready. Press Start.");
         telemetry.update();
-        waitForStart();
+        try {
+            waitForStart();
 
-        while (opModeIsActive() && !controller.isFinished()) {
-            robot.tick();
-            telemetry.addData("step", sequence.index() + "/" + sequence.size());
-            telemetry.addData("command", sequence.currentName());
+            while (opModeIsActive() && !controller.isFinished()) {
+                robot.tick();
+                telemetry.addData("step", sequence.index() + "/" + sequence.size());
+                telemetry.addData("command", sequence.currentName());
+                telemetry.update();
+                // Yield to the FTC scheduler so the watchdog and hardware threads run.
+                idle();
+            }
+
+            if (controller.isFailed()) {
+                telemetry.addData("auto failure", controller.failureNote());
+            } else {
+                telemetry.addLine("Auto complete");
+            }
+            Pose pose = hal.read().pinpoint();
+            telemetry.addData("final pose", "(%.1f, %.1f, %.1f deg)",
+                    pose.x(), pose.y(), Math.toDegrees(pose.heading()));
             telemetry.update();
-            // Yield to the FTC scheduler so the watchdog and hardware threads run.
-            idle();
+        } finally {
+            robot.close();
         }
-
-        if (controller.isFailed()) {
-            telemetry.addData("auto failure", controller.failureNote());
-        } else {
-            telemetry.addLine("Auto complete");
-        }
-        Pose pose = hal.read().pinpoint();
-        telemetry.addData("final pose", "(%.1f, %.1f, %.1f deg)",
-                pose.x(), pose.y(), Math.toDegrees(pose.heading()));
-        telemetry.update();
     }
 }

@@ -95,6 +95,24 @@ public class DebugTapTest {
         }
     }
 
+    @Test
+    public void closeJoinsTapThreadsWithinBound() throws Exception {
+        int port;
+        try (ServerSocket probe = new ServerSocket(0)) {
+            port = probe.getLocalPort();
+        }
+        DebugTap tap = new DebugTap(port);
+        Socket client = new Socket("127.0.0.1", port);
+        try {
+            waitForClient(tap);
+        } finally {
+            client.close();
+            tap.close();
+        }
+        assertThreadsGone("debug-tap-accept-", 1000);
+        assertThreadsGone("debug-tap-dispatch", 1000);
+    }
+
     private static void waitForClient(DebugTap tap) throws InterruptedException {
         waitForClients(tap, 1);
     }
@@ -112,5 +130,29 @@ public class DebugTapTest {
         Feedback feedback = Feedback.of(new WorldSnapshot(t, Pose.zero(), 0.0, 12.0));
         return new DebugFrame(state, RobotAction.zero(), java.util.List.of(), feedback,
                 boobuzz.core.contract.RequestBatch.idle());
+    }
+
+    private static void assertThreadsGone(String prefix, long timeoutMs)
+            throws InterruptedException {
+        long deadline = System.nanoTime() + timeoutMs * 1_000_000L;
+        while (System.nanoTime() < deadline) {
+            boolean alive = false;
+            for (Thread thread : Thread.getAllStackTraces().keySet()) {
+                if (thread.isAlive() && thread.getName().startsWith(prefix)) {
+                    alive = true;
+                    break;
+                }
+            }
+            if (!alive) return;
+            Thread.sleep(5);
+        }
+        assertTrue("thread still alive: " + prefix, noLiveThread(prefix));
+    }
+
+    private static boolean noLiveThread(String prefix) {
+        for (Thread thread : Thread.getAllStackTraces().keySet()) {
+            if (thread.isAlive() && thread.getName().startsWith(prefix)) return false;
+        }
+        return true;
     }
 }

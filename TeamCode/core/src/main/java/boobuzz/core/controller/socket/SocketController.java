@@ -135,7 +135,14 @@ public final class SocketController implements boobuzz.core.controller.IControll
         if (current != null) {
             current.close();
         }
-        if (acceptThread != null) acceptThread.interrupt();
+        if (acceptThread != null) {
+            acceptThread.interrupt();
+            try {
+                acceptThread.join(1000);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
         writerThread.interrupt();
         try {
             writerThread.join(1000);
@@ -257,6 +264,13 @@ public final class SocketController implements boobuzz.core.controller.IControll
                 socket.close();
             } catch (IOException ignored) {
                 // Already closed.
+            }
+            if (readerThread != Thread.currentThread()) {
+                try {
+                    readerThread.join(1000);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
             }
         }
     }

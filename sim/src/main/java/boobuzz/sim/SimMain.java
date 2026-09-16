@@ -95,33 +95,35 @@ public final class SimMain {
                         a.drive[0], a.drive[1], a.drive[2]);
             }
 
-            RobotLoop loop;
-            boolean tracing = a.tapPort != 0 || a.bag != null;
-            if (replayController != null) {
-                loop = RobotFactory.createWithController(
-                        hal, mechanism, a.engine, replayController, a.tapPort, tracing);
-            } else if (socketController != null) {
-                loop = RobotFactory.createWithController(
-                        hal, mechanism, a.engine, socketController, a.tapPort, tracing);
-            } else if (autoController != null) {
-                loop = RobotFactory.createWithController(
-                        hal, mechanism, a.engine, autoController, a.tapPort, tracing);
-            } else if (fixedController != null) {
-                loop = RobotFactory.createWithController(
-                        hal, mechanism, a.engine, fixedController, a.tapPort, tracing);
-            } else if (fixedStream != null) {
-                loop = RobotFactory.create(hal, mechanism, a.engine, fixedStream,
-                        a.tapPort, tracing);
-            } else {
-                loop = RobotFactory.createWithController(
-                        hal, mechanism, a.engine, new boobuzz.core.controller.teleop.TeleopController(hal),
-                        a.tapPort, tracing);
-            }
-            if (a.bag != null && replayController == null
-                    && !loop.openBag(Path.of(a.bag), controllerName(a), startPose)) {
-                throw new IllegalStateException("could not open bag: " + a.bag);
-            }
-            System.out.printf("engine: %s%n", loop.engine().name());
+            RobotLoop loop = null;
+            try {
+                boolean tracing = a.tapPort != 0 || a.bag != null;
+                if (replayController != null) {
+                    loop = RobotFactory.createWithController(
+                            hal, mechanism, a.engine, replayController, a.tapPort, tracing);
+                } else if (socketController != null) {
+                    loop = RobotFactory.createWithController(
+                            hal, mechanism, a.engine, socketController, a.tapPort, tracing);
+                } else if (autoController != null) {
+                    loop = RobotFactory.createWithController(
+                            hal, mechanism, a.engine, autoController, a.tapPort, tracing);
+                } else if (fixedController != null) {
+                    loop = RobotFactory.createWithController(
+                            hal, mechanism, a.engine, fixedController, a.tapPort, tracing);
+                } else if (fixedStream != null) {
+                    loop = RobotFactory.create(hal, mechanism, a.engine, fixedStream,
+                            a.tapPort, tracing);
+                } else {
+                    loop = RobotFactory.createWithController(
+                            hal, mechanism, a.engine,
+                            new boobuzz.core.controller.teleop.TeleopController(hal),
+                            a.tapPort, tracing);
+                }
+                if (a.bag != null && replayController == null
+                        && !loop.openBag(Path.of(a.bag), controllerName(a), startPose)) {
+                    throw new IllegalStateException("could not open bag: " + a.bag);
+                }
+                System.out.printf("engine: %s%n", loop.engine().name());
 
             long wallStart = System.nanoTime();
             for (int i = 0; i < a.steps; i++) {
@@ -163,13 +165,13 @@ public final class SimMain {
                 } else {
                     System.out.printf("auto unfinished: %d/%d steps; %s%n",
                             sequence.index(), sequence.size(), autoController.failureNote());
-                    loop.close();
-                    if (socketController != null) socketController.close();
                     return 1;
                 }
             }
-            loop.close();
-            if (socketController != null) socketController.close();
+            } finally {
+                if (loop != null) loop.close();
+                if (socketController != null) socketController.close();
+            }
         }
         return 0;
     }
