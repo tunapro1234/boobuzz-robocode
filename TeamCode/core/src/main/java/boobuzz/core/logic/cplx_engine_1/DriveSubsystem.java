@@ -59,12 +59,12 @@ public final class DriveSubsystem implements Subsystem {
     public void update(Intent intent, RobotAction.Builder out) {
         rejectUnsupportedRequests(intent);
         Drive drive = intent.drive();
-        if (drive instanceof Drive.Manual) {
+        if (drive instanceof Drive.Manual manual) {
             if (!(activeDrive instanceof Drive.Manual)) {
                 follower.stop();
             }
             activeDrive = drive;
-            writeManual(drive, out);
+            writeManual(manual, out);
             return;
         }
 
@@ -98,17 +98,9 @@ public final class DriveSubsystem implements Subsystem {
         pendingStatuses = List.copyOf(statuses);
     }
 
-    private void writeManual(Drive drive, RobotAction.Builder out) {
-        double vx = 0.0;
-        double vy = 0.0;
-        double omega = 0.0;
-        if (drive instanceof Drive.Manual manual) {
-            vx = manual.vx();
-            vy = manual.vy();
-            omega = manual.omega();
-        }
-
-        double[] powers = HalDrivetrain.normalizedMecanum(new DrivePowers(vx, vy, omega));
+    private void writeManual(Drive.Manual manual, RobotAction.Builder out) {
+        double[] powers = HalDrivetrain.normalizedMecanum(
+                new DrivePowers(manual.vx(), manual.vy(), manual.omega()));
         for (int i = 0; i < powers.length; i++) {
             out.motor(motorNames[i], powers[i]);
         }
