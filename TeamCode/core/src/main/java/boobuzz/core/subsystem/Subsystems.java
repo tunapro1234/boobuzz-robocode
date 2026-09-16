@@ -6,7 +6,7 @@ import boobuzz.core.contract.RobotState;
 import java.util.Objects;
 
 /** The fixed-order set of robot subsystems. */
-public record Subsystems(Drive drive, Shooter shooter, Intake intake) {
+public record Subsystems(IDrive drive, IShooter shooter, IIntake intake) {
 
     public Subsystems {
         Objects.requireNonNull(drive, "drive");

@@ -1,16 +1,16 @@
 package boobuzz.core;
 
 import boobuzz.core.contract.Drive;
-import boobuzz.core.controller.GamepadController;
+import boobuzz.core.controller.teleop.TeleopController;
 import boobuzz.core.contract.Intent;
 import boobuzz.core.contract.RobotAction;
 import boobuzz.core.contract.RobotState;
-import boobuzz.core.logic.cplx_engine_1.CplxEngine1;
+import boobuzz.core.logic.cplx1.CplxEngine1;
 import boobuzz.core.contract.GamepadState;
-import boobuzz.core.hal.Hal;
+import boobuzz.core.hal.IHal;
 import boobuzz.core.hal.Mechanism;
-import boobuzz.core.subsystem.StubIntake;
-import boobuzz.core.subsystem.StubShooter;
+import boobuzz.core.subsystem.stub.StubIntake;
+import boobuzz.core.subsystem.stub.StubShooter;
 import boobuzz.core.subsystem.Subsystems;
 import boobuzz.core.subsystem.pedro.PedroDrive;
 
@@ -27,7 +27,7 @@ import static org.junit.Assert.assertEquals;
 public class RobotLoopTest {
 
     /** Recording fake HAL. No socket or Python. */
-    private static final class FakeHal implements Hal {
+    private static final class FakeHal implements IHal {
         long t = 0;
         final int dtMs = 20;
         GamepadState pad = GamepadState.neutral();
@@ -72,7 +72,7 @@ public class RobotLoopTest {
         FakeHal hal = new FakeHal();
         hal.pad = new GamepadState(0.02, -0.03, 0.01, 0,
                 false, false, false, false, false, false, 0, 0, GamepadState.Dpad.NONE);
-        Drive.Manual m = (Drive.Manual) new GamepadController(hal).decide(null).drive();
+        Drive.Manual m = (Drive.Manual) new TeleopController(hal).decide(null).drive();
         assertEquals(0.0, m.vx(), 1e-9);
         assertEquals(0.0, m.vy(), 1e-9);
         assertEquals(0.0, m.omega(), 1e-9);
@@ -84,7 +84,7 @@ public class RobotLoopTest {
         hal.pad = new GamepadState(0, -1.0, 0, 0,
                 false, false, false, false, false, false, 0, 0, GamepadState.Dpad.NONE);
         RobotLoop loop = new RobotLoop(hal, new CplxEngine1(subsystems()),
-                new GamepadController(hal));
+                new TeleopController(hal));
         loop.tick();
 
         RobotAction a = hal.written.get(0);

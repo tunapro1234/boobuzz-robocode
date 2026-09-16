@@ -7,7 +7,7 @@ simulator client.
 ## Modules
 
 - `:core` lives at `TeamCode/core`. It is a Java 17 library containing the HAL
-  contracts, controller, subsystem, and `cplx_engine_1` logic. It has no FTC or
+  contracts, controller, subsystem, and `cplx1` logic. It has no FTC or
   Android dependency; `gradle/sdk-guard.gradle` enforces that boundary.
 - `:sim` is the Java 17 command-line simulator adapter (`SimMain`). It depends
   on `:core`, never on `TeamCode`, and speaks the line-delimited JSON protocol

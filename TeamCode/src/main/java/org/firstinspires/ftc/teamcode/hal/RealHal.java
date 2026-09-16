@@ -1,7 +1,7 @@
 package org.firstinspires.ftc.teamcode.hal;
 
 import boobuzz.core.contract.GamepadState;
-import boobuzz.core.hal.Hal;
+import boobuzz.core.hal.IHal;
 import boobuzz.core.contract.RobotAction;
 import boobuzz.core.contract.RobotState;
 import boobuzz.core.hal.Mechanism;
@@ -20,8 +20,8 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 
-/** Real L1 adapter from FTC devices to the pure-Java {@link Hal} contract. */
-public final class RealHal implements Hal {
+/** Real L1 adapter from FTC devices to the pure-Java {@link IHal} contract. */
+public final class RealHal implements IHal {
 
     private final Mechanism mechanism;
     private final Gamepad gamepad;

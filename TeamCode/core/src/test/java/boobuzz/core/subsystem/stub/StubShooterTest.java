@@ -1,4 +1,4 @@
-package boobuzz.core.subsystem;
+package boobuzz.core.subsystem.stub;
 
 import boobuzz.core.contract.RobotAction;
 import boobuzz.core.contract.RobotState;

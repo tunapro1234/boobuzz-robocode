@@ -1,18 +1,18 @@
-package boobuzz.core.logic.cplx_engine_1;
+package boobuzz.core.logic.cplx1;
 
 import boobuzz.core.contract.Intent;
 import boobuzz.core.contract.RequestStatus;
 import boobuzz.core.contract.RobotAction;
 import boobuzz.core.contract.RobotState;
 import boobuzz.core.contract.WorldSnapshot;
-import boobuzz.core.logic.direct_engine.DirectEngine;
-import boobuzz.core.logic.RobotEngine;
+import boobuzz.core.logic.direct.DirectEngine;
+import boobuzz.core.logic.IRobotEngine;
 import boobuzz.core.subsystem.Subsystems;
 
 import java.util.List;
 
 /** Engine that combines the Pedro drive with the shared subsystem set. */
-public final class CplxEngine1 implements RobotEngine {
+public final class CplxEngine1 implements IRobotEngine {
 
     private final Subsystems subsystems;
     private final DirectEngine requestEngine;
@@ -24,7 +24,7 @@ public final class CplxEngine1 implements RobotEngine {
 
     @Override
     public String name() {
-        return "cplx_engine_1";
+        return "cplx1";
     }
 
     @Override

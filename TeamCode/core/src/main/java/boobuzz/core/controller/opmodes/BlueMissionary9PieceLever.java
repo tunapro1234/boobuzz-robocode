@@ -1,4 +1,4 @@
-package boobuzz.core.controller.autos;
+package boobuzz.core.controller.opmodes;
 
 import boobuzz.core.controller.auto.AutoBuilder;
 import boobuzz.core.controller.auto.AutoSequence;

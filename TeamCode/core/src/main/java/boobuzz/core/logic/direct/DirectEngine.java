@@ -1,4 +1,4 @@
-package boobuzz.core.logic.direct_engine;
+package boobuzz.core.logic.direct;
 
 import boobuzz.core.contract.Drive;
 import boobuzz.core.contract.Intent;
@@ -9,9 +9,9 @@ import boobuzz.core.contract.RequestType;
 import boobuzz.core.contract.RobotAction;
 import boobuzz.core.contract.RobotState;
 import boobuzz.core.contract.WorldSnapshot;
-import boobuzz.core.logic.RobotEngine;
-import boobuzz.core.subsystem.Intake;
-import boobuzz.core.subsystem.Shooter;
+import boobuzz.core.logic.IRobotEngine;
+import boobuzz.core.subsystem.IIntake;
+import boobuzz.core.subsystem.IShooter;
 import boobuzz.core.subsystem.Subsystems;
 
 import com.pedropathing.math.Pose;
@@ -21,7 +21,7 @@ import java.util.List;
 import java.util.Objects;
 
 /** Zero-intelligence engine that forwards intents directly to mechanisms. */
-public final class DirectEngine implements RobotEngine {
+public final class DirectEngine implements IRobotEngine {
 
     private final Subsystems subsystems;
     private List<RequestStatus> pendingStatuses = List.of();
@@ -177,7 +177,7 @@ public final class DirectEngine implements RobotEngine {
     }
 
     private void startIntake(Request request, List<RequestStatus> statuses) {
-        Intake intake = subsystems.intake();
+        IIntake intake = subsystems.intake();
         if (request.type() == RequestType.INTAKE_ON) {
             intake.run(request.param(0, 1.0));
         } else if (request.param(0, 0.0) == 0.0) {
@@ -189,7 +189,7 @@ public final class DirectEngine implements RobotEngine {
     }
 
     private void advance(List<RequestStatus> statuses) {
-        Shooter shooter = subsystems.shooter();
+        IShooter shooter = subsystems.shooter();
         if (spin != null) {
             if (shooter.isReady()) {
                 statuses.add(RequestStatus.done(spin.id));

@@ -18,7 +18,7 @@ import java.util.List;
 import java.util.Objects;
 
 /** Drive subsystem backed by the Pedro follower and the HAL motor seam. */
-public final class PedroDrive implements boobuzz.core.subsystem.Drive {
+public final class PedroDrive implements boobuzz.core.subsystem.IDrive {
 
     private static final int FL = 0;
     private static final int FR = 1;

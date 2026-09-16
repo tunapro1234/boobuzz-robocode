@@ -1,12 +1,13 @@
-package boobuzz.core.subsystem;
+package boobuzz.core.subsystem.stub;
 
 import boobuzz.core.contract.RobotAction;
 import boobuzz.core.contract.RobotState;
+import boobuzz.core.subsystem.IIntake;
 
 import java.util.Map;
 
 /** Timing-free intake stub that records commands and emits state-change events. */
-public final class StubIntake implements Intake {
+public final class StubIntake implements IIntake {
 
     private double power;
     private double emittedPower;

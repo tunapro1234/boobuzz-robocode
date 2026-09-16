@@ -9,6 +9,6 @@ import boobuzz.core.contract.Intent;
  * interface, not a separate path.
  */
 @FunctionalInterface
-public interface Controller {
+public interface IController {
     Intent decide(Feedback feedback);
 }

@@ -1,8 +1,8 @@
-package boobuzz.core.controller;
+package boobuzz.core.controller.teleop;
 
 import boobuzz.core.contract.Drive;
 import boobuzz.core.contract.Feedback;
-import boobuzz.core.contract.GamepadSource;
+import boobuzz.core.contract.IGamepadSource;
 import boobuzz.core.contract.GamepadState;
 import boobuzz.core.contract.Intent;
 
@@ -26,18 +26,20 @@ import com.pedropathing.math.Pose;
  * touch HAL; it is an offset held here (constitution rule 3: :core does not know
  * which hardware is present and does not recalibrate the sensor).
  */
-public final class GamepadController implements Controller {
+import boobuzz.core.controller.IController;
+
+public final class TeleopController implements IController {
 
     private static final double DEADBAND = 0.05;
 
-    private final GamepadSource gamepads;
+    private final IGamepadSource gamepads;
 
     private boolean fieldOriented = true;
     private double headingOffset = 0.0;
     private boolean prevToggle;
     private boolean prevReset;
 
-    public GamepadController(GamepadSource gamepads) {
+    public TeleopController(IGamepadSource gamepads) {
         this.gamepads = gamepads;
     }
 

@@ -5,7 +5,7 @@ import boobuzz.core.contract.PathRequest;
 import com.pedropathing.math.Pose;
 
 /** Narrow drive mechanism API consumed by engines. */
-public interface Drive extends Subsystem {
+public interface IDrive extends ISubsystem {
 
     void manual(double vx, double vy, double omega);
 

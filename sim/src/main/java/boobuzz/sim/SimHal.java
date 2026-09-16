@@ -1,7 +1,7 @@
 package boobuzz.sim;
 
 import boobuzz.core.contract.GamepadState;
-import boobuzz.core.hal.Hal;
+import boobuzz.core.hal.IHal;
 import boobuzz.core.contract.Event;
 import boobuzz.core.contract.RobotAction;
 import boobuzz.core.contract.RobotState;
@@ -38,7 +38,7 @@ import java.util.Map;
  * <p>The {@code truth} field is read but NOT PUT into {@link RobotState}; it is for
  * tests and the viewer only. :core never sees ground truth.
  */
-public final class SimHal implements Hal, Closeable {
+public final class SimHal implements IHal, Closeable {
 
     public static final String DEFAULT_HOST = "127.0.0.1";
     public static final int DEFAULT_PORT = 5555;

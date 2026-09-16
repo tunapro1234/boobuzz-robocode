@@ -1,4 +1,4 @@
-package boobuzz.core.logic.direct_engine;
+package boobuzz.core.logic.direct;
 
 import boobuzz.core.contract.Drive;
 import boobuzz.core.contract.Intent;
@@ -7,8 +7,8 @@ import boobuzz.core.contract.Request;
 import boobuzz.core.contract.RequestStatus;
 import boobuzz.core.contract.RobotAction;
 import boobuzz.core.contract.RobotState;
-import boobuzz.core.subsystem.StubIntake;
-import boobuzz.core.subsystem.StubShooter;
+import boobuzz.core.subsystem.stub.StubIntake;
+import boobuzz.core.subsystem.stub.StubShooter;
 import boobuzz.core.subsystem.Subsystems;
 
 import com.pedropathing.math.Pose;
@@ -96,7 +96,7 @@ public class DirectEngineTest {
                 new Pose(0.0, 0.0, 0.0), 12.6);
     }
 
-    private static final class RecordingDrive implements boobuzz.core.subsystem.Drive {
+    private static final class RecordingDrive implements boobuzz.core.subsystem.IDrive {
         private double vx;
         private double vy;
         private double omega;

@@ -4,7 +4,7 @@ import boobuzz.core.RobotLoop;
 import boobuzz.core.RobotFactory;
 import boobuzz.core.controller.auto.AutoController;
 import boobuzz.core.controller.auto.AutoSequence;
-import boobuzz.core.controller.autos.AutoRegistry;
+import boobuzz.core.controller.opmodes.AutoRegistry;
 import boobuzz.core.contract.Drive;
 import boobuzz.core.hal.Mechanism;
 import boobuzz.core.hal.RobotConstants;
@@ -18,7 +18,7 @@ import com.pedropathing.math.Pose;
  * java -cp ... boobuzz.sim.SimMain --steps 500 --dt 20
  * </pre>
  *
- * <p>Runs RobotLoop with SimHal + CplxEngine1 + GamepadController and sends
+ * <p>Runs RobotLoop with SimHal + CplxEngine1 + TeleopController and sends
  * {@code bye} after N steps.
  */
 public final class SimMain {
@@ -123,7 +123,7 @@ public final class SimMain {
         double[] drive = null;
         String pathId = null;
         String auto = null;
-        String engine = "cplx_engine_1";
+        String engine = "cplx1";
 
         static Args parse(String[] argv) {
             Args a = new Args();

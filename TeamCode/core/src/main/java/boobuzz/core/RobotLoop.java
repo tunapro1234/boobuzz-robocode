@@ -1,13 +1,13 @@
 package boobuzz.core;
 
-import boobuzz.core.controller.Controller;
+import boobuzz.core.controller.IController;
 import boobuzz.core.contract.Feedback;
 import boobuzz.core.contract.Intent;
 import boobuzz.core.contract.RobotAction;
 import boobuzz.core.contract.RobotState;
 import boobuzz.core.contract.WorldSnapshot;
-import boobuzz.core.logic.RobotEngine;
-import boobuzz.core.hal.Hal;
+import boobuzz.core.logic.IRobotEngine;
+import boobuzz.core.hal.IHal;
 
 /**
  * Tick. Five lines, fixed order (architecture documentation, §1).
@@ -18,12 +18,12 @@ import boobuzz.core.hal.Hal;
  */
 public final class RobotLoop {
 
-    private final Hal hal;
-    private final RobotEngine engine;
-    private final Controller controller;
+    private final IHal hal;
+    private final IRobotEngine engine;
+    private final IController controller;
     private long ticks;
 
-    public RobotLoop(Hal hal, RobotEngine engine, Controller controller) {
+    public RobotLoop(IHal hal, IRobotEngine engine, IController controller) {
         this.hal = hal;
         this.engine = engine;
         this.controller = controller;
@@ -46,7 +46,7 @@ public final class RobotLoop {
         return ticks;
     }
 
-    public RobotEngine engine() {
+    public IRobotEngine engine() {
         return engine;
     }
 }

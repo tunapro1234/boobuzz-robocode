@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.Objects;
 
 /** Controller that advances an {@link AutoSequence} from engine statuses and HAL time. */
-public final class AutoController implements boobuzz.core.controller.Controller {
+public final class AutoController implements boobuzz.core.controller.IController {
 
     private enum Phase { READY, MOTION, REQUEST, WAIT, INTAKE_TIME }
 

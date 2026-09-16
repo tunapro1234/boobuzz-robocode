@@ -4,7 +4,7 @@ import boobuzz.core.RobotFactory;
 import boobuzz.core.RobotLoop;
 import boobuzz.core.controller.auto.AutoController;
 import boobuzz.core.controller.auto.AutoSequence;
-import boobuzz.core.controller.autos.AutoRegistry;
+import boobuzz.core.controller.opmodes.AutoRegistry;
 import boobuzz.core.hal.Mechanism;
 import boobuzz.core.hal.RobotConstants;
 
@@ -26,7 +26,7 @@ public abstract class AutoMain extends LinearOpMode {
         AutoController controller = new AutoController(sequence);
         RealHal hal = new RealHal(hardwareMap, gamepad1, mechanism, sequence.startPose());
         RobotLoop robot = RobotFactory.createWithController(
-                hal, mechanism, "cplx_engine_1", controller);
+                hal, mechanism, "cplx1", controller);
 
         telemetry.addData("auto", routineName());
         telemetry.addData("steps", sequence.size());

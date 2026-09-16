@@ -1,4 +1,4 @@
-package boobuzz.core.controller.autos;
+package boobuzz.core.controller.opmodes;
 
 import com.pedropathing.math.Pose;
 

@@ -13,7 +13,7 @@ import java.util.List;
  * L2. Bidirectional: {@link #sense} reads upward, {@link #act} executes downward.
  * Robot and simulator run the same engine implementation through this interface.
  */
-public interface RobotEngine {
+public interface IRobotEngine {
 
     String name();
 

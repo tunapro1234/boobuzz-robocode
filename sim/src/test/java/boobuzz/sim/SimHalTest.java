@@ -2,15 +2,15 @@ package boobuzz.sim;
 
 import boobuzz.core.RobotLoop;
 import boobuzz.core.contract.Drive;
-import boobuzz.core.controller.GamepadController;
+import boobuzz.core.controller.teleop.TeleopController;
 import boobuzz.core.contract.Intent;
 import boobuzz.core.contract.RobotAction;
 import boobuzz.core.contract.RobotState;
-import boobuzz.core.logic.cplx_engine_1.CplxEngine1;
+import boobuzz.core.logic.cplx1.CplxEngine1;
 import boobuzz.core.contract.GamepadState;
 import boobuzz.core.hal.Mechanism;
-import boobuzz.core.subsystem.StubIntake;
-import boobuzz.core.subsystem.StubShooter;
+import boobuzz.core.subsystem.stub.StubIntake;
+import boobuzz.core.subsystem.stub.StubShooter;
 import boobuzz.core.subsystem.Subsystems;
 import boobuzz.core.subsystem.pedro.PedroDrive;
 
@@ -112,7 +112,7 @@ public class SimHalTest {
                 assertEquals(0.5, g.rt(), 1e-9);
                 assertEquals(GamepadState.Dpad.UP, g.dpad());
 
-                Drive.Manual d = (Drive.Manual) new GamepadController(hal).decide(null).drive();
+                Drive.Manual d = (Drive.Manual) new TeleopController(hal).decide(null).drive();
                 assertEquals(1.0, d.vx(), 1e-9);
             }
         }

@@ -6,7 +6,7 @@ import com.pedropathing.math.Pose;
  * Drive intent. Architecture documentation, §6.
  *
  * <p>Sign convention matches Pedro: {@code vx} FORWARD, {@code vy} LEFT, {@code omega} CCW.
- * {@code GamepadController} first converts raw sticks {@code (-ly, -lx, -rx)} to this convention.
+ * {@code TeleopController} first converts raw sticks {@code (-ly, -lx, -rx)} to this convention.
  */
 public sealed interface Drive {
 

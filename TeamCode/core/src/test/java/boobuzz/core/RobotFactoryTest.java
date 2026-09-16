@@ -1,7 +1,7 @@
 package boobuzz.core;
 
 import boobuzz.core.contract.GamepadState;
-import boobuzz.core.hal.Hal;
+import boobuzz.core.hal.IHal;
 import boobuzz.core.contract.RobotAction;
 import boobuzz.core.contract.RobotState;
 import boobuzz.core.hal.Mechanism;
@@ -27,11 +27,11 @@ public class RobotFactoryTest {
     @Test
     public void engineIsBuiltByFactory() {
         StubHal hal = new StubHal();
-        assertEquals("cplx_engine_1",
+        assertEquals("cplx1",
                 RobotFactory.create(hal, mechanism).engine().name());
     }
 
-    private static final class StubHal implements Hal {
+    private static final class StubHal implements IHal {
         @Override public long now() { return 0; }
 
         @Override public RobotState read() {

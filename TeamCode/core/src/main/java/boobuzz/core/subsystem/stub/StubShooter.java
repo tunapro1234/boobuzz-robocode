@@ -1,13 +1,14 @@
-package boobuzz.core.subsystem;
+package boobuzz.core.subsystem.stub;
 
 import boobuzz.core.contract.RobotAction;
 import boobuzz.core.contract.RobotState;
 import boobuzz.core.hal.RobotConstants;
+import boobuzz.core.subsystem.IShooter;
 
 import java.util.Map;
 
 /** Timing-only shooter used until the real shooter mechanism is integrated. */
-public final class StubShooter implements Shooter {
+public final class StubShooter implements IShooter {
 
     private double targetRpm;
     private long spinUpStartedMs;
