@@ -1,7 +1,7 @@
 package boobuzz.core.controller.auto;
 
 import boobuzz.core.contract.Feedback;
-import boobuzz.core.contract.Intent;
+import boobuzz.core.contract.RequestBatch;
 import boobuzz.core.contract.RequestStatus;
 import boobuzz.core.contract.RequestType;
 import boobuzz.core.contract.WorldSnapshot;
@@ -28,21 +28,21 @@ public class AutoControllerTest {
                 .build();
         AutoController controller = new AutoController(sequence);
 
-        Intent first = controller.decide(feedback(0));
-        assertEquals(3, first.newRequests().size());
-        assertEquals(RequestType.PATH, first.newRequests().get(0).type());
-        assertEquals(RequestType.INTAKE_ON, first.newRequests().get(1).type());
-        assertEquals(RequestType.SPIN_UP, first.newRequests().get(2).type());
+        RequestBatch first = controller.decide(feedback(0));
+        assertEquals(3, first.requests().size());
+        assertEquals(RequestType.PATH, first.requests().get(0).type());
+        assertEquals(RequestType.INTAKE_ON, first.requests().get(1).type());
+        assertEquals(RequestType.SPIN_UP, first.requests().get(2).type());
 
-        int pathId = first.newRequests().get(0).id();
-        Intent active = controller.decide(feedback(20,
-                active(pathId), active(first.newRequests().get(1).id()),
-                active(first.newRequests().get(2).id())));
-        assertTrue(active.newRequests().isEmpty());
+        int pathId = first.requests().get(0).id();
+        RequestBatch active = controller.decide(feedback(20,
+                active(pathId), active(first.requests().get(1).id()),
+                active(first.requests().get(2).id())));
+        assertTrue(active.requests().isEmpty());
 
-        Intent stopIntake = controller.decide(feedback(40, RequestStatus.done(pathId)));
-        assertEquals(RequestType.INTAKE_OFF, stopIntake.newRequests().get(0).type());
-        int offId = stopIntake.newRequests().get(0).id();
+        RequestBatch stopIntake = controller.decide(feedback(40, RequestStatus.done(pathId)));
+        assertEquals(RequestType.INTAKE_OFF, stopIntake.requests().get(0).type());
+        int offId = stopIntake.requests().get(0).id();
 
         controller.decide(feedback(60, RequestStatus.done(offId)));
         assertTrue(controller.isDone());
@@ -81,12 +81,12 @@ public class AutoControllerTest {
     public void rejectionStopsSequenceAndExposesFailure() {
         AutoController controller = new AutoController(
                 new AutoSequence(List.of(new AutoStep.Turn(0.5))));
-        Intent first = controller.decide(feedback(0));
+        RequestBatch first = controller.decide(feedback(0));
         RequestStatus rejected = RequestStatus.rejected(
-                first.newRequests().get(0).id(), "unsupported");
+                first.requests().get(0).id(), "unsupported");
 
-        Intent after = controller.decide(feedback(20, rejected));
-        assertTrue(after.newRequests().isEmpty());
+        RequestBatch after = controller.decide(feedback(20, rejected));
+        assertTrue(after.requests().isEmpty());
         assertTrue(controller.isFailed());
         assertNotNull(controller.failure());
         assertEquals("unsupported", controller.failureNote());

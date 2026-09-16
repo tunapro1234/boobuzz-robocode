@@ -15,7 +15,7 @@ public interface IDrive extends ISubsystem {
     default void turnTo(double headingRad) {
         Pose current = pose();
         follow(PathRequest.goTo(new Pose(current.x(), current.y(), headingRad),
-                boobuzz.core.contract.Drive.Constraints.defaults()));
+                PathRequest.Constraints.defaults()));
     }
 
     void stop();

@@ -9,7 +9,7 @@ import java.util.Objects;
 public record PathRequest(
         String pathId,
         Pose target,
-        Drive.Constraints constraints,
+        Constraints constraints,
         List<Segment> segments,
         Heading heading,
         boolean holdEnd,
@@ -20,7 +20,7 @@ public record PathRequest(
         if (pathId != null && pathId.isBlank()) {
             throw new IllegalArgumentException("path request ID must not be blank");
         }
-        constraints = constraints == null ? Drive.Constraints.defaults() : constraints;
+        constraints = constraints == null ? Constraints.defaults() : constraints;
         segments = segments == null ? List.of() : List.copyOf(segments);
         heading = heading == null ? Heading.tangent() : heading;
         for (Segment segment : segments) {
@@ -38,31 +38,31 @@ public record PathRequest(
         }
     }
 
-    /** Legacy direct-target constructor used by {@link Drive.GoTo}. */
-    public PathRequest(Pose target, Drive.Constraints constraints) {
+    /** Direct-target constructor used by a GOTO request. */
+    public PathRequest(Pose target, Constraints constraints) {
         this(null, Objects.requireNonNull(target, "target"), constraints,
                 List.of(), Heading.constant(target.heading()), true, null, null);
     }
 
     /** Legacy named-path constructor. */
     public PathRequest(String pathId) {
-        this(pathId, null, Drive.Constraints.defaults(), List.of(), Heading.tangent(),
+        this(pathId, null, Constraints.defaults(), List.of(), Heading.tangent(),
                 true, null, null);
     }
 
     /** Compatibility constructor retained for older callers. */
-    public PathRequest(String pathId, Pose target, Drive.Constraints constraints) {
+    public PathRequest(String pathId, Pose target, Constraints constraints) {
         this(pathId, target, constraints, List.of(), Heading.tangent(), true, null, null);
     }
 
     /** Full path constructor for the auto request contract. */
     public PathRequest(List<Segment> segments, Heading heading, boolean holdEnd,
                        Double velocityConstraint, Braking braking) {
-        this(null, null, Drive.Constraints.defaults(), segments, heading, holdEnd,
+        this(null, null, Constraints.defaults(), segments, heading, holdEnd,
                 velocityConstraint, braking);
     }
 
-    public static PathRequest goTo(Pose target, Drive.Constraints constraints) {
+    public static PathRequest goTo(Pose target, Constraints constraints) {
         return new PathRequest(target, constraints);
     }
 
@@ -101,7 +101,7 @@ public record PathRequest(
                 velocityConstraint, braking);
     }
 
-    public PathRequest withConstraints(Drive.Constraints value) {
+    public PathRequest withConstraints(Constraints value) {
         return new PathRequest(pathId, target, value, segments, heading, holdEnd,
                 velocityConstraint, braking);
     }
@@ -114,6 +114,13 @@ public record PathRequest(
     public PathRequest withBraking(Braking value) {
         return new PathRequest(pathId, target, constraints, segments, heading, holdEnd,
                 velocityConstraint, value);
+    }
+
+    /** Motion limits attached to a path request. */
+    public record Constraints(double maxPower, double maxVelocity) {
+        public static Constraints defaults() {
+            return new Constraints(1.0, Double.MAX_VALUE);
+        }
     }
 
     public enum HeadingMode {

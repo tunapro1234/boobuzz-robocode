@@ -1,10 +1,10 @@
 package boobuzz.core.controller.teleop;
 
-import boobuzz.core.contract.Drive;
 import boobuzz.core.contract.Feedback;
 import boobuzz.core.contract.IGamepadSource;
 import boobuzz.core.contract.GamepadState;
-import boobuzz.core.contract.Intent;
+import boobuzz.core.contract.RequestBatch;
+import boobuzz.core.contract.RequestStream;
 
 import com.pedropathing.math.Pose;
 
@@ -19,8 +19,8 @@ import com.pedropathing.math.Pose;
  *
  * <p><b>Field-oriented:</b> ON by default. The left stick is read in the field
  * frame (up = field {@code +x}), rotated back by heading, and converted to the
- * robot frame. The {@link Drive} type and engine do not know about this; conversion
- * ends entirely in L3, and the downward value remains robot-frame {@code Drive.Manual}.
+ * robot frame. The engine does not know about this; conversion ends entirely in L3,
+ * and the downward value remains a robot-frame {@link RequestStream}.
  *
  * <p>{@code b} toggles the mode and {@code y} resets heading. Resetting does not
  * touch HAL; it is an offset held here (constitution rule 3: :core does not know
@@ -44,10 +44,10 @@ public final class TeleopController implements IController {
     }
 
     @Override
-    public Intent decide(Feedback feedback) {
+    public RequestBatch decide(Feedback feedback) {
         GamepadState g = gamepads.get();
         if (g == null) {
-            return Intent.idle();
+            return RequestBatch.idle();
         }
 
         // Edge trigger: holding a button must not trigger it every tick.
@@ -74,7 +74,8 @@ public final class TeleopController implements IController {
             vx = forward * cos + left * sin;
             vy = -forward * sin + left * cos;
         }
-        return Intent.of(new Drive.Manual(vx, vy, omega));
+        return new RequestBatch(RequestStream.manual(vx, vy, omega),
+                java.util.List.of(), new int[0]);
     }
 
     /** In C1 the localizer is Pinpoint; without a pose, heading is unknown. */

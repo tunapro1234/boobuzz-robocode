@@ -1,9 +1,9 @@
 package boobuzz.sim;
 
 import boobuzz.core.RobotLoop;
-import boobuzz.core.contract.Drive;
 import boobuzz.core.controller.teleop.TeleopController;
-import boobuzz.core.contract.Intent;
+import boobuzz.core.contract.RequestBatch;
+import boobuzz.core.contract.RequestStream;
 import boobuzz.core.contract.RobotAction;
 import boobuzz.core.contract.RobotState;
 import boobuzz.core.logic.cplx1.CplxEngine1;
@@ -85,7 +85,7 @@ public class SimHalTest {
              SimHal hal = connect(server, m, 20)) {
 
             RobotLoop loop = new RobotLoop(hal, new CplxEngine1(subsystems(m)),
-                    fb -> Intent.of(new Drive.Manual(1, 0, 0)));
+                    fb -> new RequestBatch(RequestStream.manual(1, 0, 0), List.of()));
 
             for (int i = 0; i < 500; i++) {
                 loop.tick();
@@ -112,7 +112,7 @@ public class SimHalTest {
                 assertEquals(0.5, g.rt(), 1e-9);
                 assertEquals(GamepadState.Dpad.UP, g.dpad());
 
-                Drive.Manual d = (Drive.Manual) new TeleopController(hal).decide(null).drive();
+                RequestStream d = new TeleopController(hal).decide(null).stream();
                 assertEquals(1.0, d.vx(), 1e-9);
             }
         }

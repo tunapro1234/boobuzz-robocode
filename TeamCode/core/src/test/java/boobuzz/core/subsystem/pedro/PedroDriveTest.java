@@ -1,6 +1,5 @@
 package boobuzz.core.subsystem.pedro;
 
-import boobuzz.core.contract.Drive;
 import boobuzz.core.contract.PathRequest;
 import boobuzz.core.contract.RobotAction;
 import boobuzz.core.contract.RobotState;
@@ -45,22 +44,24 @@ public class PedroDriveTest {
         PedroDrive drive = new PedroDrive(mechanism, new PathRegistry());
         drive.observe(state(0L, 0.0));
 
-        RobotAction goTo = update(drive, new Drive.GoTo(
-                new Pose(24.0, 0.0, 0.0), Drive.Constraints.defaults()));
+        RobotAction goTo = update(drive, PathRequest.goTo(
+                new Pose(24.0, 0.0, 0.0), PathRequest.Constraints.defaults()));
         assertTrue(goTo.motors().values().stream().anyMatch(power -> Math.abs(power) > 1e-9));
 
-        RobotAction hold = update(drive, Drive.HOLD);
+        drive.stop();
+        RobotAction hold = update(drive);
         assertTrue(hold.motors().values().stream().allMatch(power -> Math.abs(power) < 1e-9));
 
-        RobotAction velocity = update(drive, new Drive.Velocity(10.0, -2.0, 0.1));
+        drive.stop();
+        RobotAction velocity = update(drive);
         assertTrue(velocity.motors().values().stream().allMatch(power -> Math.abs(power) < 1e-9));
     }
 
     @Test
     public void equalCommandPreservesMotorAction() {
         PedroDrive drive = new PedroDrive(mechanism, new PathRegistry());
-        Drive.FollowPath first = new Drive.FollowPath("test-line");
-        Drive.FollowPath equalButDistinct = new Drive.FollowPath("test-line");
+        PathRequest first = PathRequest.named("test-line");
+        PathRequest equalButDistinct = PathRequest.named("test-line");
 
         RobotAction firstAction = update(drive, first);
         RobotAction secondAction = update(drive, equalButDistinct);
@@ -71,8 +72,8 @@ public class PedroDriveTest {
     @Test
     public void sameTimeSampleProducesDeterministicMotorAction() {
         PedroDrive drive = new PedroDrive(mechanism, new PathRegistry());
-        Drive.GoTo goTo = new Drive.GoTo(
-                new Pose(24.0, 0.0, 0.0), Drive.Constraints.defaults());
+        PathRequest goTo = PathRequest.goTo(
+                new Pose(24.0, 0.0, 0.0), PathRequest.Constraints.defaults());
 
         drive.observe(state(100L, 0.0));
         RobotAction first = update(drive, goTo);
@@ -85,8 +86,8 @@ public class PedroDriveTest {
     @Test
     public void laterStateTimeProducesNewMotorAction() {
         PedroDrive drive = new PedroDrive(mechanism, new PathRegistry());
-        Drive.GoTo goTo = new Drive.GoTo(
-                new Pose(24.0, 0.0, 0.0), Drive.Constraints.defaults());
+        PathRequest goTo = PathRequest.goTo(
+                new Pose(24.0, 0.0, 0.0), PathRequest.Constraints.defaults());
 
         drive.observe(state(100L, 0.0));
         RobotAction first = update(drive, goTo);
@@ -110,7 +111,7 @@ public class PedroDriveTest {
         velocities.put("bl", 1600.0);
         velocities.put("br", 1550.0);
         PathRequest request = PathRequest.goTo(
-                new Pose(120.0, 72.0, 0.0), Drive.Constraints.defaults());
+                new Pose(120.0, 72.0, 0.0), PathRequest.Constraints.defaults());
 
         for (int tick = 0; tick < 200; tick++) {
             drive.observe(new RobotState(tick * 20L, encoders, velocities, -0.0023,
@@ -142,16 +143,8 @@ public class PedroDriveTest {
         return new RobotAction.Builder();
     }
 
-    private static RobotAction update(PedroDrive drive, Drive command) {
-        if (command instanceof Drive.Manual manual) {
-            drive.manual(manual.vx(), manual.vy(), manual.omega());
-        } else if (command instanceof Drive.GoTo goTo) {
-            drive.follow(PathRequest.goTo(goTo.target(), goTo.constraints()));
-        } else if (command instanceof Drive.FollowPath path) {
-            drive.follow(PathRequest.named(path.pathId()));
-        } else {
-            drive.stop();
-        }
+    private static RobotAction update(PedroDrive drive, PathRequest request) {
+        drive.follow(request);
         RobotAction.Builder output = output();
         drive.update(output);
         return output.build();

@@ -1,6 +1,5 @@
 package boobuzz.core.controller.auto;
 
-import boobuzz.core.contract.Drive;
 import boobuzz.core.contract.PathRequest;
 
 import com.pedropathing.math.Pose;
@@ -170,14 +169,14 @@ public final class AutoBuilder {
         return modifyLastPath(path -> withRequest(path, path.request().withHoldEnd(holdEnd)));
     }
 
-    public AutoBuilder withPathConstraints(Drive.Constraints constraints) {
+    public AutoBuilder withPathConstraints(PathRequest.Constraints constraints) {
         Objects.requireNonNull(constraints, "path constraints");
         return modifyLastPath(path -> withRequest(path,
                 path.request().withConstraints(constraints)));
     }
 
     public AutoBuilder withPathConstraints(double maxPower, double maxVelocity) {
-        return withPathConstraints(new Drive.Constraints(maxPower, maxVelocity));
+        return withPathConstraints(new PathRequest.Constraints(maxPower, maxVelocity));
     }
 
     public AutoBuilder withVelocityConstraint(double velocityConstraint) {

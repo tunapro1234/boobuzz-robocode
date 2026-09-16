@@ -1,6 +1,6 @@
 package boobuzz.core.logic;
 
-import boobuzz.core.contract.Intent;
+import boobuzz.core.contract.RequestBatch;
 import boobuzz.core.contract.RobotAction;
 import boobuzz.core.contract.RobotState;
 import boobuzz.core.contract.Feedback;
@@ -20,8 +20,8 @@ public interface IRobotEngine {
     /** UP: world view from one raw sensor sample. */
     WorldSnapshot sense(RobotState state);
 
-    /** DOWN: dispatch one intent to the subsystem set. */
-    void act(Intent intent);
+    /** DOWN: dispatch one request batch to the subsystem set. */
+    void act(RequestBatch batch);
 
     /** Action assembled by the most recent {@link #act} call. */
     default RobotAction action() {

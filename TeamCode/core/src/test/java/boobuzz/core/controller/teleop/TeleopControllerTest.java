@@ -1,11 +1,10 @@
 package boobuzz.core.controller.teleop;
 
-import boobuzz.core.contract.Drive;
 import boobuzz.core.contract.Feedback;
-import boobuzz.core.contract.Intent;
-import boobuzz.core.contract.WorldSnapshot;
-import boobuzz.core.contract.IGamepadSource;
 import boobuzz.core.contract.GamepadState;
+import boobuzz.core.contract.IGamepadSource;
+import boobuzz.core.contract.RequestStream;
+import boobuzz.core.contract.WorldSnapshot;
 
 import com.pedropathing.math.Pose;
 
@@ -14,19 +13,17 @@ import org.junit.Test;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-/** Field-oriented drive: conversion ends in L3, and Drive remains robot-frame. */
+/** Field-oriented drive conversion ends in the robot-frame request stream. */
 public class TeleopControllerTest {
 
     private static final double EPS = 1e-9;
 
-    /** Test gamepad. */
     private static final class Pad implements IGamepadSource {
         GamepadState state = GamepadState.neutral();
 
         @Override public GamepadState get() { return state; }
     }
 
-    /** ly is negative when pushed up; this is the "forward stick." */
     private static GamepadState forwardStick() {
         return new GamepadState(0, -1, 0, 0,
                 false, false, false, false, false, false, 0, 0, GamepadState.Dpad.NONE);
@@ -36,16 +33,16 @@ public class TeleopControllerTest {
         return Feedback.of(new WorldSnapshot(0, new Pose(72, 72, heading), heading, 12.6));
     }
 
-    private static Drive.Manual driveOf(Intent intent) {
-        assertTrue("expected Drive.Manual", intent.drive() instanceof Drive.Manual);
-        return (Drive.Manual) intent.drive();
+    private static RequestStream streamOf(boobuzz.core.contract.RequestBatch batch) {
+        assertTrue("expected manual stream", batch.stream().manualDrive());
+        return batch.stream();
     }
 
     @Test
     public void fieldOrientedIsOnByDefault() {
         Pad pad = new Pad();
         pad.state = forwardStick();
-        Drive.Manual d = driveOf(new TeleopController(pad).decide(at(Math.PI / 2)));
+        RequestStream d = streamOf(new TeleopController(pad).decide(at(Math.PI / 2)));
         assertEquals(0.0, d.vx(), EPS);
         assertEquals(-1.0, d.vy(), EPS);
     }
@@ -54,7 +51,7 @@ public class TeleopControllerTest {
     public void forwardStickUnchangedAtHeadingZero() {
         Pad pad = new Pad();
         pad.state = forwardStick();
-        Drive.Manual d = driveOf(new TeleopController(pad).decide(at(0)));
+        RequestStream d = streamOf(new TeleopController(pad).decide(at(0)));
         assertEquals(1.0, d.vx(), EPS);
         assertEquals(0.0, d.vy(), EPS);
     }
@@ -63,8 +60,7 @@ public class TeleopControllerTest {
     public void forwardStickRotatesToVyAtHalfPiHeading() {
         Pad pad = new Pad();
         pad.state = forwardStick();
-        Drive.Manual d = driveOf(new TeleopController(pad).decide(at(Math.PI / 2)));
-        // The robot faces field +y; field +x is robot RIGHT, so vy is negative.
+        RequestStream d = streamOf(new TeleopController(pad).decide(at(Math.PI / 2)));
         assertEquals(0.0, d.vx(), EPS);
         assertEquals(-1.0, d.vy(), EPS);
     }
@@ -72,10 +68,10 @@ public class TeleopControllerTest {
     @Test
     public void headingIgnoredInRobotOrientedMode() {
         Pad pad = new Pad();
-        TeleopController c = new TeleopController(pad);
+        TeleopController controller = new TeleopController(pad);
         pad.state = new GamepadState(0, -1, 0, 0,
                 false, true, false, false, false, false, 0, 0, GamepadState.Dpad.NONE);
-        Drive.Manual d = driveOf(c.decide(at(Math.PI / 2)));
+        RequestStream d = streamOf(controller.decide(at(Math.PI / 2)));
         assertEquals(1.0, d.vx(), EPS);
         assertEquals(0.0, d.vy(), EPS);
     }
@@ -83,17 +79,17 @@ public class TeleopControllerTest {
     @Test
     public void toggleTriggersOnEdgeNotWhileHeld() {
         Pad pad = new Pad();
-        TeleopController c = new TeleopController(pad);
+        TeleopController controller = new TeleopController(pad);
         GamepadState bHeld = new GamepadState(0, -1, 0, 0,
                 false, true, false, false, false, false, 0, 0, GamepadState.Dpad.NONE);
         pad.state = bHeld;
-        assertEquals(1.0, driveOf(c.decide(at(Math.PI / 2))).vx(), EPS);
-        assertEquals(1.0, driveOf(c.decide(at(Math.PI / 2))).vx(), EPS);
-        assertEquals(1.0, driveOf(c.decide(at(Math.PI / 2))).vx(), EPS);
+        assertEquals(1.0, streamOf(controller.decide(at(Math.PI / 2))).vx(), EPS);
+        assertEquals(1.0, streamOf(controller.decide(at(Math.PI / 2))).vx(), EPS);
+        assertEquals(1.0, streamOf(controller.decide(at(Math.PI / 2))).vx(), EPS);
         pad.state = GamepadState.neutral();
-        c.decide(at(0));
+        controller.decide(at(0));
         pad.state = bHeld;
-        Drive.Manual toggledBack = driveOf(c.decide(at(Math.PI / 2)));
+        RequestStream toggledBack = streamOf(controller.decide(at(Math.PI / 2)));
         assertEquals(0.0, toggledBack.vx(), EPS);
         assertEquals(-1.0, toggledBack.vy(), EPS);
     }
@@ -101,11 +97,10 @@ public class TeleopControllerTest {
     @Test
     public void yResetMakesCurrentHeadingForward() {
         Pad pad = new Pad();
-        TeleopController c = new TeleopController(pad);
+        TeleopController controller = new TeleopController(pad);
         pad.state = new GamepadState(0, -1, 0, 0,
                 false, false, false, true, false, false, 0, 0, GamepadState.Dpad.NONE);
-        Drive.Manual d = driveOf(c.decide(at(Math.PI / 2)));
-        // Even on the same tick after reset, robot frame equals field frame.
+        RequestStream d = streamOf(controller.decide(at(Math.PI / 2)));
         assertEquals(1.0, d.vx(), EPS);
         assertEquals(0.0, d.vy(), EPS);
     }
@@ -113,10 +108,10 @@ public class TeleopControllerTest {
     @Test
     public void rotationIsRobotFrameInBothModes() {
         Pad pad = new Pad();
-        GamepadState turn = new GamepadState(0, 0, -1, 0,
+        pad.state = new GamepadState(0, 0, -1, 0,
                 false, false, false, false, false, false, 0, 0, GamepadState.Dpad.NONE);
-        pad.state = turn;
-        assertEquals(1.0, driveOf(new TeleopController(pad).decide(at(Math.PI / 3))).omega(), EPS);
+        assertEquals(1.0, streamOf(new TeleopController(pad)
+                .decide(at(Math.PI / 3))).omega(), EPS);
     }
 
     @Test
@@ -124,7 +119,7 @@ public class TeleopControllerTest {
         Pad pad = new Pad();
         pad.state = forwardStick();
         Feedback noPose = Feedback.of(new WorldSnapshot(0, null, Math.PI / 2, 12.6));
-        Drive.Manual d = driveOf(new TeleopController(pad).decide(noPose));
+        RequestStream d = streamOf(new TeleopController(pad).decide(noPose));
         assertEquals(0.0, d.vx(), EPS);
         assertEquals(-1.0, d.vy(), EPS);
     }

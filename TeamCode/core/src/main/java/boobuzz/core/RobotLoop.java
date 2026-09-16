@@ -2,7 +2,7 @@ package boobuzz.core;
 
 import boobuzz.core.controller.IController;
 import boobuzz.core.contract.Feedback;
-import boobuzz.core.contract.Intent;
+import boobuzz.core.contract.RequestBatch;
 import boobuzz.core.contract.RobotAction;
 import boobuzz.core.contract.RobotState;
 import boobuzz.core.contract.WorldSnapshot;
@@ -34,8 +34,8 @@ public final class RobotLoop {
         RobotState state = hal.read();
         WorldSnapshot snapshot = engine.sense(state);    // UP
         Feedback feedback = new Feedback(snapshot, engine.drainStatuses(), state.t());
-        Intent intent = controller.decide(feedback);     // L3
-        engine.act(intent);                              // DOWN
+        RequestBatch batch = controller.decide(feedback); // L3
+        engine.act(batch);                                // DOWN
         RobotAction action = engine.action();
         hal.write(action);                               // HAL
 

@@ -31,8 +31,10 @@ public final class PedroDrive implements boobuzz.core.subsystem.IDrive {
     private final Follower follower;
     private final PathRegistry paths;
 
-    private boobuzz.core.contract.Drive activeCommand = boobuzz.core.contract.Drive.HOLD;
-    private boobuzz.core.contract.Drive startedCommand;
+    private boolean manualActive;
+    private double manualVx;
+    private double manualVy;
+    private double manualOmega;
     private PathRequest activePathRequest;
     private PathRequest startedPathRequest;
     private long previousStateTimeMs;
@@ -67,44 +69,41 @@ public final class PedroDrive implements boobuzz.core.subsystem.IDrive {
     public void manual(double vx, double vy, double omega) {
         activePathRequest = null;
         startedPathRequest = null;
-        if (!(activeCommand instanceof boobuzz.core.contract.Drive.Manual)) {
+        if (!manualActive) {
             follower.stop();
-            startedCommand = null;
         }
-        activeCommand = new boobuzz.core.contract.Drive.Manual(vx, vy, omega);
+        manualActive = true;
+        manualVx = vx;
+        manualVy = vy;
+        manualOmega = omega;
     }
 
     @Override
     public void follow(PathRequest request) {
         Objects.requireNonNull(request, "request");
+        manualActive = false;
         activePathRequest = request;
-        activeCommand = request.isNamed()
-                ? new boobuzz.core.contract.Drive.FollowPath(request.pathId())
-                : request.segments().isEmpty()
-                        ? new boobuzz.core.contract.Drive.GoTo(request.target(), request.constraints())
-                        : boobuzz.core.contract.Drive.HOLD;
     }
 
     @Override
     public void turnTo(double headingRad) {
         Objects.requireNonNull(pose(), "pose");
+        manualActive = false;
         activePathRequest = null;
         startedPathRequest = null;
         follower.stop();
         Pose current = pose();
-        activeCommand = new boobuzz.core.contract.Drive.GoTo(
+        activePathRequest = PathRequest.goTo(
                 new Pose(current.x(), current.y(), headingRad),
-                boobuzz.core.contract.Drive.Constraints.defaults());
-        startedCommand = null;
+                PathRequest.Constraints.defaults());
     }
 
     @Override
     public void stop() {
         activePathRequest = null;
         startedPathRequest = null;
-        activeCommand = boobuzz.core.contract.Drive.HOLD;
+        manualActive = false;
         follower.stop();
-        startedCommand = activeCommand;
     }
 
     @Override
@@ -129,17 +128,10 @@ public final class PedroDrive implements boobuzz.core.subsystem.IDrive {
             return;
         }
 
-        if (activeCommand instanceof boobuzz.core.contract.Drive.Manual manual) {
-            writeManual(manual, out);
+        if (manualActive) {
+            writeManual(manualVx, manualVy, manualOmega, out);
             return;
         }
-
-        if (!sameCommand(startedCommand, activeCommand)) {
-            start(activeCommand);
-            startedCommand = activeCommand;
-        }
-        follower.update(deltaTimeSeconds);
-        writeFollowerAction(out);
     }
 
     private void writeFollowerAction(RobotAction.Builder out) {
@@ -148,10 +140,10 @@ public final class PedroDrive implements boobuzz.core.subsystem.IDrive {
         action.servos().forEach(out::servo);
     }
 
-    private void writeManual(boobuzz.core.contract.Drive.Manual manual,
+    private void writeManual(double vx, double vy, double omega,
                              RobotAction.Builder out) {
         double[] powers = HalDrivetrain.normalizedMecanum(
-                new DrivePowers(manual.vx(), manual.vy(), manual.omega()));
+                new DrivePowers(vx, vy, omega));
         for (int i = 0; i < powers.length; i++) {
             out.motor(motorNames[i], powers[i]);
         }
@@ -168,18 +160,6 @@ public final class PedroDrive implements boobuzz.core.subsystem.IDrive {
         }
         follower.holdEnd.set(request.holdEnd());
         follower.follow(withHeadingAndConstraints(buildPath(request), request));
-    }
-
-    private void start(boobuzz.core.contract.Drive command) {
-        if (command instanceof boobuzz.core.contract.Drive.GoTo goTo) {
-            follower.hold(goTo.target());
-        } else if (command instanceof boobuzz.core.contract.Drive.FollowPath followPath) {
-            paths.start(follower, followPath.pathId());
-        } else if (command instanceof boobuzz.core.contract.Drive.Hold) {
-            follower.hold(localizer.pose());
-        } else {
-            follower.stop();
-        }
     }
 
     private Path buildPath(PathRequest request) {
@@ -256,29 +236,4 @@ public final class PedroDrive implements boobuzz.core.subsystem.IDrive {
         return names;
     }
 
-    private static boolean sameCommand(boobuzz.core.contract.Drive left,
-                                       boobuzz.core.contract.Drive right) {
-        if (left == null || right == null || left.getClass() != right.getClass()) {
-            return false;
-        }
-        if (left instanceof boobuzz.core.contract.Drive.FollowPath a
-                && right instanceof boobuzz.core.contract.Drive.FollowPath b) {
-            return a.pathId().equals(b.pathId());
-        }
-        if (left instanceof boobuzz.core.contract.Drive.GoTo a
-                && right instanceof boobuzz.core.contract.Drive.GoTo b) {
-            return samePose(a.target(), b.target()) && a.constraints().equals(b.constraints());
-        }
-        if (left instanceof boobuzz.core.contract.Drive.Hold) {
-            return true;
-        }
-        return left instanceof boobuzz.core.contract.Drive.Velocity a
-                && right instanceof boobuzz.core.contract.Drive.Velocity b && a.equals(b);
-    }
-
-    private static boolean samePose(Pose a, Pose b) {
-        return Double.doubleToLongBits(a.x()) == Double.doubleToLongBits(b.x())
-                && Double.doubleToLongBits(a.y()) == Double.doubleToLongBits(b.y())
-                && Double.doubleToLongBits(a.heading()) == Double.doubleToLongBits(b.heading());
-    }
 }

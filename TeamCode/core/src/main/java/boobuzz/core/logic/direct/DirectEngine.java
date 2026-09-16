@@ -1,9 +1,8 @@
 package boobuzz.core.logic.direct;
 
-import boobuzz.core.contract.Drive;
-import boobuzz.core.contract.Intent;
 import boobuzz.core.contract.PathRequest;
 import boobuzz.core.contract.Request;
+import boobuzz.core.contract.RequestBatch;
 import boobuzz.core.contract.RequestStatus;
 import boobuzz.core.contract.RequestType;
 import boobuzz.core.contract.RobotAction;
@@ -48,11 +47,21 @@ public final class DirectEngine implements IRobotEngine {
     }
 
     @Override
-    public void act(Intent intent) {
+    public void act(RequestBatch batch) {
+        if (batch == null) {
+            batch = RequestBatch.idle();
+        }
         List<RequestStatus> statuses = new ArrayList<>();
-        applyDrive(intent.drive());
-        for (Request request : intent.newRequests()) {
-            start(request, statuses);
+        boolean driveRequest = batch.requests().stream().anyMatch(request -> isDrive(request.type()));
+        applyStream(batch.stream(), statuses);
+        for (int cancelId : batch.cancels()) {
+            cancel(cancelId, statuses);
+        }
+        for (Request request : batch.requests()) {
+            start(request, statuses, batch.stream().manualDrive());
+        }
+        if (!batch.stream().manualDrive() && !driveRequest && motion == null && goTo == null) {
+            subsystems.drive().stop();
         }
         advance(statuses);
         pendingStatuses = List.copyOf(statuses);
@@ -75,27 +84,21 @@ public final class DirectEngine implements IRobotEngine {
         return subsystems;
     }
 
-    private void applyDrive(Drive command) {
-        if (command == null) {
+    private void applyStream(boobuzz.core.contract.RequestStream stream,
+                             List<RequestStatus> statuses) {
+        if (!stream.manualDrive()) {
             return;
         }
-        if (command instanceof Drive.Manual manual) {
-            motion = null;
-            subsystems.drive().manual(manual.vx(), manual.vy(), manual.omega());
-        } else if (command instanceof Drive.GoTo goToCommand) {
-            motion = null;
-            subsystems.drive().follow(
-                    PathRequest.goTo(goToCommand.target(), goToCommand.constraints()));
-        } else if (command instanceof Drive.FollowPath path) {
-            motion = null;
-            subsystems.drive().follow(PathRequest.named(path.pathId()));
-        } else if (motion == null) {
-            subsystems.drive().stop();
-        }
+        rejectActiveDrive(statuses, "overridden by manual drive");
+        subsystems.drive().manual(stream.vx(), stream.vy(), stream.omega());
     }
 
-    private void start(Request request, List<RequestStatus> statuses) {
+    private void start(Request request, List<RequestStatus> statuses, boolean manualDrive) {
         RequestType type = request.type();
+        if (manualDrive && isDrive(type)) {
+            statuses.add(RequestStatus.rejected(request.id(), "overridden by manual drive"));
+            return;
+        }
         switch (type) {
             case SHOOT -> startShoot(request, statuses);
             case SPIN_UP -> startSpin(request, statuses);
@@ -108,6 +111,33 @@ public final class DirectEngine implements IRobotEngine {
                 statuses.add(RequestStatus.done(request.id()));
             }
         }
+    }
+
+    private void cancel(int id, List<RequestStatus> statuses) {
+        if (motion != null && motion.id == id) {
+            motion = null;
+            subsystems.drive().stop();
+            statuses.add(RequestStatus.rejected(id, "cancelled"));
+        } else if (goTo != null && goTo.id == id) {
+            goTo = null;
+            subsystems.drive().stop();
+            statuses.add(RequestStatus.rejected(id, "cancelled"));
+        }
+    }
+
+    private void rejectActiveDrive(List<RequestStatus> statuses, String note) {
+        if (motion != null) {
+            statuses.add(RequestStatus.rejected(motion.id, note));
+            motion = null;
+        }
+        if (goTo != null) {
+            statuses.add(RequestStatus.rejected(goTo.id, note));
+            goTo = null;
+        }
+    }
+
+    private static boolean isDrive(RequestType type) {
+        return type == RequestType.GOTO || type == RequestType.PATH || type == RequestType.TURN_TO;
     }
 
     private void startPath(Request request, List<RequestStatus> statuses) {
@@ -172,7 +202,7 @@ public final class DirectEngine implements IRobotEngine {
             return;
         }
         Pose target = new Pose(request.param(0, 0), request.param(1, 0), request.param(2, 0));
-        subsystems.drive().follow(PathRequest.goTo(target, Drive.Constraints.defaults()));
+        subsystems.drive().follow(PathRequest.goTo(target, PathRequest.Constraints.defaults()));
         goTo = new GotoJob(request.id(), false);
     }
 

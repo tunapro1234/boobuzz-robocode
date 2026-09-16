@@ -1,6 +1,6 @@
 package boobuzz.core.logic.cplx1;
 
-import boobuzz.core.contract.Intent;
+import boobuzz.core.contract.RequestBatch;
 import boobuzz.core.contract.RequestStatus;
 import boobuzz.core.contract.RobotAction;
 import boobuzz.core.contract.RobotState;
@@ -35,8 +35,8 @@ public final class CplxEngine1 implements IRobotEngine {
     }
 
     @Override
-    public void act(Intent intent) {
-        requestEngine.act(intent);
+    public void act(RequestBatch batch) {
+        requestEngine.act(batch);
     }
 
     public Subsystems subsystems() {

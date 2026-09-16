@@ -2,8 +2,8 @@ package boobuzz.core;
 
 import boobuzz.core.controller.IController;
 import boobuzz.core.controller.teleop.TeleopController;
-import boobuzz.core.contract.Drive;
-import boobuzz.core.contract.Intent;
+import boobuzz.core.contract.RequestBatch;
+import boobuzz.core.contract.RequestStream;
 import boobuzz.core.hal.IHal;
 import boobuzz.core.logic.cplx1.CplxEngine1;
 import boobuzz.core.logic.direct.DirectEngine;
@@ -24,9 +24,9 @@ public final class RobotFactory {
         return create(hal, mechanism, "cplx1", null);
     }
 
-    /** When {@code fixedDrive == null}, the controller uses HAL's gamepad source. */
-    public static RobotLoop create(IHal hal, Mechanism mechanism, Drive fixedDrive) {
-        return create(hal, mechanism, "cplx1", fixedDrive);
+    /** Builds a loop with a fixed per-tick stream instead of the HAL gamepad. */
+    public static RobotLoop create(IHal hal, Mechanism mechanism, RequestStream fixedStream) {
+        return create(hal, mechanism, "cplx1", fixedStream);
     }
 
     public static RobotLoop create(IHal hal, Mechanism mechanism, String engineName) {
@@ -35,10 +35,10 @@ public final class RobotFactory {
 
     /** Builds the selected engine over one fixed-order subsystem set. */
     public static RobotLoop create(IHal hal, Mechanism mechanism,
-                                   String engineName, Drive fixedDrive) {
-        IController controller = fixedDrive == null
+                                   String engineName, RequestStream fixedStream) {
+        IController controller = fixedStream == null
                 ? new TeleopController(hal)
-                : feedback -> Intent.of(fixedDrive);
+                : feedback -> new RequestBatch(fixedStream, java.util.List.of(), new int[0]);
         return createWithController(hal, mechanism, engineName, controller);
     }
 

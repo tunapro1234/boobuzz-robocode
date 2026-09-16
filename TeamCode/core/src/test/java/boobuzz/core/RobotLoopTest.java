@@ -1,8 +1,8 @@
 package boobuzz.core;
 
-import boobuzz.core.contract.Drive;
 import boobuzz.core.controller.teleop.TeleopController;
-import boobuzz.core.contract.Intent;
+import boobuzz.core.contract.RequestBatch;
+import boobuzz.core.contract.RequestStream;
 import boobuzz.core.contract.RobotAction;
 import boobuzz.core.contract.RobotState;
 import boobuzz.core.logic.cplx1.CplxEngine1;
@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 public class RobotLoopTest {
 
@@ -56,7 +57,7 @@ public class RobotLoopTest {
     public void tickTimeComesFromHal() {
         FakeHal hal = new FakeHal();
         RobotLoop loop = new RobotLoop(hal, new CplxEngine1(subsystems()),
-                fb -> Intent.of(new Drive.Manual(1, 0, 0)));
+                fb -> new RequestBatch(RequestStream.manual(1, 0, 0), List.of(), new int[0]));
 
         for (int i = 0; i < 10; i++) {
             loop.tick();
@@ -72,10 +73,11 @@ public class RobotLoopTest {
         FakeHal hal = new FakeHal();
         hal.pad = new GamepadState(0.02, -0.03, 0.01, 0,
                 false, false, false, false, false, false, 0, 0, GamepadState.Dpad.NONE);
-        Drive.Manual m = (Drive.Manual) new TeleopController(hal).decide(null).drive();
+        RequestStream m = new TeleopController(hal).decide(null).stream();
         assertEquals(0.0, m.vx(), 1e-9);
         assertEquals(0.0, m.vy(), 1e-9);
         assertEquals(0.0, m.omega(), 1e-9);
+        assertTrue(m.manualDrive());
     }
 
     @Test

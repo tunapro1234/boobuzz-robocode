@@ -1,10 +1,10 @@
 package boobuzz.core.controller.auto;
 
-import boobuzz.core.contract.Drive;
 import boobuzz.core.contract.Feedback;
-import boobuzz.core.contract.Intent;
 import boobuzz.core.contract.Request;
+import boobuzz.core.contract.RequestBatch;
 import boobuzz.core.contract.RequestStatus;
+import boobuzz.core.contract.RequestStream;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -28,15 +28,15 @@ public final class AutoController implements boobuzz.core.controller.IController
     }
 
     @Override
-    public Intent decide(Feedback feedback) {
+    public RequestBatch decide(Feedback feedback) {
         long now = feedback == null ? timerStartMs : feedback.t();
         List<RequestStatus> statuses = feedback == null ? List.of() : feedback.statuses();
 
         if (failure != null || sequence.isDone()) {
-            return Intent.idle();
+            return RequestBatch.idle();
         }
         if (hasFailure(statuses)) {
-            return Intent.idle();
+            return RequestBatch.idle();
         }
 
         if (phase == Phase.WAIT) {
@@ -44,7 +44,7 @@ public final class AutoController implements boobuzz.core.controller.IController
             if (elapsed(now, timerStartMs) >= secondsToMillis(wait.seconds())) {
                 advance();
             }
-            return Intent.idle();
+            return RequestBatch.idle();
         }
 
         if (phase == Phase.INTAKE_TIME) {
@@ -56,7 +56,7 @@ public final class AutoController implements boobuzz.core.controller.IController
                 phase = Phase.REQUEST;
                 return intent(Request.intakeOff(offId));
             }
-            return Intent.idle();
+            return RequestBatch.idle();
         }
 
         if (phase == Phase.MOTION || phase == Phase.REQUEST) {
@@ -73,7 +73,7 @@ public final class AutoController implements boobuzz.core.controller.IController
                 }
                 advance();
             }
-            return Intent.idle();
+            return RequestBatch.idle();
         }
 
         AutoStep step = sequence.current();
@@ -132,7 +132,7 @@ public final class AutoController implements boobuzz.core.controller.IController
         if (wait.seconds() == 0.0) {
             advance();
         }
-        return Intent.idle();
+        return RequestBatch.idle();
     }
 
     public AutoSequence sequence() {
@@ -159,12 +159,12 @@ public final class AutoController implements boobuzz.core.controller.IController
         return failure == null ? "" : failure.note();
     }
 
-    private Intent intent(Request request) {
+    private RequestBatch intent(Request request) {
         return intent(List.of(request));
     }
 
-    private Intent intent(List<Request> requests) {
-        return new Intent(Drive.HOLD, requests, new int[0]);
+    private RequestBatch intent(List<Request> requests) {
+        return new RequestBatch(RequestStream.idle(), requests, new int[0]);
     }
 
     private boolean hasFailure(List<RequestStatus> statuses) {

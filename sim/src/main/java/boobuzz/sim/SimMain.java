@@ -4,9 +4,14 @@ import boobuzz.core.RobotLoop;
 import boobuzz.core.RobotFactory;
 import boobuzz.core.controller.auto.AutoController;
 import boobuzz.core.controller.auto.AutoSequence;
+import boobuzz.core.controller.IController;
 import boobuzz.core.controller.opmodes.AutoRegistry;
-import boobuzz.core.contract.Drive;
+import boobuzz.core.contract.Feedback;
 import boobuzz.core.hal.Mechanism;
+import boobuzz.core.contract.PathRequest;
+import boobuzz.core.contract.Request;
+import boobuzz.core.contract.RequestBatch;
+import boobuzz.core.contract.RequestStream;
 import boobuzz.core.hal.RobotConstants;
 
 import com.pedropathing.math.Pose;
@@ -51,23 +56,31 @@ public final class SimMain {
 
             // Default: the gamepad comes from the server (pygame). --drive provides a
             // fixed intent for a headless smoke test; without a viewer, gamepad stays neutral.
-            Drive fixedDrive = null;
+            RequestStream fixedStream = null;
+            IController fixedController = null;
             if (autoController != null) {
                 System.out.printf("controller: auto (%s)%n", a.auto);
             } else if (a.pathId != null) {
-                fixedDrive = new Drive.FollowPath(a.pathId);
+                fixedController = new FixedPathController(a.pathId);
                 System.out.printf("controller: FollowPath(%s)%n", a.pathId);
             } else if (a.drive == null) {
                 System.out.println("controller: gamepad (from server)");
             } else {
-                fixedDrive = new Drive.Manual(a.drive[0], a.drive[1], a.drive[2]);
+                fixedStream = RequestStream.manual(a.drive[0], a.drive[1], a.drive[2]);
                 System.out.printf("controller: fixed Manual(%.2f, %.2f, %.2f)%n",
                         a.drive[0], a.drive[1], a.drive[2]);
             }
 
-            RobotLoop loop = autoController == null
-                    ? RobotFactory.create(hal, mechanism, a.engine, fixedDrive)
-                    : RobotFactory.createWithController(hal, mechanism, a.engine, autoController);
+            RobotLoop loop;
+            if (autoController != null) {
+                loop = RobotFactory.createWithController(hal, mechanism, a.engine, autoController);
+            } else if (fixedController != null) {
+                loop = RobotFactory.createWithController(hal, mechanism, a.engine, fixedController);
+            } else if (fixedStream != null) {
+                loop = RobotFactory.create(hal, mechanism, a.engine, fixedStream);
+            } else {
+                loop = RobotFactory.create(hal, mechanism, a.engine);
+            }
             System.out.printf("engine: %s%n", loop.engine().name());
 
             long wallStart = System.nanoTime();
@@ -109,6 +122,25 @@ public final class SimMain {
             }
         }
         return 0;
+    }
+
+    /** Emits a named path request once; requests are edge-triggered. */
+    private static final class FixedPathController implements IController {
+        private final String pathId;
+        private boolean sent;
+
+        private FixedPathController(String pathId) {
+            this.pathId = pathId;
+        }
+
+        @Override
+        public RequestBatch decide(Feedback feedback) {
+            if (sent) {
+                return RequestBatch.idle();
+            }
+            sent = true;
+            return RequestBatch.of(Request.path(1, PathRequest.named(pathId)));
+        }
     }
 
     /** Small argument parser; not worth adding a library. */
