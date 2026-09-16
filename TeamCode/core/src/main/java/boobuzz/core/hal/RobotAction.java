@@ -10,7 +10,7 @@ import java.util.Map;
  * <p>The seam is here because the motor interface encodes physics (stable), while
  * the subsystem interface encodes design assumptions (changing). See the architecture documentation, §3.
  *
- * <p>Keys are names from {@code mechanism.yaml}. Adding a motor does not change :core.
+ * <p>Keys are names from {@link RobotConstants}. Adding a motor does not change :core.
  * Values are power from -1..1. A missing key means 0.
  */
 public record RobotAction(Map<String, Double> motors, Map<String, Double> servos) {

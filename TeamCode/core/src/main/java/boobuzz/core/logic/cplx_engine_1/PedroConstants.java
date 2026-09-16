@@ -80,7 +80,7 @@ public final class PedroConstants {
     private static void requirePositive(String field, double value) {
         if (!Double.isFinite(value) || value <= 0.0) {
             throw new Mechanism.MechanismException(
-                    "mechanism.yaml '" + field + "' must be positive: " + value);
+                    "RobotConstants '" + field + "' must be positive: " + value);
         }
     }
 }

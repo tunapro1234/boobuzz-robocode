@@ -5,14 +5,12 @@ import boobuzz.core.hal.Hal;
 import boobuzz.core.hal.RobotAction;
 import boobuzz.core.hal.RobotState;
 import boobuzz.core.hal.Mechanism;
-import boobuzz.core.hal.MechanismLoader;
 
 import com.pedropathing.math.Pose;
 
 import org.junit.Before;
 import org.junit.Test;
 
-import java.io.InputStream;
 import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
@@ -23,11 +21,7 @@ public class RobotFactoryTest {
 
     @Before
     public void setUp() {
-        try (InputStream in = getClass().getResourceAsStream("/mechanism-test.yaml")) {
-            mechanism = MechanismLoader.load(in, "mechanism-test.yaml");
-        } catch (Exception e) {
-            throw new AssertionError(e);
-        }
+        mechanism = Mechanism.DEFAULT;
     }
 
     @Test

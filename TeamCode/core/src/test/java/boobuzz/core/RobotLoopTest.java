@@ -9,13 +9,11 @@ import boobuzz.core.hal.Hal;
 import boobuzz.core.hal.RobotAction;
 import boobuzz.core.hal.RobotState;
 import boobuzz.core.hal.Mechanism;
-import boobuzz.core.hal.MechanismLoader;
 
 import com.pedropathing.math.Pose;
 
 import org.junit.Test;
 
-import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -46,11 +44,7 @@ public class RobotLoopTest {
     }
 
     private static Mechanism mechanism() {
-        try (InputStream in = RobotLoopTest.class.getResourceAsStream("/mechanism-test.yaml")) {
-            return MechanismLoader.load(in, "mechanism-test.yaml");
-        } catch (Exception e) {
-            throw new AssertionError(e);
-        }
+        return Mechanism.DEFAULT;
     }
 
     @Test

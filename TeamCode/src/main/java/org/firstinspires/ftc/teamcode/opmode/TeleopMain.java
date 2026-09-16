@@ -3,7 +3,7 @@ package org.firstinspires.ftc.teamcode.opmode;
 import boobuzz.core.RobotFactory;
 import boobuzz.core.RobotLoop;
 import boobuzz.core.hal.Mechanism;
-import boobuzz.core.hal.MechanismLoader;
+import boobuzz.core.hal.RobotConstants;
 
 import com.pedropathing.math.Pose;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
@@ -17,7 +17,7 @@ public class TeleopMain extends LinearOpMode {
 
     @Override
     public void runOpMode() {
-        Mechanism mechanism = MechanismLoader.loadDefault();
+        Mechanism mechanism = RobotConstants.mechanism();
         RealHal hal = new RealHal(hardwareMap, gamepad1, mechanism, new Pose(0, 0, 0));
         RobotLoop robot = RobotFactory.create(hal, mechanism);
 

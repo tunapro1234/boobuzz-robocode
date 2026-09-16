@@ -1,6 +1,7 @@
 package org.firstinspires.ftc.teamcode.hal;
 
 import boobuzz.core.hal.Mechanism;
+import boobuzz.core.hal.RobotConstants;
 
 import com.pedropathing.math.Pose;
 import com.qualcomm.hardware.gobilda.GoBildaPinpointDriver;
@@ -19,7 +20,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/** Finds only FTC devices and configures them from {@code mechanism.yaml}. */
+/** Finds only FTC devices and configures them from {@link RobotConstants}. */
 public final class Hardware {
 
     final Map<String, DcMotorEx> motors;

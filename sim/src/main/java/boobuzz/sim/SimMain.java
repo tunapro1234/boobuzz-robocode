@@ -4,17 +4,15 @@ import boobuzz.core.RobotLoop;
 import boobuzz.core.RobotFactory;
 import boobuzz.core.contract.Drive;
 import boobuzz.core.hal.Mechanism;
-import boobuzz.core.hal.MechanismLoader;
+import boobuzz.core.hal.RobotConstants;
 
 import com.pedropathing.math.Pose;
-
-import java.nio.file.Path;
 
 /**
  * Headless simulator runner.
  *
  * <pre>
- * java -cp ... boobuzz.sim.SimMain --mechanism ../mechanism.yaml --steps 500 --dt 20
+ * java -cp ... boobuzz.sim.SimMain --steps 500 --dt 20
  * </pre>
  *
  * <p>Runs RobotLoop with SimHal + CplxEngine1 + GamepadController and sends
@@ -27,8 +25,8 @@ public final class SimMain {
     public static void main(String[] args) throws Exception {
         Args a = Args.parse(args);
 
-        Mechanism mechanism = MechanismLoader.load(a.mechanism);
-        System.out.printf("mechanism: %s  motors=%s%n", a.mechanism, mechanism.motorNames());
+        Mechanism mechanism = RobotConstants.mechanism();
+        System.out.printf("mechanism: RobotConstants  motors=%s%n", mechanism.motorNames());
 
         try (SimHal hal = new SimHal(mechanism, a.host, a.port, a.dtMs,
                 a.seed, new Pose(a.x, a.y, a.h), a.connectTimeoutMs)) {
@@ -79,7 +77,6 @@ public final class SimMain {
 
     /** Small argument parser; not worth adding a library. */
     private static final class Args {
-        Path mechanism = Path.of("mechanism.yaml");
         String host = SimHal.DEFAULT_HOST;
         int port = SimHal.DEFAULT_PORT;
         int steps = 500;
@@ -95,7 +92,6 @@ public final class SimMain {
             for (int i = 0; i < argv.length; i++) {
                 String key = argv[i];
                 switch (key) {
-                    case "--mechanism" -> a.mechanism = Path.of(next(argv, ++i, key));
                     case "--host" -> a.host = next(argv, ++i, key);
                     case "--port" -> a.port = Integer.parseInt(next(argv, ++i, key));
                     case "--steps" -> a.steps = Integer.parseInt(next(argv, ++i, key));

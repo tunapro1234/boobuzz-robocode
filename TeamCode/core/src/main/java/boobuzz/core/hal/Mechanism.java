@@ -14,6 +14,9 @@ public record Mechanism(
         Pinpoint pinpoint,
         Physics physics) {
 
+    /** Shared mechanism built once from {@link RobotConstants}. */
+    public static final Mechanism DEFAULT = RobotConstants.buildMechanism();
+
     public Mechanism {
         motorNames = List.copyOf(motorNames);
         servoNames = List.copyOf(servoNames);
@@ -28,7 +31,7 @@ public record Mechanism(
         List<String> gotS = sorted(actualServos == null ? List.of() : actualServos);
         if (!expectedM.equals(gotM) || !expectedS.equals(gotS)) {
             throw new MechanismException(
-                    "mechanism.yaml motor/servo name lists do not match.\n"
+                    "RobotConstants motor/servo name lists do not match.\n"
                             + "  motors expected=" + expectedM + " actual=" + gotM + "\n"
                             + "  servos expected=" + expectedS + " actual=" + gotS);
         }
@@ -37,7 +40,7 @@ public record Mechanism(
     public Motor motor(String name) {
         Motor motor = motors.get(name);
         if (motor == null) {
-            throw new MechanismException("mechanism.yaml does not define motor '" + name + "'");
+            throw new MechanismException("RobotConstants does not define motor '" + name + "'");
         }
         return motor;
     }
@@ -54,7 +57,7 @@ public record Mechanism(
 
     public Pinpoint pinpoint() {
         if (pinpoint == null) {
-            throw new MechanismException("mechanism.yaml does not define sensors.pinpoint");
+            throw new MechanismException("RobotConstants does not define sensors.pinpoint");
         }
         return pinpoint;
     }

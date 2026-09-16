@@ -1,14 +1,11 @@
 package boobuzz.core.logic.cplx_engine_1;
 
 import boobuzz.core.hal.Mechanism;
-import boobuzz.core.hal.MechanismLoader;
 
 import com.pedropathing.follower.Follower;
 
 import org.junit.Before;
 import org.junit.Test;
-
-import java.io.InputStream;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
@@ -21,15 +18,11 @@ public class PathRegistryTest {
 
     @Before
     public void setUp() {
-        try (InputStream in = getClass().getResourceAsStream("/mechanism-test.yaml")) {
-            Mechanism mechanism = MechanismLoader.load(in, "mechanism-test.yaml");
-            HalLocalizer localizer = new HalLocalizer();
-            HalDrivetrain drivetrain = new HalDrivetrain(DriveSubsystem.wheelNames(mechanism));
-            follower = PedroConstants.createFollower(mechanism, localizer, drivetrain);
-            registry = new PathRegistry();
-        } catch (Exception e) {
-            throw new AssertionError(e);
-        }
+        Mechanism mechanism = Mechanism.DEFAULT;
+        HalLocalizer localizer = new HalLocalizer();
+        HalDrivetrain drivetrain = new HalDrivetrain(DriveSubsystem.wheelNames(mechanism));
+        follower = PedroConstants.createFollower(mechanism, localizer, drivetrain);
+        registry = new PathRegistry();
     }
 
     @Test

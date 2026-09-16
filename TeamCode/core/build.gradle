@@ -9,19 +9,10 @@ java {
     targetCompatibility = JavaVersion.VERSION_17
 }
 
-// The root mechanism.yaml is the single source; it also enters the robot APK through the core jar.
-sourceSets.main.resources {
-    srcDir rootProject.projectDir
-    include 'mechanism.yaml'
-}
-
 dependencies {
     // Pedro 3.0 'core' artifact is a pure Java jar (67 classes, no FTC/Android/Kotlin
     // references - verified). The Android side is the 'revhub' AAR, which belongs to TeamCode.
     api 'com.pedropathing:core:3.0.0'
-
-    // mechanism.yaml reader. Not an SDK.
-    implementation 'org.yaml:snakeyaml:2.3'
 
     testImplementation 'junit:junit:4.13.2'
 }

@@ -9,14 +9,11 @@ import boobuzz.core.hal.GamepadState;
 import boobuzz.core.hal.RobotAction;
 import boobuzz.core.hal.RobotState;
 import boobuzz.core.hal.Mechanism;
-import boobuzz.core.hal.MechanismLoader;
 
 import com.pedropathing.math.Pose;
 
 import org.junit.Test;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.List;
 
 import static org.junit.Assert.assertEquals;
@@ -30,10 +27,8 @@ import static org.junit.Assert.assertTrue;
  */
 public class SimHalTest {
 
-    private static Mechanism mechanism() throws Exception {
-        Path p = Path.of("..", "mechanism.yaml").toAbsolutePath().normalize();
-        assertTrue("mechanism.yaml not found: " + p, Files.exists(p));
-        return MechanismLoader.load(p);
+    private static Mechanism mechanism() {
+        return Mechanism.DEFAULT;
     }
 
     private static SimHal connect(FakeSimServer server, Mechanism m, int dtMs) throws Exception {
