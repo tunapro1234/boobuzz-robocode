@@ -4,6 +4,7 @@ import boobuzz.core.contract.Feedback;
 import boobuzz.core.contract.GamepadState;
 import boobuzz.core.contract.Request;
 import boobuzz.core.contract.RequestBatch;
+import boobuzz.core.contract.RequestStatus;
 import boobuzz.core.contract.RobotAction;
 import boobuzz.core.contract.RobotState;
 import boobuzz.core.contract.WorldSnapshot;
@@ -44,6 +45,7 @@ public class RobotLoopSwitchTest {
         private final String name;
         private final List<RequestBatch> batches = new ArrayList<>();
         private RobotAction action = RobotAction.zero();
+        private List<RequestStatus> pendingStatuses = List.of();
 
         private RecordingEngine(String name) { this.name = name; }
 
@@ -55,12 +57,22 @@ public class RobotLoopSwitchTest {
 
         @Override public void act(RequestBatch batch) {
             batches.add(batch);
+            if (batch.cancels().length > 0
+                    && batch.cancels()[0] == RequestBatch.CANCEL_ALL) {
+                pendingStatuses = List.of(RequestStatus.rejected(77, "engine switch"));
+            }
             if (batch.cancels().length == 0) {
                 action = RobotAction.ofMotors(Map.of("fl", name.equals("old") ? 0.7 : 0.4));
             }
         }
 
         @Override public RobotAction action() { return action; }
+
+        @Override public List<RequestStatus> drainStatuses() {
+            List<RequestStatus> result = pendingStatuses;
+            pendingStatuses = List.of();
+            return result;
+        }
     }
 
     @Test
@@ -126,5 +138,86 @@ public class RobotLoopSwitchTest {
         assertEquals(0.7, writes.get(0).motor("fl"), 1e-9);
         assertEquals(0.0, writes.get(1).motor("fl"), 1e-9);
         assertEquals(0.0, writes.get(2).motor("fl"), 1e-9);
+    }
+
+    @Test
+    public void malformedAndOutOfRangeSwitchesAreRejectedInFeedback() {
+        FakeHal hal = new FakeHal();
+        RecordingEngine engine = new RecordingEngine("only");
+        List<RequestStatus> seen = new ArrayList<>();
+        IController controller = new IController() {
+            private int tick;
+
+            @Override public RequestBatch decide(Feedback feedback) {
+                if (feedback != null) seen.addAll(feedback.statuses());
+                return switch (tick++) {
+                    case 0 -> RequestBatch.of(Request.switchEngine(10, 2));
+                    case 1 -> RequestBatch.of(Request.of(11,
+                            boobuzz.core.contract.RequestType.SWITCH_ENGINE, 0.5));
+                    default -> RequestBatch.idle();
+                };
+            }
+        };
+        RobotLoop loop = new RobotLoop(hal, List.of(engine), engine, controller);
+
+        loop.tick();
+        loop.tick();
+        loop.tick();
+
+        assertTrue(seen.stream().anyMatch(status -> status.id() == 10
+                && status.state() == RequestStatus.State.REJECTED));
+        assertTrue(seen.stream().anyMatch(status -> status.id() == 11
+                && status.state() == RequestStatus.State.REJECTED));
+    }
+
+    @Test
+    public void repeatedSwitchToCurrentEngineCompletesWithoutHandoff() {
+        FakeHal hal = new FakeHal();
+        RecordingEngine engine = new RecordingEngine("only");
+        List<RequestStatus> seen = new ArrayList<>();
+        IController controller = new IController() {
+            private boolean sent;
+
+            @Override public RequestBatch decide(Feedback feedback) {
+                if (feedback != null) seen.addAll(feedback.statuses());
+                if (!sent) {
+                    sent = true;
+                    return RequestBatch.of(Request.switchEngine(12, 0));
+                }
+                return RequestBatch.idle();
+            }
+        };
+        RobotLoop loop = new RobotLoop(hal, List.of(engine), engine, controller);
+
+        loop.tick();
+        loop.tick();
+
+        assertEquals(2, engine.batches.size());
+        assertTrue(seen.stream().anyMatch(status -> status.id() == 12
+                && status.state() == RequestStatus.State.DONE));
+    }
+
+    @Test
+    public void oldEngineCancellationStatusIsForwardedAfterHandoff() {
+        FakeHal hal = new FakeHal();
+        RecordingEngine oldEngine = new RecordingEngine("old");
+        RecordingEngine newEngine = new RecordingEngine("new");
+        List<RequestStatus> seen = new ArrayList<>();
+        IController controller = new IController() {
+            private int tick;
+
+            @Override public RequestBatch decide(Feedback feedback) {
+                if (feedback != null) seen.addAll(feedback.statuses());
+                if (tick++ == 0) return RequestBatch.of(Request.switchEngine(13, 1));
+                return RequestBatch.idle();
+            }
+        };
+        RobotLoop loop = new RobotLoop(hal, List.of(oldEngine, newEngine), oldEngine, controller);
+
+        loop.tick();
+        loop.tick();
+
+        assertTrue(seen.stream().anyMatch(status -> status.id() == 77
+                && status.state() == RequestStatus.State.REJECTED));
     }
 }

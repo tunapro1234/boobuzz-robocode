@@ -13,6 +13,7 @@ import boobuzz.core.logic.IRobotEngine;
 import boobuzz.core.hal.IHal;
 
 import java.util.List;
+import java.util.ArrayList;
 import java.util.Objects;
 import java.nio.file.Path;
 
@@ -34,6 +35,7 @@ public final class RobotLoop implements AutoCloseable {
     private long ticks;
     private long tickNanosTotal;
     private long maxTickNanos;
+    private List<boobuzz.core.contract.RequestStatus> pendingLoopStatuses = List.of();
 
     public RobotLoop(IHal hal, IRobotEngine engine, IController controller) {
         this(hal, List.of(Objects.requireNonNull(engine, "engine")), engine, controller);
@@ -73,15 +75,28 @@ public final class RobotLoop implements AutoCloseable {
         try {
             RobotState state = hal.read();
             WorldSnapshot snapshot = engine.sense(state);    // UP
-            Feedback feedback = new Feedback(snapshot, engine.drainStatuses(), state.t());
+            List<boobuzz.core.contract.RequestStatus> feedbackStatuses = new ArrayList<>(
+                    engine.drainStatuses());
+            feedbackStatuses.addAll(pendingLoopStatuses);
+            pendingLoopStatuses = List.of();
+            Feedback feedback = new Feedback(snapshot, feedbackStatuses, state.t());
             RequestBatch controllerBatch = controller.decide(feedback); // L3
             RequestBatch batch = controllerBatch;
-            int switchIndex = switchIndex(controllerBatch);
+            List<boobuzz.core.contract.RequestStatus> switchStatuses = new ArrayList<>();
+            int switchIndex = switchIndex(controllerBatch, engines.size(), switchStatuses);
+            pendingLoopStatuses = switchStatuses;
             boolean switched = switchIndex >= 0 && switchIndex < engines.size()
                     && engines.get(switchIndex) != engine;
             if (switched) {
                 // Quiesce the old owner now.  The selected engine starts on the next tick.
                 engine.act(RequestBatch.cancelAll());
+                List<boobuzz.core.contract.RequestStatus> oldStatuses = engine.drainStatuses();
+                if (!oldStatuses.isEmpty()) {
+                    List<boobuzz.core.contract.RequestStatus> combined = new ArrayList<>(
+                            pendingLoopStatuses);
+                    combined.addAll(oldStatuses);
+                    pendingLoopStatuses = List.copyOf(combined);
+                }
                 setEngine(engines.get(switchIndex));
                 batch = withoutSwitchRequests(batch);
             } else {
@@ -193,19 +208,36 @@ public final class RobotLoop implements AutoCloseable {
         debugTap.offer(new DebugFrame(state, action, calls, feedback, batch));
     }
 
-    private static int switchIndex(RequestBatch batch) {
+    private static int switchIndex(RequestBatch batch, int engineCount,
+                                   List<boobuzz.core.contract.RequestStatus> statuses) {
         if (batch == null) {
             return -1;
         }
+        int selected = -1;
         for (var request : batch.requests()) {
             if (request.type() == boobuzz.core.contract.RequestType.SWITCH_ENGINE) {
                 double index = request.param(0, Double.NaN);
-                if (Double.isFinite(index) && index == Math.rint(index)) {
-                    return (int) index;
+                if (!Double.isFinite(index) || index != Math.rint(index)) {
+                    statuses.add(boobuzz.core.contract.RequestStatus.rejected(
+                            request.id(), "SWITCH_ENGINE requires an integral index"));
+                    continue;
+                }
+                int target = (int) index;
+                if (target < 0 || target >= engineCount) {
+                    statuses.add(boobuzz.core.contract.RequestStatus.rejected(
+                            request.id(), "SWITCH_ENGINE index is out of range"));
+                    continue;
+                }
+                if (selected < 0) {
+                    selected = target;
+                    statuses.add(boobuzz.core.contract.RequestStatus.done(request.id()));
+                } else {
+                    statuses.add(boobuzz.core.contract.RequestStatus.rejected(
+                            request.id(), "multiple SWITCH_ENGINE requests in one tick"));
                 }
             }
         }
-        return -1;
+        return selected;
     }
 
     private static RequestBatch withoutSwitchRequests(RequestBatch batch) {
