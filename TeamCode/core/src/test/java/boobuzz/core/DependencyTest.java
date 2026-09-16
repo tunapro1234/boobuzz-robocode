@@ -82,7 +82,8 @@ public class DependencyTest {
             case "logic" -> importedLayer.equals("contract") || importedLayer.equals("subsystem")
                     || imported.equals("boobuzz.core.hal.RobotConstants");
             case "controller" -> importedLayer.equals("contract")
-                    || imported.equals("boobuzz.core.hal.RobotConstants");
+                    || imported.equals("boobuzz.core.hal.RobotConstants")
+                    || importedLayer.equals("debug");
             default -> false;
         };
     }

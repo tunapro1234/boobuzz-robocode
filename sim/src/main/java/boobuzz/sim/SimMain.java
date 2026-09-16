@@ -6,6 +6,7 @@ import boobuzz.core.controller.auto.AutoController;
 import boobuzz.core.controller.auto.AutoSequence;
 import boobuzz.core.controller.IController;
 import boobuzz.core.controller.opmodes.AutoRegistry;
+import boobuzz.core.controller.replay.ReplayController;
 import boobuzz.core.contract.Feedback;
 import boobuzz.core.hal.Mechanism;
 import boobuzz.core.contract.PathRequest;
@@ -43,11 +44,24 @@ public final class SimMain {
     static int run(String[] args) throws Exception {
         Args a = Args.parse(args);
 
+        ReplayController replayController = null;
+        if ("replay".equals(a.controller)) {
+            if (a.bag == null) {
+                throw new IllegalArgumentException("--controller replay requires --bag");
+            }
+            replayController = new ReplayController(Path.of(a.bag));
+            if (!a.engineExplicit) {
+                a.engine = replayController.engineName();
+            }
+        }
+
         Mechanism mechanism = RobotConstants.mechanism();
         System.out.printf("mechanism: RobotConstants  motors=%s%n", mechanism.motorNames());
         AutoSequence sequence = a.auto == null ? null : AutoRegistry.build(a.auto);
         AutoController autoController = sequence == null ? null : new AutoController(sequence);
-        Pose startPose = sequence == null ? new Pose(a.x, a.y, a.h) : sequence.startPose();
+        Pose startPose = sequence != null ? sequence.startPose()
+                : replayController != null && replayController.initialPose() != null
+                ? replayController.initialPose() : new Pose(a.x, a.y, a.h);
         if (sequence != null) {
             System.out.printf("auto: %s  steps=%d  start=(%.2f, %.2f, %.3f)%n",
                     a.auto, sequence.size(), startPose.x(), startPose.y(), startPose.heading());
@@ -60,7 +74,9 @@ public final class SimMain {
             // fixed intent for a headless smoke test; without a viewer, gamepad stays neutral.
             RequestStream fixedStream = null;
             IController fixedController = null;
-            if (autoController != null) {
+            if (replayController != null) {
+                System.out.printf("controller: replay (%d ticks)%n", replayController.tickCount());
+            } else if (autoController != null) {
                 System.out.printf("controller: auto (%s)%n", a.auto);
             } else if (a.pathId != null) {
                 fixedController = new FixedPathController(a.pathId);
@@ -75,7 +91,10 @@ public final class SimMain {
 
             RobotLoop loop;
             boolean tracing = a.tapPort != 0 || a.bag != null;
-            if (autoController != null) {
+            if (replayController != null) {
+                loop = RobotFactory.createWithController(
+                        hal, mechanism, a.engine, replayController, a.tapPort, tracing);
+            } else if (autoController != null) {
                 loop = RobotFactory.createWithController(
                         hal, mechanism, a.engine, autoController, a.tapPort, tracing);
             } else if (fixedController != null) {
@@ -89,7 +108,8 @@ public final class SimMain {
                         hal, mechanism, a.engine, new boobuzz.core.controller.teleop.TeleopController(hal),
                         a.tapPort, tracing);
             }
-            if (a.bag != null && !loop.openBag(Path.of(a.bag), controllerName(a), startPose)) {
+            if (a.bag != null && replayController == null
+                    && !loop.openBag(Path.of(a.bag), controllerName(a), startPose)) {
                 throw new IllegalStateException("could not open bag: " + a.bag);
             }
             System.out.printf("engine: %s%n", loop.engine().name());
@@ -104,6 +124,9 @@ public final class SimMain {
                     break;
                 }
                 if (autoController != null && autoController.isFinished()) {
+                    break;
+                }
+                if (replayController != null && replayController.isDone()) {
                     break;
                 }
             }
@@ -141,6 +164,7 @@ public final class SimMain {
     }
 
     private static String controllerName(Args args) {
+        if ("replay".equals(args.controller)) return "ReplayController";
         if (args.auto != null) return "AutoController";
         if (args.pathId != null) return "FixedPathController";
         if (args.drive != null) return "FixedStreamController";
@@ -179,8 +203,10 @@ public final class SimMain {
         String pathId = null;
         String auto = null;
         String engine = "cplx1";
+        boolean engineExplicit;
         int tapPort = RobotConstants.DEBUG_TAP_PORT;
         String bag;
+        String controller = "gamepad";
 
         static Args parse(String[] argv) {
             Args a = new Args();
@@ -198,9 +224,13 @@ public final class SimMain {
                     case "--drive" -> a.drive = triple(next(argv, ++i, key));
                     case "--path" -> a.pathId = next(argv, ++i, key);
                     case "--auto" -> a.auto = next(argv, ++i, key);
-                    case "--engine" -> a.engine = next(argv, ++i, key);
+                    case "--engine" -> {
+                        a.engine = next(argv, ++i, key);
+                        a.engineExplicit = true;
+                    }
                     case "--tap-port" -> a.tapPort = Integer.parseInt(next(argv, ++i, key));
                     case "--bag" -> a.bag = next(argv, ++i, key);
+                    case "--controller" -> a.controller = next(argv, ++i, key);
                     case "--connect-timeout" ->
                             a.connectTimeoutMs = Integer.parseInt(next(argv, ++i, key));
                     default -> throw new IllegalArgumentException("unknown argument: " + key);
@@ -212,6 +242,9 @@ public final class SimMain {
             if (driveModes > 1) {
                 throw new IllegalArgumentException(
                         "--auto, --path and --drive cannot be used together");
+            }
+            if ("replay".equals(a.controller) && driveModes > 0) {
+                throw new IllegalArgumentException("--controller replay cannot be combined with --auto, --path or --drive");
             }
             return a;
         }
