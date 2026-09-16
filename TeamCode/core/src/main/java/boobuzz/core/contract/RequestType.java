@@ -9,6 +9,5 @@ public enum RequestType {
     SPIN_UP,
     INTAKE_ON,
     INTAKE_OFF,
-    TURN_TO,
-    WAIT
+    TURN_TO
 }

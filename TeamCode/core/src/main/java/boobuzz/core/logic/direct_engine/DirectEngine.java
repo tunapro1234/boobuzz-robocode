@@ -98,7 +98,7 @@ public final class DirectEngine implements RobotEngine {
                 subsystems.intake().stop();
                 statuses.add(RequestStatus.done(request.id()));
             }
-            case PATH, TURN_TO, WAIT -> statuses.add(RequestStatus.rejected(
+            case PATH, TURN_TO -> statuses.add(RequestStatus.rejected(
                     request.id(), type + " is not supported by the direct engine"));
         }
     }
