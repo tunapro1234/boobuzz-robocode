@@ -10,8 +10,10 @@ import boobuzz.core.logic.IRobotEngine;
 import boobuzz.core.subsystem.Subsystems;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 /** Wiring-only engine: stream arbitration, job ownership, and status draining. */
 public final class DirectEngine implements IRobotEngine {
@@ -22,6 +24,7 @@ public final class DirectEngine implements IRobotEngine {
     private DirectMap.Job shooterJob;
     private List<RequestStatus> pendingStatuses = List.of();
     private RobotAction action = RobotAction.zero();
+    private final Set<Integer> activeIntakeRequestIds = new HashSet<>();
 
     public DirectEngine(Subsystems subsystems) {
         this.subsystems = Objects.requireNonNull(subsystems, "subsystems");
@@ -64,6 +67,10 @@ public final class DirectEngine implements IRobotEngine {
                 continue;
             }
             cancel(id, statuses);
+            if (activeIntakeRequestIds.remove(id)) {
+                subsystems.intake().stop();
+                statuses.add(RequestStatus.rejected(id, "cancelled"));
+            }
         }
 
         for (Request request : batch.requests()) {
@@ -78,6 +85,15 @@ public final class DirectEngine implements IRobotEngine {
             }
             DirectMap.Job job = map.start(request, driveJob != null, shooterJob != null, statuses);
             if (job == null) {
+                if (isIntake(request)) {
+                    if (request.type() == boobuzz.core.contract.RequestType.INTAKE_OFF
+                            || (request.type() == boobuzz.core.contract.RequestType.INTAKE
+                            && request.param(0, 0.0) == 0.0)) {
+                        activeIntakeRequestIds.remove(request.id());
+                    } else {
+                        activeIntakeRequestIds.add(request.id());
+                    }
+                }
                 continue;
             }
             if (DirectMap.isDrive(request.type())) {
@@ -147,6 +163,7 @@ public final class DirectEngine implements IRobotEngine {
         subsystems.drive().stop();
         subsystems.shooter().spinDown();
         subsystems.intake().stop();
+        activeIntakeRequestIds.clear();
         subsystems.turret().hold();
     }
 
@@ -162,5 +179,11 @@ public final class DirectEngine implements IRobotEngine {
     private static boolean isShooter(Request request) {
         return request.type() == boobuzz.core.contract.RequestType.SHOOT
                 || request.type() == boobuzz.core.contract.RequestType.SPIN_UP;
+    }
+
+    private static boolean isIntake(Request request) {
+        return request.type() == boobuzz.core.contract.RequestType.INTAKE
+                || request.type() == boobuzz.core.contract.RequestType.INTAKE_ON
+                || request.type() == boobuzz.core.contract.RequestType.INTAKE_OFF;
     }
 }

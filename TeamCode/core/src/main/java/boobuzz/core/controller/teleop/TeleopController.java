@@ -58,8 +58,11 @@ public final class TeleopController implements IController {
 
         // A real stick sample always wins over a background fluent sequence.
         if (direct.stream().manualDrive()) {
+            int[] sequenceIds = sequenceRunner.activeRequestIds();
             sequenceRunner.abort("overridden by manual drive");
-            return direct;
+            // Driver takeover cancels every request owned by the sequence, including
+            // attached shooter and intake work; unrelated manual requests continue.
+            return withAdditionalCancels(direct, sequenceIds);
         }
 
         RequestBatch sequenceBatch = sequenceRunner.decide(feedback);
@@ -84,5 +87,13 @@ public final class TeleopController implements IController {
         RequestStream stream = sequence.stream().manualDrive()
                 ? sequence.stream() : mapped.stream();
         return new RequestBatch(stream, requests, cancels);
+    }
+
+    private static RequestBatch withAdditionalCancels(RequestBatch batch, int[] additional) {
+        int[] existing = batch.cancels();
+        int[] cancels = new int[existing.length + additional.length];
+        System.arraycopy(existing, 0, cancels, 0, existing.length);
+        System.arraycopy(additional, 0, cancels, existing.length, additional.length);
+        return new RequestBatch(batch.stream(), batch.requests(), cancels);
     }
 }

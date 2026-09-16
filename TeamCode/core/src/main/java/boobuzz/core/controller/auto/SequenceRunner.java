@@ -163,6 +163,11 @@ public final class SequenceRunner {
         return failure;
     }
 
+    /** IDs still owned by this sequence, used when a driver takes manual control. */
+    public int[] activeRequestIds() {
+        return ownedRequestIds().stream().mapToInt(Integer::intValue).toArray();
+    }
+
     public String failureNote() {
         return failure == null ? "" : failure.note();
     }
@@ -176,7 +181,7 @@ public final class SequenceRunner {
     }
 
     private boolean hasFailure(List<RequestStatus> statuses) {
-        for (int id : activeRequestIds()) {
+        for (int id : ownedRequestIds()) {
             RequestStatus status = status(statuses, id);
             if (status != null && (status.state() == RequestStatus.State.REJECTED
                     || status.state() == RequestStatus.State.FAILED)) {
@@ -187,7 +192,7 @@ public final class SequenceRunner {
         return false;
     }
 
-    private List<Integer> activeRequestIds() {
+    private List<Integer> ownedRequestIds() {
         if (primaryRequestId < 0) {
             return List.of();
         }

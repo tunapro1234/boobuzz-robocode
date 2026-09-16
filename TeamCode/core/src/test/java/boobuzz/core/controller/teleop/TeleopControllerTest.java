@@ -4,6 +4,8 @@ import boobuzz.core.contract.Feedback;
 import boobuzz.core.contract.GamepadState;
 import boobuzz.core.contract.IGamepadSource;
 import boobuzz.core.contract.RequestStream;
+import boobuzz.core.contract.RequestBatch;
+import boobuzz.core.contract.RequestType;
 import boobuzz.core.contract.WorldSnapshot;
 
 import com.pedropathing.math.Pose;
@@ -122,5 +124,27 @@ public class TeleopControllerTest {
         RequestStream d = streamOf(new TeleopController(pad).decide(noPose));
         assertEquals(0.0, d.vx(), EPS);
         assertEquals(-1.0, d.vy(), EPS);
+    }
+
+    @Test
+    public void manualTakeoverCancelsTheActiveSequenceRequest() {
+        Pad pad = new Pad();
+        TeleopController controller = new TeleopController(pad);
+        pad.state = new GamepadState(0, 0, 0, 0,
+                false, false, false, true, false, false, 0, 0,
+                GamepadState.Dpad.NONE);
+        RequestBatch sequence = controller.decide(at(0.0));
+        int pathId = sequence.requests().stream()
+                .filter(request -> request.type() == RequestType.PATH)
+                .findFirst().orElseThrow().id();
+
+        pad.state = forwardStick();
+        RequestBatch manual = controller.decide(new Feedback(
+                new WorldSnapshot(20, new Pose(72, 72, 0.0), 0.0, 12.6),
+                java.util.List.of(), 20));
+
+        assertTrue(manual.stream().manualDrive());
+        assertTrue(java.util.Arrays.stream(manual.cancels()).anyMatch(id -> id == pathId));
+        assertTrue(controller.sequenceRunner().isFailed());
     }
 }
