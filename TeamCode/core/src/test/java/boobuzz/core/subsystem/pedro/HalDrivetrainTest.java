@@ -8,6 +8,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 public class HalDrivetrainTest {
 
@@ -68,5 +69,16 @@ public class HalDrivetrainTest {
                 new DrivePowers(0.4, 0.0, 0.0), DrivePowers.zero());
 
         assertEquals(1.0, scale, EPS);
+    }
+
+    @Test
+    public void nonFinitePedroPowersAreZeroed() {
+        drivetrain.drive(new DrivePowers(Double.NaN, 0.0, 0.0), false);
+        RobotAction action = drivetrain.lastAction();
+
+        for (double power : action.motors().values()) {
+            assertTrue(Double.isFinite(power));
+            assertEquals(0.0, power, EPS);
+        }
     }
 }

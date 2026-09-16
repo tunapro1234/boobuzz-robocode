@@ -12,6 +12,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import java.util.Map;
+import java.util.LinkedHashMap;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -95,6 +96,36 @@ public class PedroDriveTest {
         assertTrue(!first.equals(later));
     }
 
+    @Test
+    public void repeatedInconsistentEncoderSamplesNeverEmitNonFinitePowers() {
+        PedroDrive drive = new PedroDrive(mechanism, new PathRegistry());
+        Map<String, Integer> encoders = new LinkedHashMap<>();
+        encoders.put("fl", 697);
+        encoders.put("fr", 7609);
+        encoders.put("bl", 7611);
+        encoders.put("br", 696);
+        Map<String, Double> velocities = new LinkedHashMap<>();
+        velocities.put("fl", 1550.0);
+        velocities.put("fr", 1550.0);
+        velocities.put("bl", 1600.0);
+        velocities.put("br", 1550.0);
+        PathRequest request = PathRequest.goTo(
+                new Pose(120.0, 72.0, 0.0), Drive.Constraints.defaults());
+
+        for (int tick = 0; tick < 200; tick++) {
+            drive.observe(new RobotState(tick * 20L, encoders, velocities, -0.0023,
+                    new Pose(105.25, 71.91, -0.0023), 12.0));
+            if (tick == 0) {
+                drive.follow(request);
+            }
+            RobotAction action = update(drive);
+            for (double power : action.motors().values()) {
+                assertTrue("power must be finite", Double.isFinite(power));
+                assertTrue("power must be clamped", Math.abs(power) <= 1.0);
+            }
+        }
+    }
+
     private static RobotAction.Builder output() {
         return new RobotAction.Builder();
     }
@@ -110,6 +141,12 @@ public class PedroDriveTest {
             drive.stop();
         }
         RobotAction.Builder output = output();
+        drive.update(output);
+        return output.build();
+    }
+
+    private static RobotAction update(PedroDrive drive) {
+        RobotAction.Builder output = new RobotAction.Builder();
         drive.update(output);
         return output.build();
     }

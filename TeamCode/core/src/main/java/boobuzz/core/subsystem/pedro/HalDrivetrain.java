@@ -25,6 +25,7 @@ public final class HalDrivetrain implements Drivetrain {
 
     private final String[] motorNames;
     private final double[] wheelPowers = new double[4];
+    private final boolean[] nonFiniteWarnings = new boolean[4];
 
     HalDrivetrain(String[] motorNames) {
         this.motorNames = motorNames.clone();
@@ -34,7 +35,7 @@ public final class HalDrivetrain implements Drivetrain {
     public void drive(DrivePowers powers, boolean manual) {
         double[] mixed = mecanum(powers);
         for (int i = 0; i < wheelPowers.length; i++) {
-            wheelPowers[i] = RobotAction.clamp(mixed[i], -1.0, 1.0);
+            wheelPowers[i] = safePower(mixed[i], i);
         }
     }
 
@@ -46,8 +47,12 @@ public final class HalDrivetrain implements Drivetrain {
     public double maxScaling(DrivePowers current, DrivePowers delta) {
         double[] base = mecanum(current);
         double[] change = mecanum(delta);
-        for (double power : base) {
-            if (Math.abs(power) > 1.0) {
+        for (int i = 0; i < base.length; i++) {
+            if (!Double.isFinite(base[i]) || !Double.isFinite(change[i])) {
+                warnNonFinite(i, !Double.isFinite(base[i]) ? base[i] : change[i]);
+                return 0.0;
+            }
+            if (Math.abs(base[i]) > 1.0) {
                 return 0.0;
             }
         }
@@ -88,17 +93,27 @@ public final class HalDrivetrain implements Drivetrain {
     @Override
     public double interpolateVelocity(double forwardVelocity, double strafeVelocity,
                                       double theta) {
-        return 1.0 / (Math.abs(Math.cos(theta)) / forwardVelocity
-                + Math.abs(Math.sin(theta)) / strafeVelocity);
+        double denominator = Math.abs(Math.cos(theta)) / forwardVelocity
+                + Math.abs(Math.sin(theta)) / strafeVelocity;
+        if (!Double.isFinite(denominator) || denominator <= 0.0) {
+            System.err.printf("HalDrivetrain: non-finite velocity interpolation; returning zero%n");
+            return 0.0;
+        }
+        double result = 1.0 / denominator;
+        if (!Double.isFinite(result)) {
+            System.err.printf("HalDrivetrain: non-finite velocity interpolation; returning zero%n");
+            return 0.0;
+        }
+        return result;
     }
 
     /** Final motor command to write to HAL for this tick. */
     public RobotAction lastAction() {
         Map<String, Double> motors = new LinkedHashMap<>(4);
-        motors.put(motorNames[FL], wheelPowers[FL]);
-        motors.put(motorNames[FR], wheelPowers[FR]);
-        motors.put(motorNames[BL], wheelPowers[BL]);
-        motors.put(motorNames[BR], wheelPowers[BR]);
+        motors.put(motorNames[FL], safePower(wheelPowers[FL], FL));
+        motors.put(motorNames[FR], safePower(wheelPowers[FR], FR));
+        motors.put(motorNames[BL], safePower(wheelPowers[BL], BL));
+        motors.put(motorNames[BR], safePower(wheelPowers[BR], BR));
         return RobotAction.ofMotors(motors);
     }
 
@@ -106,12 +121,44 @@ public final class HalDrivetrain implements Drivetrain {
         double[] wheelPowers = mecanum(powers);
         double peak = 1.0;
         for (double power : wheelPowers) {
+            if (!Double.isFinite(power)) {
+                System.err.printf("HalDrivetrain: non-finite manual mix; zeroing all wheel powers%n");
+                return new double[] {0.0, 0.0, 0.0, 0.0};
+            }
             peak = Math.max(peak, Math.abs(power));
         }
         for (int i = 0; i < wheelPowers.length; i++) {
-            wheelPowers[i] = RobotAction.clamp(wheelPowers[i] / peak, -1.0, 1.0);
+            double normalized = wheelPowers[i] / peak;
+            wheelPowers[i] = Double.isFinite(normalized)
+                    ? RobotAction.clamp(normalized, -1.0, 1.0) : 0.0;
         }
         return wheelPowers;
+    }
+
+    private double safePower(double value, int wheel) {
+        if (!Double.isFinite(value)) {
+            warnNonFinite(wheel, value);
+            return 0.0;
+        }
+        return RobotAction.clamp(value, -1.0, 1.0);
+    }
+
+    private void warnNonFinite(int wheel, double value) {
+        if (!nonFiniteWarnings[wheel]) {
+            nonFiniteWarnings[wheel] = true;
+            System.err.printf("HalDrivetrain: non-finite %s power (%s); zeroing%n",
+                    cornerName(wheel), value);
+        }
+    }
+
+    private static String cornerName(int wheel) {
+        return switch (wheel) {
+            case FL -> "fl";
+            case FR -> "fr";
+            case BL -> "bl";
+            case BR -> "br";
+            default -> "wheel" + wheel;
+        };
     }
 
     private static double[] mecanum(DrivePowers powers) {
