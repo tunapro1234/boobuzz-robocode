@@ -44,3 +44,27 @@ boobuzz/core/
 
 Keep contract records as data-only DTOs, preserve HAL/logic/controller boundaries,
 and run `:core:test :sim:test :TeamCode:assembleDebug` before pushing.
+
+## Debugging on the real robot
+
+Connect the laptop to the Control Hub robot WiFi, then stream the non-blocking tap:
+
+```text
+python tools/tap.py 192.168.43.1 5600
+python tools/tap.py 192.168.43.1 5600 --seam logic --grep SHOOT
+```
+
+The `hal` seam contains the sensor state and motor/servo action, `subsystem` shows
+the commands sent to each subsystem, and `logic` contains feedback and the
+controller request batch. Tap and bag output are disabled by default in the real
+robot entry points; enable them explicitly in `RobotConstants` when needed.
+
+For a socket-controller smoke test, send a JSON `RequestBatch` (or `vx vy omega`
+on one line) with:
+
+```text
+python tools/drive.py 192.168.43.1 5601
+```
+
+The driver prints the feedback echoed by the controller. A silent client causes
+the controller to return an idle batch after its configured timeout.
