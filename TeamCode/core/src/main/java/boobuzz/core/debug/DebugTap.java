@@ -160,6 +160,9 @@ public final class DebugTap implements AutoCloseable {
                 if (frame == null) {
                     continue;
                 }
+                // Configuration may race the first offered tick; resolve it before
+                // serializing so the first seam is never silently omitted from a bag.
+                ensureBag();
                 List<String> lines = List.of(
                         SeamJson.hal(frame.state().t(), frame.state(), frame.action()),
                         SeamJson.subsystem(frame.state().t(), frame.calls(), frame.action().events()),

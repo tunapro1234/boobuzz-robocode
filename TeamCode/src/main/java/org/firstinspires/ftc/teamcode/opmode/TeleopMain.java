@@ -2,12 +2,17 @@ package org.firstinspires.ftc.teamcode.opmode;
 
 import boobuzz.core.RobotFactory;
 import boobuzz.core.RobotLoop;
+import boobuzz.core.controller.IController;
+import boobuzz.core.controller.socket.SocketController;
+import boobuzz.core.controller.teleop.TeleopController;
 import boobuzz.core.hal.Mechanism;
 import boobuzz.core.hal.RobotConstants;
 
 import com.pedropathing.math.Pose;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+
+import java.io.IOException;
 
 import org.firstinspires.ftc.teamcode.hal.RealHal;
 
@@ -19,8 +24,22 @@ public class TeleopMain extends LinearOpMode {
     public void runOpMode() {
         Mechanism mechanism = RobotConstants.mechanism();
         RealHal hal = new RealHal(hardwareMap, gamepad1, mechanism, new Pose(0, 0, 0));
-        RobotLoop robot = RobotFactory.create(
-                hal, mechanism, "cplx1", null, RobotConstants.REAL_DEBUG_TAP_PORT);
+        SocketController socketController = null;
+        IController controller;
+        if ("socket".equals(RobotConstants.DEFAULT_CONTROLLER)) {
+            try {
+                socketController = new SocketController();
+                controller = socketController;
+            } catch (IOException e) {
+                telemetry.addData("controller", "socket unavailable: %s", e.getMessage());
+                telemetry.update();
+                return;
+            }
+        } else {
+            controller = new TeleopController(hal);
+        }
+        RobotLoop robot = RobotFactory.createWithController(
+                hal, mechanism, "cplx1", controller, RobotConstants.REAL_DEBUG_TAP_PORT);
 
         telemetry.addLine("RealHal + shared core ready. Press Start.");
         telemetry.update();
@@ -31,6 +50,9 @@ public class TeleopMain extends LinearOpMode {
             telemetry.addData("engine", robot.engine().name());
             telemetry.addData("ticks", robot.ticks());
             telemetry.update();
+        }
+        if (socketController != null) {
+            socketController.close();
         }
     }
 }

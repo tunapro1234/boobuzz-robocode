@@ -56,6 +56,9 @@ public final class RobotConstants {
     // Simulator default; real robot entry points use REAL_DEBUG_TAP_PORT for safety.
     public static final int DEBUG_TAP_PORT = 5600;
     public static final int REAL_DEBUG_TAP_PORT = 0;
+    public static final int CONTROL_SOCKET_PORT = 5601;
+    public static final int CONTROL_SOCKET_TIMEOUT_MS = 250;
+    public static final String DEFAULT_CONTROLLER = "gamepad";
 
     // free_rpm = 73.63 in/s * 60 / (pi * 4 in); no direct RPM data was found.
     public static final Motor FL = new Motor("fl", "wheel", 6.5, 5.5, 45.0, 537.7, 351.55735379568756);

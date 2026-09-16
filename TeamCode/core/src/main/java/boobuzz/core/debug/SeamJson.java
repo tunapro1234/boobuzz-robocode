@@ -48,7 +48,7 @@ public final class SeamJson {
 
     public static String logic(long tMs, Feedback feedback, RequestBatch batch) {
         Map<String, Object> root = root("logic", tMs);
-        root.put("feedback", feedback(feedback));
+        root.put("feedback", feedbackMap(feedback));
         root.put("batch", batchMap(batch));
         return JsonCodec.stringify(root);
     }
@@ -148,7 +148,8 @@ public final class SeamJson {
         return result;
     }
 
-    private static Map<String, Object> feedback(Feedback value) {
+    /** JSON-safe feedback map shared by the logic seam and SocketController. */
+    public static Map<String, Object> feedbackMap(Feedback value) {
         Map<String, Object> result = new LinkedHashMap<>();
         if (value == null) {
             result.put("snapshot", Map.of());
