@@ -209,7 +209,9 @@ public final class PedroDrive implements boobuzz.core.subsystem.Drive {
             case TANGENT -> path.tangent();
             case TANGENT_REVERSE -> path.reverseTangent();
             case CONSTANT -> path.constant(heading.start());
-            case LINEAR -> path.linear(heading.start(), heading.end());
+            // Pedro 3.0's linear interpolator takes (end, start), despite the
+            // method name; reverse the contract values to preserve start -> end.
+            case LINEAR -> path.linear(heading.end(), heading.start());
         };
         if (!(follower.algorithm() instanceof Foresight foresight)) {
             return path;
