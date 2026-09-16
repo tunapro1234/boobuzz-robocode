@@ -1,23 +1,19 @@
-package boobuzz.core.logic.cplx_engine_1;
+package boobuzz.core.subsystem.pedro;
 
-import boobuzz.core.contract.Drive;
-import boobuzz.core.contract.Intent;
-import boobuzz.core.contract.Request;
-import boobuzz.core.contract.RequestStatus;
+import boobuzz.core.contract.PathRequest;
 import boobuzz.core.contract.RobotAction;
 import boobuzz.core.contract.RobotState;
-import boobuzz.core.logic.Subsystem;
 import boobuzz.core.hal.Mechanism;
 
 import com.pedropathing.drivetrain.DrivePowers;
 import com.pedropathing.follower.Follower;
 import com.pedropathing.math.Pose;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
-/** Combines manual mecanum and optional Pedro following in one L2 drive unit. */
-public final class DriveSubsystem implements Subsystem {
+/** Drive subsystem backed by the Pedro follower and the HAL motor seam. */
+public final class PedroDrive implements boobuzz.core.subsystem.Drive {
 
     private static final int FL = 0;
     private static final int FR = 1;
@@ -30,15 +26,20 @@ public final class DriveSubsystem implements Subsystem {
     private final Follower follower;
     private final PathRegistry paths;
 
-    private List<RequestStatus> pendingStatuses = List.of();
-    private Drive activeDrive;
+    private boobuzz.core.contract.Drive activeCommand = boobuzz.core.contract.Drive.HOLD;
+    private boobuzz.core.contract.Drive startedCommand;
     private long previousStateTimeMs;
     private boolean hasPreviousState;
     private double deltaTimeSeconds;
 
-    public DriveSubsystem(Mechanism mechanism, PathRegistry paths) {
+    public PedroDrive(Mechanism mechanism) {
+        this(mechanism, new PathRegistry());
+    }
+
+    public PedroDrive(Mechanism mechanism, PathRegistry paths) {
+        Objects.requireNonNull(mechanism, "mechanism");
         this.motorNames = wheelNames(mechanism);
-        this.paths = paths;
+        this.paths = Objects.requireNonNull(paths, "paths");
         localizer = new HalLocalizer();
         drivetrain = new HalDrivetrain(motorNames);
         follower = PedroConstants.createFollower(mechanism, localizer, drivetrain);
@@ -56,49 +57,58 @@ public final class DriveSubsystem implements Subsystem {
     }
 
     @Override
-    public void update(Intent intent, RobotAction.Builder out) {
-        rejectUnsupportedRequests(intent);
-        Drive drive = intent.drive();
-        if (drive instanceof Drive.Manual manual) {
-            if (!(activeDrive instanceof Drive.Manual)) {
-                follower.stop();
-            }
-            activeDrive = drive;
-            writeManual(manual, out);
-            return;
+    public void manual(double vx, double vy, double omega) {
+        if (!(activeCommand instanceof boobuzz.core.contract.Drive.Manual)) {
+            follower.stop();
+            startedCommand = null;
         }
-
-        if (!sameCommand(activeDrive, drive)) {
-            start(drive);
-            activeDrive = drive;
-        }
-        follower.update(deltaTimeSeconds);
-        write(drivetrain.lastAction(), out);
+        activeCommand = new boobuzz.core.contract.Drive.Manual(vx, vy, omega);
     }
 
-    public List<RequestStatus> drainStatuses() {
-        List<RequestStatus> statuses = pendingStatuses;
-        pendingStatuses = List.of();
-        return statuses;
+    @Override
+    public void follow(PathRequest request) {
+        Objects.requireNonNull(request, "request");
+        activeCommand = request.isNamed()
+                ? new boobuzz.core.contract.Drive.FollowPath(request.pathId())
+                : new boobuzz.core.contract.Drive.GoTo(request.target(), request.constraints());
     }
 
+    @Override
+    public void stop() {
+        activeCommand = boobuzz.core.contract.Drive.HOLD;
+        follower.stop();
+        startedCommand = activeCommand;
+    }
+
+    @Override
+    public boolean pathDone() {
+        return !follower.isBusy();
+    }
+
+    @Override
     public Pose pose() {
         return localizer.pose();
     }
 
-    private void rejectUnsupportedRequests(Intent intent) {
-        if (intent.newRequests().isEmpty()) {
+    @Override
+    public void update(RobotAction.Builder out) {
+        if (activeCommand instanceof boobuzz.core.contract.Drive.Manual manual) {
+            writeManual(manual, out);
             return;
         }
-        List<RequestStatus> statuses = new ArrayList<>(intent.newRequests().size());
-        for (Request request : intent.newRequests()) {
-            statuses.add(RequestStatus.rejected(
-                    request.id(), "cplx_engine_1 has no subsystem for this request"));
+
+        if (!sameCommand(startedCommand, activeCommand)) {
+            start(activeCommand);
+            startedCommand = activeCommand;
         }
-        pendingStatuses = List.copyOf(statuses);
+        follower.update(deltaTimeSeconds);
+        RobotAction action = drivetrain.lastAction();
+        action.motors().forEach(out::motor);
+        action.servos().forEach(out::servo);
     }
 
-    private void writeManual(Drive.Manual manual, RobotAction.Builder out) {
+    private void writeManual(boobuzz.core.contract.Drive.Manual manual,
+                             RobotAction.Builder out) {
         double[] powers = HalDrivetrain.normalizedMecanum(
                 new DrivePowers(manual.vx(), manual.vy(), manual.omega()));
         for (int i = 0; i < powers.length; i++) {
@@ -106,28 +116,23 @@ public final class DriveSubsystem implements Subsystem {
         }
     }
 
-    private void start(Drive drive) {
-        if (drive instanceof Drive.GoTo goTo) {
+    private void start(boobuzz.core.contract.Drive command) {
+        if (command instanceof boobuzz.core.contract.Drive.GoTo goTo) {
             follower.hold(goTo.target());
-        } else if (drive instanceof Drive.FollowPath followPath) {
+        } else if (command instanceof boobuzz.core.contract.Drive.FollowPath followPath) {
             paths.start(follower, followPath.pathId());
-        } else if (drive instanceof Drive.Hold) {
+        } else if (command instanceof boobuzz.core.contract.Drive.Hold) {
             follower.hold(localizer.pose());
         } else {
             follower.stop();
         }
     }
 
-    private static void write(RobotAction action, RobotAction.Builder out) {
-        action.motors().forEach(out::motor);
-        action.servos().forEach(out::servo);
-    }
-
     static String[] wheelNames(Mechanism mechanism) {
         List<String> wheels = mechanism.wheelMotorNames();
         if (wheels.size() != 4) {
             throw new Mechanism.MechanismException(
-                    "DriveSubsystem requires four 'drives: wheel' motors, found " + wheels.size()
+                    "PedroDrive requires four 'drives: wheel' motors, found " + wheels.size()
                             + ": " + wheels);
         }
         String[] names = new String[4];
@@ -151,21 +156,24 @@ public final class DriveSubsystem implements Subsystem {
         return names;
     }
 
-    private static boolean sameCommand(Drive left, Drive right) {
-        if (left == null || left.getClass() != right.getClass()) {
+    private static boolean sameCommand(boobuzz.core.contract.Drive left,
+                                       boobuzz.core.contract.Drive right) {
+        if (left == null || right == null || left.getClass() != right.getClass()) {
             return false;
         }
-        if (left instanceof Drive.FollowPath a && right instanceof Drive.FollowPath b) {
+        if (left instanceof boobuzz.core.contract.Drive.FollowPath a
+                && right instanceof boobuzz.core.contract.Drive.FollowPath b) {
             return a.pathId().equals(b.pathId());
         }
-        if (left instanceof Drive.GoTo a && right instanceof Drive.GoTo b) {
+        if (left instanceof boobuzz.core.contract.Drive.GoTo a
+                && right instanceof boobuzz.core.contract.Drive.GoTo b) {
             return samePose(a.target(), b.target()) && a.constraints().equals(b.constraints());
         }
-        if (left instanceof Drive.Hold) {
+        if (left instanceof boobuzz.core.contract.Drive.Hold) {
             return true;
         }
-        return left instanceof Drive.Velocity a && right instanceof Drive.Velocity b
-                && a.equals(b);
+        return left instanceof boobuzz.core.contract.Drive.Velocity a
+                && right instanceof boobuzz.core.contract.Drive.Velocity b && a.equals(b);
     }
 
     private static boolean samePose(Pose a, Pose b) {

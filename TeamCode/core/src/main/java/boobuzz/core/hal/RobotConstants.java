@@ -33,6 +33,10 @@ public final class RobotConstants {
     // |lateralZeroPowerAcceleration|.
     public static final double ZERO_POWER_DECEL_LATERAL_IN_S2 = 85.98;
 
+    // Timing-only defaults for the phase-1.1 simulator mechanism stubs.
+    public static final double STUB_SPINUP_S = 0.5;
+    public static final double STUB_FEED_S = 0.2;
+
     // free_rpm = 73.63 in/s * 60 / (pi * 4 in); no direct RPM data was found.
     public static final Motor FL = new Motor("fl", "wheel", 6.5, 5.5, 45.0, 537.7, 351.55735379568756);
     public static final Motor FR = new Motor("fr", "wheel", 6.5, -5.5, -45.0, 537.7, 351.55735379568756);

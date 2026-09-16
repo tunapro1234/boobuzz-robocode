@@ -1,4 +1,4 @@
-package boobuzz.core.logic.cplx_engine_1;
+package boobuzz.core.subsystem.pedro;
 
 import boobuzz.core.hal.Mechanism;
 
@@ -20,7 +20,7 @@ public class PathRegistryTest {
     public void setUp() {
         Mechanism mechanism = Mechanism.DEFAULT;
         HalLocalizer localizer = new HalLocalizer();
-        HalDrivetrain drivetrain = new HalDrivetrain(DriveSubsystem.wheelNames(mechanism));
+        HalDrivetrain drivetrain = new HalDrivetrain(PedroDrive.wheelNames(mechanism));
         follower = PedroConstants.createFollower(mechanism, localizer, drivetrain);
         registry = new PathRegistry();
     }

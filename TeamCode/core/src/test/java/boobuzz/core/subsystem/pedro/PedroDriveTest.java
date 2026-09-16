@@ -1,7 +1,7 @@
-package boobuzz.core.logic.cplx_engine_1;
+package boobuzz.core.subsystem.pedro;
 
 import boobuzz.core.contract.Drive;
-import boobuzz.core.contract.Intent;
+import boobuzz.core.contract.PathRequest;
 import boobuzz.core.contract.RobotAction;
 import boobuzz.core.contract.RobotState;
 import boobuzz.core.hal.Mechanism;
@@ -16,7 +16,7 @@ import java.util.Map;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-public class DriveSubsystemTest {
+public class PedroDriveTest {
 
     private Mechanism mechanism;
 
@@ -27,9 +27,10 @@ public class DriveSubsystemTest {
 
     @Test
     public void manualMecanumProducesAction() {
-        DriveSubsystem drive = new DriveSubsystem(mechanism, new PathRegistry());
+        PedroDrive drive = new PedroDrive(mechanism, new PathRegistry());
         RobotAction.Builder out = new RobotAction.Builder();
-        drive.update(Intent.of(new Drive.Manual(0.5, -0.25, 0.0)), out);
+        drive.manual(0.5, -0.25, 0.0);
+        drive.update(out);
 
         RobotAction action = out.build();
         assertEquals(0.75, action.motor("fl"), 1e-9);
@@ -40,7 +41,7 @@ public class DriveSubsystemTest {
 
     @Test
     public void goToHoldVelocityTransitionsReachMotorAction() {
-        DriveSubsystem drive = new DriveSubsystem(mechanism, new PathRegistry());
+        PedroDrive drive = new PedroDrive(mechanism, new PathRegistry());
         drive.observe(state(0L, 0.0));
 
         RobotAction goTo = update(drive, new Drive.GoTo(
@@ -56,7 +57,7 @@ public class DriveSubsystemTest {
 
     @Test
     public void equalCommandPreservesMotorAction() {
-        DriveSubsystem drive = new DriveSubsystem(mechanism, new PathRegistry());
+        PedroDrive drive = new PedroDrive(mechanism, new PathRegistry());
         Drive.FollowPath first = new Drive.FollowPath("test-line");
         Drive.FollowPath equalButDistinct = new Drive.FollowPath("test-line");
 
@@ -68,7 +69,7 @@ public class DriveSubsystemTest {
 
     @Test
     public void sameTimeSampleProducesDeterministicMotorAction() {
-        DriveSubsystem drive = new DriveSubsystem(mechanism, new PathRegistry());
+        PedroDrive drive = new PedroDrive(mechanism, new PathRegistry());
         Drive.GoTo goTo = new Drive.GoTo(
                 new Pose(24.0, 0.0, 0.0), Drive.Constraints.defaults());
 
@@ -82,7 +83,7 @@ public class DriveSubsystemTest {
 
     @Test
     public void laterStateTimeProducesNewMotorAction() {
-        DriveSubsystem drive = new DriveSubsystem(mechanism, new PathRegistry());
+        PedroDrive drive = new PedroDrive(mechanism, new PathRegistry());
         Drive.GoTo goTo = new Drive.GoTo(
                 new Pose(24.0, 0.0, 0.0), Drive.Constraints.defaults());
 
@@ -98,9 +99,18 @@ public class DriveSubsystemTest {
         return new RobotAction.Builder();
     }
 
-    private static RobotAction update(DriveSubsystem drive, Drive command) {
+    private static RobotAction update(PedroDrive drive, Drive command) {
+        if (command instanceof Drive.Manual manual) {
+            drive.manual(manual.vx(), manual.vy(), manual.omega());
+        } else if (command instanceof Drive.GoTo goTo) {
+            drive.follow(PathRequest.goTo(goTo.target(), goTo.constraints()));
+        } else if (command instanceof Drive.FollowPath path) {
+            drive.follow(PathRequest.named(path.pathId()));
+        } else {
+            drive.stop();
+        }
         RobotAction.Builder output = output();
-        drive.update(Intent.of(command), output);
+        drive.update(output);
         return output.build();
     }
 
