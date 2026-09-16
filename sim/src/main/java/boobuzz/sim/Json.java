@@ -61,7 +61,11 @@ final class Json {
         if (!(v instanceof List)) {
             return List.of();
         }
-        return ((List<Object>) v).stream().map(String::valueOf).toList();
+        List<String> result = new ArrayList<>();
+        for (Object item : (List<Object>) v) {
+            result.add(String.valueOf(item));
+        }
+        return result;
     }
 
     /** {@code {"a":1.0,"b":2.0}} — for motor/servo maps in the protocol. */

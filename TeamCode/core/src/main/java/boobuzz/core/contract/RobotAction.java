@@ -18,9 +18,10 @@ public record RobotAction(Map<String, Double> motors, Map<String, Double> servos
                           List<Event> events) {
 
     public RobotAction {
-        motors = Map.copyOf(motors);
-        servos = Map.copyOf(servos);
-        events = events == null ? List.of() : List.copyOf(events);
+        motors = Collections.unmodifiableMap(new LinkedHashMap<>(motors));
+        servos = Collections.unmodifiableMap(new LinkedHashMap<>(servos));
+        events = events == null ? List.of()
+                : Collections.unmodifiableList(new java.util.ArrayList<>(events));
     }
 
     public RobotAction(Map<String, Double> motors, Map<String, Double> servos) {

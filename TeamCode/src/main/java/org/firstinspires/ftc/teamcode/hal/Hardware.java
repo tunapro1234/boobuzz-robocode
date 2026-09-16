@@ -19,6 +19,7 @@ import org.firstinspires.ftc.robotcore.external.navigation.Pose2D;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Collections;
 
 /** Finds only FTC devices and configures them from {@link RobotConstants}. */
 public final class Hardware {
@@ -43,13 +44,13 @@ public final class Hardware {
             }
             foundMotors.put(name, motor);
         }
-        motors = Map.copyOf(foundMotors);
+        motors = Collections.unmodifiableMap(new LinkedHashMap<>(foundMotors));
 
         Map<String, Servo> foundServos = new LinkedHashMap<>();
         for (String name : mechanism.servoNames()) {
             foundServos.put(name, hardwareMap.get(Servo.class, name));
         }
-        servos = Map.copyOf(foundServos);
+        servos = Collections.unmodifiableMap(new LinkedHashMap<>(foundServos));
 
         Mechanism.Pinpoint config = mechanism.pinpoint();
         pinpoint = hardwareMap.get(GoBildaPinpointDriver.class, "pinpoint");
@@ -64,7 +65,8 @@ public final class Hardware {
         pinpoint.setPosition(new Pose2D(DistanceUnit.INCH, pose.x(), pose.y(),
                 AngleUnit.RADIANS, pose.heading()));
 
-        voltageSensors = List.copyOf(hardwareMap.getAll(VoltageSensor.class));
+        voltageSensors = Collections.unmodifiableList(
+                new java.util.ArrayList<>(hardwareMap.getAll(VoltageSensor.class)));
         if (voltageSensors.isEmpty()) {
             throw new IllegalStateException("FTC HardwareMap contains no voltage sensor");
         }

@@ -18,7 +18,7 @@ import boobuzz.core.hal.RobotConstants;
 
 import com.pedropathing.math.Pose;
 
-import java.nio.file.Path;
+import java.io.File;
 
 /**
  * Headless simulator runner.
@@ -50,7 +50,7 @@ public final class SimMain {
             if (a.bag == null) {
                 throw new IllegalArgumentException("--controller replay requires --bag");
             }
-            replayController = new ReplayController(Path.of(a.bag));
+            replayController = new ReplayController(new File(a.bag));
             if (!a.engineExplicit) {
                 a.engine = replayController.engineName();
             }
@@ -120,7 +120,7 @@ public final class SimMain {
                             a.tapPort, tracing);
                 }
                 if (a.bag != null && replayController == null
-                        && !loop.openBag(Path.of(a.bag), controllerName(a), startPose)) {
+                        && !loop.openBag(new File(a.bag), controllerName(a), startPose)) {
                     throw new IllegalStateException("could not open bag: " + a.bag);
                 }
                 System.out.printf("engine: %s%n", loop.engine().name());

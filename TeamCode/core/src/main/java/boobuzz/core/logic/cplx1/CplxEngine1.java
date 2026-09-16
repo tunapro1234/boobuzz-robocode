@@ -11,6 +11,7 @@ import boobuzz.core.logic.IRobotEngine;
 import boobuzz.core.subsystem.Subsystems;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
@@ -90,7 +91,7 @@ public final class CplxEngine1 implements IRobotEngine {
         }
         shooter.update(statuses);
 
-        pendingStatuses = List.copyOf(statuses);
+        pendingStatuses = Collections.unmodifiableList(new ArrayList<>(statuses));
         action = subsystems.update();
     }
 

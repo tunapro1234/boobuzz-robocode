@@ -3,6 +3,7 @@ package boobuzz.core.controller.opmodes;
 import boobuzz.core.controller.auto.AutoSequence;
 
 import java.util.LinkedHashMap;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -21,7 +22,7 @@ public final class AutoRegistry {
         factories.put("RedMissionary9Piece", RedMissionary9Piece::build);
         factories.put("BlueMissionary9PieceLever", BlueMissionary9PieceLever::build);
         factories.put("RedMissionary9PieceLever", RedMissionary9PieceLever::build);
-        FACTORIES = Map.copyOf(factories);
+        FACTORIES = Collections.unmodifiableMap(new LinkedHashMap<>(factories));
     }
 
     private AutoRegistry() {}
@@ -35,7 +36,7 @@ public final class AutoRegistry {
     }
 
     public static List<String> names() {
-        return List.copyOf(FACTORIES.keySet());
+        return Collections.unmodifiableList(new java.util.ArrayList<>(FACTORIES.keySet()));
     }
 
     public static Map<String, Supplier<AutoSequence>> factories() {

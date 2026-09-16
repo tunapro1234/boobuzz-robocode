@@ -1,5 +1,7 @@
 package boobuzz.core.contract;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /** One controller tick: a level stream plus edge-triggered requests and cancels. */
@@ -10,7 +12,8 @@ public record RequestBatch(RequestStream stream, List<Request> requests, int[] c
 
     public RequestBatch {
         stream = stream == null ? RequestStream.idle() : stream;
-        requests = requests == null ? List.of() : List.copyOf(requests);
+        requests = requests == null ? List.of()
+                : Collections.unmodifiableList(new ArrayList<>(requests));
         cancels = cancels == null ? new int[0] : cancels.clone();
     }
 

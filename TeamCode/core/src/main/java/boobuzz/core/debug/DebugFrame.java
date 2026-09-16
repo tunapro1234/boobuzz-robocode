@@ -5,6 +5,8 @@ import boobuzz.core.contract.RequestBatch;
 import boobuzz.core.contract.RobotAction;
 import boobuzz.core.contract.RobotState;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
@@ -16,7 +18,8 @@ public record DebugFrame(RobotState state, RobotAction action,
     public DebugFrame {
         state = Objects.requireNonNull(state, "state");
         action = Objects.requireNonNull(action, "action");
-        calls = calls == null ? List.of() : List.copyOf(calls);
+        calls = calls == null ? List.of()
+                : Collections.unmodifiableList(new ArrayList<>(calls));
         feedback = Objects.requireNonNull(feedback, "feedback");
         batch = batch == null ? RequestBatch.idle() : batch;
     }

@@ -179,7 +179,7 @@ public final class SocketController implements boobuzz.core.controller.IControll
         try {
             String line;
             while (running && source.open && (line = source.reader.readLine()) != null) {
-                if (line.isBlank()) continue;
+                if (line.trim().isEmpty()) continue;
                 try {
                     latest.set(SeamJson.batchFrom(JsonCodec.parseObject(line)));
                     lastReceivedNanos.set(System.nanoTime());

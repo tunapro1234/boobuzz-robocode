@@ -3,6 +3,8 @@ package boobuzz.core.contract;
 import com.pedropathing.math.Pose;
 
 import java.util.List;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Objects;
 
 /** Immutable path description shared by the auto controller and drive subsystem. */
@@ -17,11 +19,12 @@ public record PathRequest(
         Braking braking) {
 
     public PathRequest {
-        if (pathId != null && pathId.isBlank()) {
+        if (pathId != null && pathId.trim().isEmpty()) {
             throw new IllegalArgumentException("path request ID must not be blank");
         }
         constraints = constraints == null ? Constraints.defaults() : constraints;
-        segments = segments == null ? List.of() : List.copyOf(segments);
+        segments = segments == null ? List.of()
+                : Collections.unmodifiableList(new ArrayList<>(segments));
         heading = heading == null ? Heading.tangent() : heading;
         for (Segment segment : segments) {
             Objects.requireNonNull(segment, "path segment");
@@ -193,7 +196,8 @@ public record PathRequest(
     public record Curve(Pose end, List<Pose> controlPoints) implements Segment {
         public Curve {
             Objects.requireNonNull(end, "curve end");
-            controlPoints = controlPoints == null ? List.of() : List.copyOf(controlPoints);
+            controlPoints = controlPoints == null ? List.of()
+                    : Collections.unmodifiableList(new ArrayList<>(controlPoints));
             for (Pose point : controlPoints) {
                 Objects.requireNonNull(point, "curve control point");
             }

@@ -13,6 +13,7 @@ import boobuzz.core.subsystem.Subsystems;
 import com.pedropathing.math.Pose;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /** Records downward subsystem calls without changing the subsystem contracts. */
@@ -23,7 +24,8 @@ public final class SubsystemTrace {
     /** Immutable call reference retained until the dispatcher serializes it. */
     public record Call(String sub, String op, List<Object> args) {
         public Call {
-            args = args == null ? List.of() : List.copyOf(args);
+            args = args == null ? List.of()
+                    : Collections.unmodifiableList(new ArrayList<>(args));
         }
     }
 
@@ -40,7 +42,7 @@ public final class SubsystemTrace {
     }
 
     public synchronized List<Call> drainCalls() {
-        List<Call> result = List.copyOf(calls);
+        List<Call> result = Collections.unmodifiableList(new ArrayList<>(calls));
         calls.clear();
         return result;
     }

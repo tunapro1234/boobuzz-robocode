@@ -3,11 +3,11 @@ package boobuzz.core.debug;
 import com.pedropathing.math.Pose;
 
 import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -17,24 +17,25 @@ import java.util.Objects;
 public final class BagWriter implements AutoCloseable {
 
     private final BufferedWriter writer;
-    private final Path path;
+    private final File path;
     private int pendingLines;
     private long lastTimestampMs;
     private boolean closed;
 
-    public BagWriter(Path path, String engine, String controller, String constantsHash)
+    public BagWriter(File path, String engine, String controller, String constantsHash)
             throws IOException {
         this(path, engine, controller, constantsHash, null);
     }
 
-    public BagWriter(Path path, String engine, String controller, String constantsHash,
+    public BagWriter(File path, String engine, String controller, String constantsHash,
                      Pose startPose) throws IOException {
         this.path = Objects.requireNonNull(path, "bag path");
-        Path parent = path.toAbsolutePath().getParent();
-        if (parent != null) Files.createDirectories(parent);
-        writer = Files.newBufferedWriter(path, StandardCharsets.UTF_8,
-                StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING,
-                StandardOpenOption.WRITE);
+        File parent = path.getAbsoluteFile().getParentFile();
+        if (parent != null && !parent.exists() && !parent.mkdirs() && !parent.isDirectory()) {
+            throw new IOException("could not create bag directory: " + parent);
+        }
+        writer = new BufferedWriter(new OutputStreamWriter(
+                new FileOutputStream(path, false), StandardCharsets.UTF_8));
         LinkedHashMap<String, Object> header = new LinkedHashMap<>();
         header.put("bag", 1);
         header.put("engine", engine);
@@ -53,7 +54,7 @@ public final class BagWriter implements AutoCloseable {
         writer.flush();
     }
 
-    public Path path() {
+    public File path() {
         return path;
     }
 

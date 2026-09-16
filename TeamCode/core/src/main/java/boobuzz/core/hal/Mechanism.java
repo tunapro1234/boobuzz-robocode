@@ -18,9 +18,9 @@ public record Mechanism(
     public static final Mechanism DEFAULT = RobotConstants.buildMechanism();
 
     public Mechanism {
-        motorNames = List.copyOf(motorNames);
-        servoNames = List.copyOf(servoNames);
-        motors = Map.copyOf(motors);
+        motorNames = Collections.unmodifiableList(new ArrayList<>(motorNames));
+        servoNames = Collections.unmodifiableList(new ArrayList<>(servoNames));
+        motors = Collections.unmodifiableMap(new java.util.LinkedHashMap<>(motors));
     }
 
     /** Validates the mechanism schema against names reported by the server. */
@@ -52,7 +52,7 @@ public record Mechanism(
                 wheels.add(name);
             }
         }
-        return List.copyOf(wheels);
+        return Collections.unmodifiableList(new ArrayList<>(wheels));
     }
 
     public Pinpoint pinpoint() {

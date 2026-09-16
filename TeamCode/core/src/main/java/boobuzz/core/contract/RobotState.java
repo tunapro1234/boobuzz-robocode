@@ -2,6 +2,8 @@ package boobuzz.core.contract;
 
 import com.pedropathing.math.Pose;
 
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -28,8 +30,8 @@ public record RobotState(long t,
                          double voltage) {
 
     public RobotState {
-        enc = Map.copyOf(enc);
-        vel = Map.copyOf(vel);
+        enc = Collections.unmodifiableMap(new LinkedHashMap<>(enc));
+        vel = Collections.unmodifiableMap(new LinkedHashMap<>(vel));
     }
 
 }

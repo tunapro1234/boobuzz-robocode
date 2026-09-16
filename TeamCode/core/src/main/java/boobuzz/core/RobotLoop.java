@@ -14,8 +14,9 @@ import boobuzz.core.hal.IHal;
 
 import java.util.List;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Objects;
-import java.nio.file.Path;
+import java.io.File;
 
 /**
  * Tick. Five lines, fixed order (architecture documentation, §1).
@@ -58,7 +59,7 @@ public final class RobotLoop implements AutoCloseable {
                      IRobotEngine initialEngine, IController controller,
                      int debugTapPort) {
         this.hal = Objects.requireNonNull(hal, "hal");
-        this.engines = List.copyOf(engines);
+        this.engines = Collections.unmodifiableList(new ArrayList<>(engines));
         this.engine = Objects.requireNonNull(initialEngine, "initial engine");
         this.controller = Objects.requireNonNull(controller, "controller");
         if (this.engines.isEmpty() || !this.engines.contains(initialEngine)) {
@@ -95,7 +96,7 @@ public final class RobotLoop implements AutoCloseable {
                     List<boobuzz.core.contract.RequestStatus> combined = new ArrayList<>(
                             pendingLoopStatuses);
                     combined.addAll(oldStatuses);
-                    pendingLoopStatuses = List.copyOf(combined);
+                    pendingLoopStatuses = Collections.unmodifiableList(new ArrayList<>(combined));
                 }
                 setEngine(engines.get(switchIndex));
                 batch = withoutSwitchRequests(batch);
@@ -161,12 +162,12 @@ public final class RobotLoop implements AutoCloseable {
     }
 
     /** Configures a JSONL bag; opening and writing happen on the tap dispatcher. */
-    public boolean openBag(Path path, String controllerName) {
+    public boolean openBag(File path, String controllerName) {
         return openBag(path, controllerName, null);
     }
 
     /** Configures a bag and preserves the sequence start pose for replay. */
-    public boolean openBag(Path path, String controllerName,
+    public boolean openBag(File path, String controllerName,
                            com.pedropathing.math.Pose startPose) {
         if (path == null) {
             return true;
@@ -244,10 +245,12 @@ public final class RobotLoop implements AutoCloseable {
         if (batch == null) {
             return RequestBatch.idle();
         }
-        List<boobuzz.core.contract.Request> requests = batch.requests().stream()
-                .filter(request -> request.type()
-                        != boobuzz.core.contract.RequestType.SWITCH_ENGINE)
-                .toList();
+        List<boobuzz.core.contract.Request> requests = new ArrayList<>();
+        for (boobuzz.core.contract.Request request : batch.requests()) {
+            if (request.type() != boobuzz.core.contract.RequestType.SWITCH_ENGINE) {
+                requests.add(request);
+            }
+        }
         return new RequestBatch(batch.stream(), requests, batch.cancels());
     }
 }

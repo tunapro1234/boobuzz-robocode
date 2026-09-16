@@ -3,6 +3,7 @@ package boobuzz.core.controller.auto;
 import com.pedropathing.math.Pose;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
@@ -14,7 +15,7 @@ public final class AutoSequence {
 
     public AutoSequence(List<? extends AutoStep> steps) {
         Objects.requireNonNull(steps, "steps");
-        this.steps = List.copyOf(new ArrayList<>(steps));
+        this.steps = Collections.unmodifiableList(new ArrayList<>(steps));
     }
 
     public List<AutoStep> steps() {

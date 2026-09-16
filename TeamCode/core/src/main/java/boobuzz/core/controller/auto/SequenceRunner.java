@@ -102,7 +102,8 @@ public final class SequenceRunner {
                 attached.add(warmupId);
             }
             primaryRequestId = pathId;
-            attachedRequestIds = List.copyOf(attached);
+            attachedRequestIds = java.util.Collections.unmodifiableList(
+                    new java.util.ArrayList<>(attached));
             phase = Phase.MOTION;
             return intent(requests);
         }

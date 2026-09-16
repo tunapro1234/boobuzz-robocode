@@ -3,13 +3,13 @@ package boobuzz.core.debug;
 import com.pedropathing.math.Pose;
 
 import java.io.BufferedWriter;
+import java.io.File;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Set;
@@ -90,7 +90,7 @@ public final class DebugTap implements AutoCloseable {
     }
 
     /** Configures an asynchronous bag; no file is opened by the caller. */
-    public void configureBag(Path path, String engine, String controller,
+    public void configureBag(File path, String engine, String controller,
                              String constantsHash, Pose startPose) {
         bagSpec = path == null ? null
                 : new BagSpec(path, engine, controller, constantsHash, startPose);
@@ -359,6 +359,6 @@ public final class DebugTap implements AutoCloseable {
         }
     }
 
-    private record BagSpec(Path path, String engine, String controller,
+    private record BagSpec(File path, String engine, String controller,
                            String constantsHash, Pose startPose) {}
 }

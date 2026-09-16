@@ -41,9 +41,9 @@ public final class SeamJson {
                                    List<Event> events) {
         Map<String, Object> root = root("subsystem", tMs);
         root.put("calls", calls == null ? List.of() : calls.stream()
-                .map(SeamJson::call).toList());
+                .map(SeamJson::call).collect(java.util.stream.Collectors.toList()));
         root.put("events", events == null ? List.of() : events.stream()
-                .map(SeamJson::event).toList());
+                .map(SeamJson::event).collect(java.util.stream.Collectors.toList()));
         return JsonCodec.stringify(root);
     }
 
@@ -64,7 +64,8 @@ public final class SeamJson {
         streamMap.put("omega", stream.omega());
         streamMap.put("manualDrive", stream.manualDrive());
         result.put("stream", streamMap);
-        result.put("requests", batch.requests().stream().map(SeamJson::request).toList());
+        result.put("requests", batch.requests().stream().map(SeamJson::request)
+                .collect(java.util.stream.Collectors.toList()));
         List<Integer> cancels = new ArrayList<>();
         for (int cancel : batch.cancels()) cancels.add(cancel);
         result.put("cancels", cancels);
@@ -81,7 +82,8 @@ public final class SeamJson {
         if (value instanceof PathRequest pathValue) return path(pathValue);
         if (value instanceof Iterable<?> iterable) {
             return java.util.stream.StreamSupport.stream(iterable.spliterator(), false)
-                    .map(SeamJson::value).toList();
+                    .map(SeamJson::value)
+                    .collect(java.util.stream.Collectors.toList());
         }
         if (value instanceof Map<?, ?> map) {
             Map<String, Object> result = new LinkedHashMap<>();
@@ -296,7 +298,8 @@ public final class SeamJson {
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("motors", value.motors());
         result.put("servos", value.servos());
-        result.put("events", value.events().stream().map(SeamJson::event).toList());
+        result.put("events", value.events().stream().map(SeamJson::event)
+                .collect(java.util.stream.Collectors.toList()));
         return result;
     }
 
@@ -304,7 +307,8 @@ public final class SeamJson {
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("sub", value.sub());
         result.put("op", value.op());
-        result.put("args", value.args().stream().map(SeamJson::value).toList());
+        result.put("args", value.args().stream().map(SeamJson::value)
+                .collect(java.util.stream.Collectors.toList()));
         return result;
     }
 
@@ -325,7 +329,8 @@ public final class SeamJson {
             return result;
         }
         result.put("snapshot", snapshot(value.world()));
-        result.put("statuses", value.statuses().stream().map(SeamJson::status).toList());
+        result.put("statuses", value.statuses().stream().map(SeamJson::status)
+                .collect(java.util.stream.Collectors.toList()));
         return result;
     }
 
@@ -365,7 +370,8 @@ public final class SeamJson {
         result.put("target", pose(value.target()));
         result.put("constraints", Map.of("maxPower", value.constraints().maxPower(),
                 "maxVelocity", value.constraints().maxVelocity()));
-        result.put("segments", value.segments().stream().map(SeamJson::segment).toList());
+        result.put("segments", value.segments().stream().map(SeamJson::segment)
+                .collect(java.util.stream.Collectors.toList()));
         result.put("heading", Map.of("mode", value.heading().mode().name(),
                 "start", value.heading().start(), "end", value.heading().end()));
         result.put("holdEnd", value.holdEnd());
@@ -382,7 +388,8 @@ public final class SeamJson {
         result.put("end", pose(value.end()));
         if (value instanceof PathRequest.Curve curve) {
             result.put("controlPoints", curve.controlPoints().stream()
-                    .map(SeamJson::pose).toList());
+                    .map(SeamJson::pose)
+                    .collect(java.util.stream.Collectors.toList()));
         }
         return result;
     }

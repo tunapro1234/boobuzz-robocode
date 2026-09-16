@@ -31,7 +31,7 @@ public class ReplayControllerTest {
                 RequestBatch.of(Request.shoot(7, 1)));
         Files.write(bag, List.of(header, logic));
         try {
-            ReplayController replay = new ReplayController(bag);
+            ReplayController replay = new ReplayController(bag.toFile());
             assertEquals("direct", replay.engineName());
             assertEquals(12.0, replay.initialPose().x(), 0.0);
             assertEquals(34.0, replay.initialPose().y(), 0.0);

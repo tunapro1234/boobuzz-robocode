@@ -1,5 +1,7 @@
 package boobuzz.core.contract;
 
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 
@@ -8,6 +10,6 @@ public record Event(String name, long tMs, Map<String, Double> data) {
 
     public Event {
         name = Objects.requireNonNull(name, "name");
-        data = data == null ? Map.of() : Map.copyOf(data);
+        data = data == null ? Map.of() : Collections.unmodifiableMap(new LinkedHashMap<>(data));
     }
 }

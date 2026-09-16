@@ -15,7 +15,7 @@ public class BagWriterTest {
     @Test
     public void writesHeaderAndThreeLineGroups() throws Exception {
         Path path = Files.createTempFile("robot-bag", ".jsonl");
-        try (BagWriter writer = new BagWriter(path, "cplx1", "auto", "abc")) {
+        try (BagWriter writer = new BagWriter(path.toFile(), "cplx1", "auto", "abc")) {
             writer.writeLines(List.of("{\"seam\":\"hal\"}",
                     "{\"seam\":\"subsystem\"}", "{\"seam\":\"logic\"}"));
         }
@@ -29,7 +29,7 @@ public class BagWriterTest {
     @Test
     public void writesDropCountAsSeamShapedFooter() throws Exception {
         Path path = Files.createTempFile("robot-bag-drops", ".jsonl");
-        try (BagWriter writer = new BagWriter(path, "cplx1", "auto", "abc")) {
+        try (BagWriter writer = new BagWriter(path.toFile(), "cplx1", "auto", "abc")) {
             writer.writeLines(List.of(
                     "{\"seam\":\"hal\",\"t_ms\":20}",
                     "{\"seam\":\"subsystem\",\"t_ms\":20}",

@@ -10,6 +10,7 @@ import boobuzz.core.logic.IRobotEngine;
 import boobuzz.core.subsystem.Subsystems;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
@@ -114,7 +115,7 @@ public final class DirectEngine implements IRobotEngine {
             shooterJob = null;
         }
 
-        pendingStatuses = List.copyOf(statuses);
+        pendingStatuses = Collections.unmodifiableList(new ArrayList<>(statuses));
         action = subsystems.update();
     }
 

@@ -8,10 +8,14 @@ import boobuzz.core.debug.SeamJson;
 
 import com.pedropathing.math.Pose;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -23,13 +27,16 @@ public final class ReplayController implements IController {
     private final String engineName;
     private int index;
 
-    public ReplayController(Path bagPath) throws IOException {
+    public ReplayController(File bagPath) throws IOException {
         List<RequestBatch> loadedBatches = new ArrayList<>();
         Pose loadedPose = null;
         Pose headerPose = null;
         String loadedEngine = "cplx1";
-        for (String line : Files.readAllLines(bagPath)) {
-            if (line.isBlank()) continue;
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(
+                new FileInputStream(bagPath), StandardCharsets.UTF_8))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+            if (line.trim().isEmpty()) continue;
             Map<String, Object> root = JsonCodec.parseObject(line);
             if (root.containsKey("bag")) {
                 loadedEngine = JsonCodec.str(root, "engine", loadedEngine);
@@ -53,8 +60,9 @@ public final class ReplayController implements IController {
                             JsonCodec.num(pinpoint, "h", 0.0));
                 }
             }
+            }
         }
-        batches = List.copyOf(loadedBatches);
+        batches = Collections.unmodifiableList(new ArrayList<>(loadedBatches));
         initialPose = loadedPose == null ? headerPose : loadedPose;
         engineName = loadedEngine;
     }
