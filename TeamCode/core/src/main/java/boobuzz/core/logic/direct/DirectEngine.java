@@ -147,6 +147,7 @@ public final class DirectEngine implements IRobotEngine {
         subsystems.drive().stop();
         subsystems.shooter().spinDown();
         subsystems.intake().stop();
+        subsystems.turret().hold();
     }
 
     private static boolean containsCancelAll(int[] cancels) {

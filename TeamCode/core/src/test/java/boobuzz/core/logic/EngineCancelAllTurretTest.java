@@ -1,0 +1,88 @@
+package boobuzz.core.logic;
+
+import boobuzz.core.contract.PathRequest;
+import boobuzz.core.contract.RequestBatch;
+import boobuzz.core.contract.RobotAction;
+import boobuzz.core.contract.RobotState;
+import boobuzz.core.logic.cplx1.CplxEngine1;
+import boobuzz.core.logic.direct.DirectEngine;
+import boobuzz.core.subsystem.IDrive;
+import boobuzz.core.subsystem.IShooter;
+import boobuzz.core.subsystem.ITurret;
+import boobuzz.core.subsystem.Subsystems;
+import boobuzz.core.subsystem.stub.StubIntake;
+
+import com.pedropathing.math.Pose;
+
+import org.junit.Test;
+
+import java.util.Map;
+
+import static org.junit.Assert.assertTrue;
+
+public class EngineCancelAllTurretTest {
+
+    @Test
+    public void cplxAutomaticAimIsHeldByCancelAll() {
+        RecordingTurret turret = new RecordingTurret();
+        CplxEngine1 engine = new CplxEngine1(
+                new Subsystems(new RecordingDrive(), new RecordingShooter(),
+                        new StubIntake(), turret));
+        engine.sense(state());
+        assertTrue(turret.aimCalls > 0);
+
+        engine.act(RequestBatch.cancelAll());
+
+        assertTrue(turret.holdCalls > 0);
+    }
+
+    @Test
+    public void directCancelAllAlsoHoldsTurret() {
+        RecordingTurret turret = new RecordingTurret();
+        DirectEngine engine = new DirectEngine(
+                new Subsystems(new RecordingDrive(), new RecordingShooter(),
+                        new StubIntake(), turret));
+
+        engine.act(RequestBatch.cancelAll());
+
+        assertTrue(turret.holdCalls > 0);
+    }
+
+    private static RobotState state() {
+        return new RobotState(0L, Map.of(), Map.of(), 0.0,
+                new Pose(24.0, 48.0, 0.0), 12.0);
+    }
+
+    private static final class RecordingDrive implements IDrive {
+        @Override public void observe(RobotState state) {}
+        @Override public void update(RobotAction.Builder out) {}
+        @Override public void manual(double vx, double vy, double omega) {}
+        @Override public void follow(PathRequest request) {}
+        @Override public void stop() {}
+        @Override public boolean pathDone() { return true; }
+        @Override public Pose pose() { return new Pose(24.0, 48.0, 0.0); }
+    }
+
+    private static final class RecordingShooter implements IShooter {
+        @Override public void observe(RobotState state) {}
+        @Override public void update(RobotAction.Builder out) {}
+        @Override public void spinUp(double rpm) {}
+        @Override public void spinDown() {}
+        @Override public boolean isReady() { return false; }
+        @Override public void feed() {}
+        @Override public boolean isFeeding() { return false; }
+    }
+
+    private static final class RecordingTurret implements ITurret {
+        int aimCalls;
+        int holdCalls;
+
+        @Override public void observe(RobotState state) {}
+        @Override public void update(RobotAction.Builder out) {}
+        @Override public void aimAt(double fieldX, double fieldY) { aimCalls++; }
+        @Override public void scan() {}
+        @Override public void hold() { holdCalls++; }
+        @Override public boolean onTarget() { return true; }
+        @Override public double angleRad() { return 0.0; }
+    }
+}

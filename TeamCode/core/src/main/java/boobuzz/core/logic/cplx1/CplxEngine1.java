@@ -59,6 +59,7 @@ public final class CplxEngine1 implements IRobotEngine {
             motion.cancelAll(statuses);
             shooter.cancelAll(statuses);
             subsystems.intake().stop();
+            subsystems.turret().hold();
         }
         motion.act(batch.stream(), batch.requests(), batch.cancels(), statuses);
 
