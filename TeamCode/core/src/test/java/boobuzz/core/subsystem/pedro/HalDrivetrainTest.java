@@ -81,4 +81,28 @@ public class HalDrivetrainTest {
             assertEquals(0.0, power, EPS);
         }
     }
+
+    @Test
+    public void forwardOnlyInterpolationUsesForwardLimit() {
+        assertEquals(40.0,
+                drivetrain.interpolateVelocity(40.0, 0.0, 0.0), EPS);
+    }
+
+    @Test
+    public void strafeOnlyInterpolationUsesStrafeLimit() {
+        assertEquals(25.0,
+                drivetrain.interpolateVelocity(0.0, 25.0, Math.PI / 2.0), EPS);
+    }
+
+    @Test
+    public void diagonalInterpolationCombinesBothLimits() {
+        assertEquals(20.0 / Math.sqrt(2.0),
+                drivetrain.interpolateVelocity(20.0, 20.0, Math.PI / 4.0), EPS);
+    }
+
+    @Test
+    public void zeroSpeedInterpolationIsZero() {
+        assertEquals(0.0,
+                drivetrain.interpolateVelocity(0.0, 0.0, 0.0), EPS);
+    }
 }

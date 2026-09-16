@@ -93,10 +93,28 @@ public final class HalDrivetrain implements Drivetrain {
     @Override
     public double interpolateVelocity(double forwardVelocity, double strafeVelocity,
                                       double theta) {
-        double denominator = Math.abs(Math.cos(theta)) / forwardVelocity
-                + Math.abs(Math.sin(theta)) / strafeVelocity;
-        if (!Double.isFinite(denominator) || denominator <= 0.0) {
+        if (!Double.isFinite(forwardVelocity) || !Double.isFinite(strafeVelocity)
+                || !Double.isFinite(theta) || forwardVelocity < 0.0 || strafeVelocity < 0.0) {
             System.err.printf("HalDrivetrain: non-finite velocity interpolation; returning zero%n");
+            return 0.0;
+        }
+        double forwardTerm = Math.abs(Math.cos(theta));
+        double strafeTerm = Math.abs(Math.sin(theta));
+        double denominator = 0.0;
+        if (forwardTerm > 1e-12) {
+            if (forwardVelocity <= 0.0) {
+                return 0.0;
+            }
+            denominator += forwardTerm / forwardVelocity;
+        }
+        if (strafeTerm > 1e-12) {
+            if (strafeVelocity <= 0.0) {
+                return 0.0;
+            }
+            denominator += strafeTerm / strafeVelocity;
+        }
+        if (!Double.isFinite(denominator) || denominator <= 0.0) {
+            System.err.printf("HalDrivetrain: invalid velocity interpolation; returning zero%n");
             return 0.0;
         }
         double result = 1.0 / denominator;
