@@ -77,8 +77,9 @@ public final class RobotLoop implements AutoCloseable {
             RequestBatch controllerBatch = controller.decide(feedback); // L3
             RequestBatch batch = controllerBatch;
             int switchIndex = switchIndex(controllerBatch);
-            if (switchIndex >= 0 && switchIndex < engines.size()
-                    && engines.get(switchIndex) != engine) {
+            boolean switched = switchIndex >= 0 && switchIndex < engines.size()
+                    && engines.get(switchIndex) != engine;
+            if (switched) {
                 // Quiesce the old owner now.  The selected engine starts on the next tick.
                 engine.act(RequestBatch.cancelAll());
                 setEngine(engines.get(switchIndex));
@@ -86,7 +87,9 @@ public final class RobotLoop implements AutoCloseable {
             } else {
                 engine.act(withoutSwitchRequests(batch));     // DOWN
             }
-            RobotAction action = engine.action();
+            // Retained engine instances may still hold their pre-handoff command.
+            // Never write that stale action on the switch tick.
+            RobotAction action = switched ? RobotAction.zero() : engine.action();
             hal.write(action);                               // HAL
 
             publishSeams(state, action, feedback, controllerBatch);

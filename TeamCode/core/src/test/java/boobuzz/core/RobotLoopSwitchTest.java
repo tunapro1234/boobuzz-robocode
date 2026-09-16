@@ -43,6 +43,7 @@ public class RobotLoopSwitchTest {
     private static final class RecordingEngine implements IRobotEngine {
         private final String name;
         private final List<RequestBatch> batches = new ArrayList<>();
+        private RobotAction action = RobotAction.zero();
 
         private RecordingEngine(String name) { this.name = name; }
 
@@ -52,7 +53,14 @@ public class RobotLoopSwitchTest {
             return new WorldSnapshot(state.t(), state.pinpoint(), state.yaw(), state.voltage());
         }
 
-        @Override public void act(RequestBatch batch) { batches.add(batch); }
+        @Override public void act(RequestBatch batch) {
+            batches.add(batch);
+            if (batch.cancels().length == 0) {
+                action = RobotAction.ofMotors(Map.of("fl", name.equals("old") ? 0.7 : 0.4));
+            }
+        }
+
+        @Override public RobotAction action() { return action; }
     }
 
     @Test
@@ -80,5 +88,43 @@ public class RobotLoopSwitchTest {
         loop.tick();
         assertEquals(1, newEngine.batches.size());
         assertTrue(newEngine.batches.get(0).requests().isEmpty());
+    }
+
+    @Test
+    public void switchingBackWritesZeroInsteadOfRetainedAction() {
+        FakeHal hal = new FakeHal();
+        List<RobotAction> writes = new ArrayList<>();
+        IHal recordingHal = new IHal() {
+            @Override public long now() { return hal.now(); }
+            @Override public RobotState read() { return hal.read(); }
+            @Override public void write(RobotAction action) {
+                writes.add(action);
+                hal.write(action);
+            }
+            @Override public GamepadState get() { return hal.get(); }
+        };
+        RecordingEngine first = new RecordingEngine("old");
+        RecordingEngine second = new RecordingEngine("new");
+        IController controller = new IController() {
+            private int tick;
+
+            @Override public RequestBatch decide(Feedback feedback) {
+                return switch (tick++) {
+                    case 0 -> RequestBatch.idle();
+                    case 1 -> RequestBatch.of(Request.switchEngine(8, 1));
+                    case 2 -> RequestBatch.of(Request.switchEngine(9, 0));
+                    default -> RequestBatch.idle();
+                };
+            }
+        };
+        RobotLoop loop = new RobotLoop(recordingHal, List.of(first, second), first, controller);
+
+        loop.tick();
+        loop.tick();
+        loop.tick();
+
+        assertEquals(0.7, writes.get(0).motor("fl"), 1e-9);
+        assertEquals(0.0, writes.get(1).motor("fl"), 1e-9);
+        assertEquals(0.0, writes.get(2).motor("fl"), 1e-9);
     }
 }
