@@ -2,9 +2,9 @@ package boobuzz.core.controller;
 
 import boobuzz.core.contract.Drive;
 import boobuzz.core.contract.Feedback;
+import boobuzz.core.contract.GamepadSource;
+import boobuzz.core.contract.GamepadState;
 import boobuzz.core.contract.Intent;
-import boobuzz.core.hal.GamepadSource;
-import boobuzz.core.hal.GamepadState;
 
 import com.pedropathing.math.Pose;
 

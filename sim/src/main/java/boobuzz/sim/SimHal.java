@@ -1,6 +1,6 @@
 package boobuzz.sim;
 
-import boobuzz.core.hal.GamepadState;
+import boobuzz.core.contract.GamepadState;
 import boobuzz.core.hal.Hal;
 import boobuzz.core.contract.Event;
 import boobuzz.core.contract.RobotAction;

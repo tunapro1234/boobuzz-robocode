@@ -1,4 +1,4 @@
-package boobuzz.core.hal;
+package boobuzz.core.contract;
 
 /**
  * Single-frame gamepad reading, corresponding to the {@code gamepad} field in the protocol documentation.

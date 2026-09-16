@@ -7,7 +7,7 @@ import boobuzz.core.contract.Intent;
 import boobuzz.core.contract.RobotAction;
 import boobuzz.core.contract.RobotState;
 import boobuzz.core.logic.cplx_engine_1.CplxEngine1;
-import boobuzz.core.hal.GamepadState;
+import boobuzz.core.contract.GamepadState;
 import boobuzz.core.hal.Mechanism;
 import boobuzz.core.subsystem.StubIntake;
 import boobuzz.core.subsystem.StubShooter;

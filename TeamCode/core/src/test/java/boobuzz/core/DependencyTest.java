@@ -7,7 +7,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 import java.util.stream.Stream;
 
 import static org.junit.Assert.assertTrue;
@@ -16,9 +15,6 @@ import static org.junit.Assert.assertTrue;
 public class DependencyTest {
 
     private static final String CORE = "boobuzz.core.";
-    private static final Set<String> CONTROLLER_HAL_BRIDGE = Set.of(
-            "boobuzz.core.hal.GamepadSource", "boobuzz.core.hal.GamepadState");
-
     @Test
     public void mainImportsFollowLayerRules() throws IOException {
         Path sourceRoot = Path.of("src/main/java");
@@ -84,8 +80,7 @@ public class DependencyTest {
             case "subsystem" -> importedLayer.equals("contract")
                     || (importedLayer.equals("hal") && isAllowedSubsystemHal(imported));
             case "logic" -> importedLayer.equals("contract") || importedLayer.equals("subsystem");
-            case "controller" -> importedLayer.equals("contract")
-                    || CONTROLLER_HAL_BRIDGE.contains(imported);
+            case "controller" -> importedLayer.equals("contract");
             default -> false;
         };
     }

@@ -1,6 +1,6 @@
 package org.firstinspires.ftc.teamcode.hal;
 
-import boobuzz.core.hal.GamepadState;
+import boobuzz.core.contract.GamepadState;
 import boobuzz.core.hal.Hal;
 import boobuzz.core.contract.RobotAction;
 import boobuzz.core.contract.RobotState;

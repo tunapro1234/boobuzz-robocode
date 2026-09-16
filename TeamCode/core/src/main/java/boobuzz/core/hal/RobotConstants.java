@@ -14,6 +14,7 @@ public final class RobotConstants {
 
     public static final double ROBOT_WIDTH = 18.0;
     public static final double ROBOT_LENGTH = 18.0;
+    public static final double ROBOT_MASS_KG = 12.0;
     public static final String ANGLE_UNIT = "deg";
     public static final String DRIVETRAIN_TYPE = "mecanum";
     public static final double WHEEL_DIAMETER = 4.0;
