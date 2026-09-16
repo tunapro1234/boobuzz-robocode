@@ -14,6 +14,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
+import com.pedropathing.math.Pose;
+
 /** Complex engine: motion, automatic turret aiming, shooter sequencing, and intake. */
 public final class CplxEngine1 implements IRobotEngine {
 
@@ -62,6 +64,7 @@ public final class CplxEngine1 implements IRobotEngine {
 
         for (Request request : batch.requests()) {
             switch (request.type()) {
+                case RESET_POSE -> handleResetPose(request, statuses);
                 case SHOOT -> addIfRejected(statuses,
                         shooter.requestShot(request.id(), (int) Math.round(request.param(0, 1.0))));
                 case SPIN_UP -> addIfRejected(statuses,
@@ -114,6 +117,20 @@ public final class CplxEngine1 implements IRobotEngine {
         } else {
             subsystems.intake().run(request.param(0, 1.0));
         }
+        statuses.add(RequestStatus.done(request.id()));
+    }
+
+    private void handleResetPose(Request request, List<RequestStatus> statuses) {
+        if (request.params().length < 3
+                || !Double.isFinite(request.param(0, Double.NaN))
+                || !Double.isFinite(request.param(1, Double.NaN))
+                || !Double.isFinite(request.param(2, Double.NaN))) {
+            statuses.add(RequestStatus.rejected(
+                    request.id(), "RESET_POSE requires finite x, y, heading"));
+            return;
+        }
+        motion.resetPose(new Pose(request.param(0, 0.0), request.param(1, 0.0),
+                request.param(2, 0.0)), statuses);
         statuses.add(RequestStatus.done(request.id()));
     }
 

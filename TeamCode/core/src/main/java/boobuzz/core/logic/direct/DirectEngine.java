@@ -71,6 +71,11 @@ public final class DirectEngine implements IRobotEngine {
                 statuses.add(RequestStatus.rejected(request.id(), "overridden by manual drive"));
                 continue;
             }
+            if (request.type() == boobuzz.core.contract.RequestType.RESET_POSE
+                    && driveJob != null) {
+                map.cancel(driveJob, "reset pose", statuses);
+                driveJob = null;
+            }
             DirectMap.Job job = map.start(request, driveJob != null, shooterJob != null, statuses);
             if (job == null) {
                 continue;

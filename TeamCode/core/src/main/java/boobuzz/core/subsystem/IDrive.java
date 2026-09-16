@@ -20,6 +20,11 @@ public interface IDrive extends ISubsystem {
 
     void stop();
 
+    /** Resets the software/localizer pose used by path following. */
+    default void resetPose(Pose pose) {
+        // Legacy drive implementations without a localizer can safely ignore this seam.
+    }
+
     boolean pathDone();
 
     Pose pose();

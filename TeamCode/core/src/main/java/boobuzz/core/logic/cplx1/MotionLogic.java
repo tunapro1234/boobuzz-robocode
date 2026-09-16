@@ -73,6 +73,12 @@ public final class MotionLogic {
         drive.stop();
     }
 
+    public void resetPose(Pose pose, List<RequestStatus> statuses) {
+        Objects.requireNonNull(pose, "pose");
+        cancelActive("reset pose", statuses);
+        drive.resetPose(pose);
+    }
+
     private MotionJob start(Request request, List<RequestStatus> statuses) {
         switch (request.type()) {
             case PATH -> {

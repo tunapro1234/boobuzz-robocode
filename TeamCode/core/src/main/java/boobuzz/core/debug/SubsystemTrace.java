@@ -81,6 +81,11 @@ public final class SubsystemTrace {
             delegate.stop();
         }
 
+        @Override public void resetPose(Pose pose) {
+            trace.call("drive", "resetPose", pose.x(), pose.y(), pose.heading());
+            delegate.resetPose(pose);
+        }
+
         @Override public boolean pathDone() { return delegate.pathDone(); }
         @Override public Pose pose() { return delegate.pose(); }
     }

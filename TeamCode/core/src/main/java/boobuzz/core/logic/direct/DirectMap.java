@@ -42,6 +42,7 @@ public final class DirectMap {
             case TURN_TO -> startTurn(request, statuses);
             case INTAKE, INTAKE_ON, INTAKE_OFF -> startIntake(request, statuses);
             case TURRET_AIM -> startTurretAim(request, statuses);
+            case RESET_POSE -> startResetPose(request, statuses);
             default -> {
                 statuses.add(RequestStatus.rejected(request.id(), "unsupported request"));
                 yield null;
@@ -179,6 +180,21 @@ public final class DirectMap {
             return null;
         }
         subsystems.turret().aimAt(request.param(0, 0.0), request.param(1, 0.0));
+        statuses.add(RequestStatus.done(request.id()));
+        return null;
+    }
+
+    private Job startResetPose(Request request, List<RequestStatus> statuses) {
+        if (request.params().length < 3
+                || !Double.isFinite(request.param(0, Double.NaN))
+                || !Double.isFinite(request.param(1, Double.NaN))
+                || !Double.isFinite(request.param(2, Double.NaN))) {
+            statuses.add(RequestStatus.rejected(
+                    request.id(), "RESET_POSE requires finite x, y, heading"));
+            return null;
+        }
+        subsystems.drive().resetPose(new Pose(request.param(0, 0.0), request.param(1, 0.0),
+                request.param(2, 0.0)));
         statuses.add(RequestStatus.done(request.id()));
         return null;
     }

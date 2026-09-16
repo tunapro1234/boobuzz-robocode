@@ -107,6 +107,16 @@ public final class PedroDrive implements boobuzz.core.subsystem.IDrive {
     }
 
     @Override
+    public void resetPose(Pose pose) {
+        Objects.requireNonNull(pose, "pose");
+        activePathRequest = null;
+        startedPathRequest = null;
+        manualActive = false;
+        follower.stop();
+        localizer.setPose(pose);
+    }
+
+    @Override
     public boolean pathDone() {
         return !follower.isBusy();
     }
