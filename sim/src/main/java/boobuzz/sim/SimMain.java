@@ -66,12 +66,13 @@ public final class SimMain {
             System.out.printf("%d tick bitti.  sim=%.2fs  gercek=%.2fs  hizlanma=%.1fx%n",
                     loop.ticks(), simMs / 1000.0, wallSec,
                     wallSec > 0 ? (simMs / 1000.0) / wallSec : 0.0);
+            Pose pose = hal.read().pinpoint();
             System.out.printf("son poz: x=%.2f y=%.2f h=%.3f rad%n",
-                    hal.read().pinpoint().x(), hal.read().pinpoint().y(),
-                    hal.read().pinpoint().heading());
-            if (hal.truth() != null) {
+                    pose.x(), pose.y(), pose.heading());
+            Pose truth = hal.truth();
+            if (truth != null) {
                 System.out.printf("gercek : x=%.2f y=%.2f h=%.3f rad%n",
-                        hal.truth().x(), hal.truth().y(), hal.truth().heading());
+                        truth.x(), truth.y(), truth.heading());
             }
         }
     }
