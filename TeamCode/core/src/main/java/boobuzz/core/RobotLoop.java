@@ -7,13 +7,16 @@ import boobuzz.core.contract.RobotAction;
 import boobuzz.core.contract.RobotState;
 import boobuzz.core.contract.WorldSnapshot;
 import boobuzz.core.debug.DebugTap;
+import boobuzz.core.debug.BagWriter;
 import boobuzz.core.debug.SeamJson;
 import boobuzz.core.debug.SubsystemTrace;
+import boobuzz.core.hal.RobotConstants;
 import boobuzz.core.logic.IRobotEngine;
 import boobuzz.core.hal.IHal;
 
 import java.util.List;
 import java.util.Objects;
+import java.nio.file.Path;
 
 /**
  * Tick. Five lines, fixed order (architecture documentation, §1).
@@ -30,6 +33,7 @@ public final class RobotLoop implements AutoCloseable {
     private final IController controller;
     private DebugTap debugTap;
     private SubsystemTrace subsystemTrace;
+    private BagWriter bagWriter;
     private long ticks;
 
     public RobotLoop(IHal hal, IRobotEngine engine, IController controller) {
@@ -122,9 +126,31 @@ public final class RobotLoop implements AutoCloseable {
         subsystemTrace = trace;
     }
 
+    /** Opens a JSONL bag and writes its header before the next tick. */
+    public boolean openBag(Path path, String controllerName) {
+        closeBag();
+        if (path == null) {
+            return true;
+        }
+        try {
+            bagWriter = new BagWriter(path, engine.name(),
+                    controllerName == null ? controller.getClass().getSimpleName() : controllerName,
+                    RobotConstants.constantsHash());
+            return true;
+        } catch (java.io.IOException e) {
+            bagWriter = null;
+            return false;
+        }
+    }
+
+    public BagWriter bagWriter() {
+        return bagWriter;
+    }
+
     @Override
     public void close() {
         closeDebugTap();
+        closeBag();
     }
 
     private void closeDebugTap() {
@@ -134,17 +160,35 @@ public final class RobotLoop implements AutoCloseable {
         }
     }
 
+    private void closeBag() {
+        if (bagWriter != null) {
+            bagWriter.close();
+            bagWriter = null;
+        }
+    }
+
     private void publishSeams(RobotState state, RobotAction action,
                               Feedback feedback, RequestBatch batch) {
-        if (debugTap == null || !debugTap.enabled()) {
+        if ((debugTap == null || !debugTap.enabled()) && bagWriter == null) {
             if (subsystemTrace != null) subsystemTrace.drainCalls();
             return;
         }
         List<java.util.Map<String, Object>> calls = subsystemTrace == null
                 ? List.of() : subsystemTrace.drainCalls();
-        debugTap.publish(SeamJson.hal(state.t(), state, action));
-        debugTap.publish(SeamJson.subsystem(state.t(), calls, action.events()));
-        debugTap.publish(SeamJson.logic(state.t(), feedback, batch));
+        List<String> lines = List.of(
+                SeamJson.hal(state.t(), state, action),
+                SeamJson.subsystem(state.t(), calls, action.events()),
+                SeamJson.logic(state.t(), feedback, batch));
+        if (debugTap != null && debugTap.enabled()) {
+            for (String line : lines) debugTap.publish(line);
+        }
+        if (bagWriter != null) {
+            try {
+                bagWriter.writeLines(lines);
+            } catch (java.io.IOException e) {
+                closeBag();
+            }
+        }
     }
 
     private static int switchIndex(RequestBatch batch) {

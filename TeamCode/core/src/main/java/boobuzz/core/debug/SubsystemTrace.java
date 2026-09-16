@@ -34,7 +34,7 @@ public final class SubsystemTrace {
         Map<String, Object> call = new LinkedHashMap<>();
         call.put("sub", subsystem);
         call.put("op", operation);
-        call.put("args", List.of(args));
+        call.put("args", List.of(args).stream().map(SeamJson::value).toList());
         calls.add(call);
     }
 

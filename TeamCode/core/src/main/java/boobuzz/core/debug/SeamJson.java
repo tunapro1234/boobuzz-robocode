@@ -69,6 +69,28 @@ public final class SeamJson {
         return result;
     }
 
+    /** Converts values used in subsystem call arguments into JSON-safe values. */
+    public static Object value(Object value) {
+        if (value == null || value instanceof String || value instanceof Number
+                || value instanceof Boolean) {
+            return value;
+        }
+        if (value instanceof Pose poseValue) return pose(poseValue);
+        if (value instanceof PathRequest pathValue) return path(pathValue);
+        if (value instanceof Iterable<?> iterable) {
+            return java.util.stream.StreamSupport.stream(iterable.spliterator(), false)
+                    .map(SeamJson::value).toList();
+        }
+        if (value instanceof Map<?, ?> map) {
+            Map<String, Object> result = new LinkedHashMap<>();
+            for (Map.Entry<?, ?> entry : map.entrySet()) {
+                result.put(String.valueOf(entry.getKey()), value(entry.getValue()));
+            }
+            return result;
+        }
+        return String.valueOf(value);
+    }
+
     public static RequestBatch batchFrom(Map<String, Object> root) {
         Map<String, Object> batch = root.containsKey("batch")
                 ? JsonCodec.object(root, "batch") : root;

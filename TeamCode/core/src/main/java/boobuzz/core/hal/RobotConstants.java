@@ -73,6 +73,30 @@ public final class RobotConstants {
         return Mechanism.DEFAULT;
     }
 
+    /** Stable hash for bag headers; it is derived from all machine-read constants. */
+    public static String constantsHash() {
+        StringBuilder source = new StringBuilder()
+                .append(ROBOT_WIDTH).append('|').append(ROBOT_LENGTH).append('|')
+                .append(WHEEL_DIAMETER).append('|').append(BATTERY_V).append('|')
+                .append(MOTOR_TAU_S).append('|').append(STRAFE_EFF).append('|')
+                .append(ZERO_POWER_DECEL_FORWARD_IN_S2).append('|')
+                .append(ZERO_POWER_DECEL_LATERAL_IN_S2).append('|');
+        for (Motor motor : MOTORS) {
+            source.append(motor).append('|');
+        }
+        source.append(PINPOINT).append('|').append(TELEOP_RESET_POSE_X).append('|')
+                .append(TELEOP_RESET_POSE_Y).append('|').append(TELEOP_RESET_POSE_H);
+        try {
+            byte[] digest = java.security.MessageDigest.getInstance("SHA-256")
+                    .digest(source.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            StringBuilder hex = new StringBuilder(digest.length * 2);
+            for (byte value : digest) hex.append(String.format(java.util.Locale.ROOT, "%02x", value));
+            return hex.toString();
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 is unavailable", e);
+        }
+    }
+
     static Mechanism buildMechanism() {
         Map<String, Mechanism.Motor> motors = new LinkedHashMap<>();
         for (Motor motor : MOTORS) {

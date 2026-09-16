@@ -16,6 +16,8 @@ import boobuzz.core.hal.RobotConstants;
 
 import com.pedropathing.math.Pose;
 
+import java.nio.file.Path;
+
 /**
  * Headless simulator runner.
  *
@@ -85,6 +87,9 @@ public final class SimMain {
                         hal, mechanism, a.engine, new boobuzz.core.controller.teleop.TeleopController(hal),
                         a.tapPort);
             }
+            if (a.bag != null && !loop.openBag(Path.of(a.bag), controllerName(a))) {
+                throw new IllegalStateException("could not open bag: " + a.bag);
+            }
             System.out.printf("engine: %s%n", loop.engine().name());
 
             long wallStart = System.nanoTime();
@@ -130,6 +135,13 @@ public final class SimMain {
         return 0;
     }
 
+    private static String controllerName(Args args) {
+        if (args.auto != null) return "AutoController";
+        if (args.pathId != null) return "FixedPathController";
+        if (args.drive != null) return "FixedStreamController";
+        return "TeleopController";
+    }
+
     /** Emits a named path request once; requests are edge-triggered. */
     private static final class FixedPathController implements IController {
         private final String pathId;
@@ -163,6 +175,7 @@ public final class SimMain {
         String auto = null;
         String engine = "cplx1";
         int tapPort = RobotConstants.DEBUG_TAP_PORT;
+        String bag;
 
         static Args parse(String[] argv) {
             Args a = new Args();
@@ -182,6 +195,7 @@ public final class SimMain {
                     case "--auto" -> a.auto = next(argv, ++i, key);
                     case "--engine" -> a.engine = next(argv, ++i, key);
                     case "--tap-port" -> a.tapPort = Integer.parseInt(next(argv, ++i, key));
+                    case "--bag" -> a.bag = next(argv, ++i, key);
                     case "--connect-timeout" ->
                             a.connectTimeoutMs = Integer.parseInt(next(argv, ++i, key));
                     default -> throw new IllegalArgumentException("unknown argument: " + key);
