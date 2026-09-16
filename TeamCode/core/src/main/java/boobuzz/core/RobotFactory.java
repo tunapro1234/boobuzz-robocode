@@ -5,6 +5,7 @@ import boobuzz.core.controller.teleop.TeleopController;
 import boobuzz.core.contract.RequestBatch;
 import boobuzz.core.contract.RequestStream;
 import boobuzz.core.hal.IHal;
+import boobuzz.core.debug.SubsystemTrace;
 import boobuzz.core.logic.cplx1.CplxEngine1;
 import boobuzz.core.logic.direct.DirectEngine;
 import boobuzz.core.logic.IRobotEngine;
@@ -38,21 +39,36 @@ public final class RobotFactory {
     /** Builds the selected engine over one fixed-order subsystem set. */
     public static RobotLoop create(IHal hal, Mechanism mechanism,
                                    String engineName, RequestStream fixedStream) {
+        return create(hal, mechanism, engineName, fixedStream, 0);
+    }
+
+    public static RobotLoop create(IHal hal, Mechanism mechanism,
+                                   String engineName, RequestStream fixedStream,
+                                   int debugTapPort) {
         IController controller = fixedStream == null
                 ? new TeleopController(hal)
                 : feedback -> new RequestBatch(fixedStream, java.util.List.of(), new int[0]);
-        return createWithController(hal, mechanism, engineName, controller);
+        return createWithController(hal, mechanism, engineName, controller, debugTapPort);
     }
 
     /** Builds the selected engine with an explicit controller, used by autonomous entry points. */
     public static RobotLoop createWithController(IHal hal, Mechanism mechanism,
                                                   String engineName, IController controller) {
+        return createWithController(hal, mechanism, engineName, controller, 0);
+    }
+
+    public static RobotLoop createWithController(IHal hal, Mechanism mechanism,
+                                                  String engineName, IController controller,
+                                                  int debugTapPort) {
         Objects.requireNonNull(hal, "hal");
         Objects.requireNonNull(mechanism, "mechanism");
         Objects.requireNonNull(engineName, "engineName");
         Objects.requireNonNull(controller, "controller");
-        Subsystems subsystems = new Subsystems(
+        Subsystems baseSubsystems = new Subsystems(
                 new PedroDrive(mechanism), new StubShooter(), new StubIntake(), new StubTurret());
+        SubsystemTrace trace = debugTapPort == 0 ? null : new SubsystemTrace();
+        Subsystems subsystems = trace == null
+                ? baseSubsystems : SubsystemTrace.wrap(baseSubsystems, trace);
         DirectEngine direct = new DirectEngine(subsystems);
         CplxEngine1 cplx1 = new CplxEngine1(subsystems);
         IRobotEngine engine = switch (engineName) {
@@ -61,6 +77,9 @@ public final class RobotFactory {
             default -> throw new IllegalArgumentException(
                     "unknown engine: " + engineName + " (expected direct or cplx1)");
         };
-        return new RobotLoop(hal, java.util.List.of(direct, cplx1), engine, controller);
+        RobotLoop loop = new RobotLoop(hal, java.util.List.of(direct, cplx1), engine,
+                controller, debugTapPort);
+        loop.setSubsystemTrace(trace);
+        return loop;
     }
 }

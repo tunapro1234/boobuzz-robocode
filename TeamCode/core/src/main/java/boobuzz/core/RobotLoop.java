@@ -7,6 +7,8 @@ import boobuzz.core.contract.RobotAction;
 import boobuzz.core.contract.RobotState;
 import boobuzz.core.contract.WorldSnapshot;
 import boobuzz.core.debug.DebugTap;
+import boobuzz.core.debug.SeamJson;
+import boobuzz.core.debug.SubsystemTrace;
 import boobuzz.core.logic.IRobotEngine;
 import boobuzz.core.hal.IHal;
 
@@ -27,6 +29,7 @@ public final class RobotLoop implements AutoCloseable {
     private IRobotEngine engine;
     private final IController controller;
     private DebugTap debugTap;
+    private SubsystemTrace subsystemTrace;
     private long ticks;
 
     public RobotLoop(IHal hal, IRobotEngine engine, IController controller) {
@@ -64,8 +67,9 @@ public final class RobotLoop implements AutoCloseable {
         RobotState state = hal.read();
         WorldSnapshot snapshot = engine.sense(state);    // UP
         Feedback feedback = new Feedback(snapshot, engine.drainStatuses(), state.t());
-        RequestBatch batch = controller.decide(feedback); // L3
-        int switchIndex = switchIndex(batch);
+        RequestBatch controllerBatch = controller.decide(feedback); // L3
+        RequestBatch batch = controllerBatch;
+        int switchIndex = switchIndex(controllerBatch);
         if (switchIndex >= 0 && switchIndex < engines.size()
                 && engines.get(switchIndex) != engine) {
             // Quiesce the old owner now.  The selected engine starts on the next tick.
@@ -77,6 +81,8 @@ public final class RobotLoop implements AutoCloseable {
         }
         RobotAction action = engine.action();
         hal.write(action);                               // HAL
+
+        publishSeams(state, action, feedback, controllerBatch);
 
         ticks++;
     }
@@ -112,6 +118,10 @@ public final class RobotLoop implements AutoCloseable {
         return debugTap;
     }
 
+    public void setSubsystemTrace(SubsystemTrace trace) {
+        subsystemTrace = trace;
+    }
+
     @Override
     public void close() {
         closeDebugTap();
@@ -122,6 +132,19 @@ public final class RobotLoop implements AutoCloseable {
             debugTap.close();
             debugTap = null;
         }
+    }
+
+    private void publishSeams(RobotState state, RobotAction action,
+                              Feedback feedback, RequestBatch batch) {
+        if (debugTap == null || !debugTap.enabled()) {
+            if (subsystemTrace != null) subsystemTrace.drainCalls();
+            return;
+        }
+        List<java.util.Map<String, Object>> calls = subsystemTrace == null
+                ? List.of() : subsystemTrace.drainCalls();
+        debugTap.publish(SeamJson.hal(state.t(), state, action));
+        debugTap.publish(SeamJson.subsystem(state.t(), calls, action.events()));
+        debugTap.publish(SeamJson.logic(state.t(), feedback, batch));
     }
 
     private static int switchIndex(RequestBatch batch) {

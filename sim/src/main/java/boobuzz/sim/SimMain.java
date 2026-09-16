@@ -73,13 +73,17 @@ public final class SimMain {
 
             RobotLoop loop;
             if (autoController != null) {
-                loop = RobotFactory.createWithController(hal, mechanism, a.engine, autoController);
+                loop = RobotFactory.createWithController(
+                        hal, mechanism, a.engine, autoController, a.tapPort);
             } else if (fixedController != null) {
-                loop = RobotFactory.createWithController(hal, mechanism, a.engine, fixedController);
+                loop = RobotFactory.createWithController(
+                        hal, mechanism, a.engine, fixedController, a.tapPort);
             } else if (fixedStream != null) {
-                loop = RobotFactory.create(hal, mechanism, a.engine, fixedStream);
+                loop = RobotFactory.create(hal, mechanism, a.engine, fixedStream, a.tapPort);
             } else {
-                loop = RobotFactory.create(hal, mechanism, a.engine);
+                loop = RobotFactory.createWithController(
+                        hal, mechanism, a.engine, new boobuzz.core.controller.teleop.TeleopController(hal),
+                        a.tapPort);
             }
             System.out.printf("engine: %s%n", loop.engine().name());
 
@@ -117,9 +121,11 @@ public final class SimMain {
                 } else {
                     System.out.printf("auto unfinished: %d/%d steps; %s%n",
                             sequence.index(), sequence.size(), autoController.failureNote());
+                    loop.close();
                     return 1;
                 }
             }
+            loop.close();
         }
         return 0;
     }
@@ -156,6 +162,7 @@ public final class SimMain {
         String pathId = null;
         String auto = null;
         String engine = "cplx1";
+        int tapPort = RobotConstants.DEBUG_TAP_PORT;
 
         static Args parse(String[] argv) {
             Args a = new Args();
@@ -174,6 +181,7 @@ public final class SimMain {
                     case "--path" -> a.pathId = next(argv, ++i, key);
                     case "--auto" -> a.auto = next(argv, ++i, key);
                     case "--engine" -> a.engine = next(argv, ++i, key);
+                    case "--tap-port" -> a.tapPort = Integer.parseInt(next(argv, ++i, key));
                     case "--connect-timeout" ->
                             a.connectTimeoutMs = Integer.parseInt(next(argv, ++i, key));
                     default -> throw new IllegalArgumentException("unknown argument: " + key);
