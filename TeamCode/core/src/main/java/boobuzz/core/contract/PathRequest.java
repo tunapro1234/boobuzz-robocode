@@ -118,6 +118,15 @@ public record PathRequest(
 
     /** Motion limits attached to a path request. */
     public record Constraints(double maxPower, double maxVelocity) {
+        public Constraints {
+            if (!Double.isFinite(maxPower) || maxPower <= 0.0 || maxPower > 1.0) {
+                throw new IllegalArgumentException("maxPower must be in (0, 1]");
+            }
+            if (!Double.isFinite(maxVelocity) || maxVelocity <= 0.0) {
+                throw new IllegalArgumentException("maxVelocity must be positive and finite");
+            }
+        }
+
         public static Constraints defaults() {
             return new Constraints(1.0, Double.MAX_VALUE);
         }
@@ -160,8 +169,10 @@ public record PathRequest(
     /** Braking strength and the distance multiplier at which braking starts. */
     public record Braking(double strength, double startMultiplier) {
         public Braking {
-            if (!Double.isFinite(strength) || !Double.isFinite(startMultiplier)) {
-                throw new IllegalArgumentException("braking values must be finite");
+            if (!Double.isFinite(strength) || strength < 0.0 || strength > 1.0
+                    || !Double.isFinite(startMultiplier)
+                    || startMultiplier < 0.0 || startMultiplier > 1.0) {
+                throw new IllegalArgumentException("braking values must be in [0, 1]");
             }
         }
     }
