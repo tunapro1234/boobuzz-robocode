@@ -39,6 +39,15 @@ public final class RobotConstants {
     public static final double STUB_FEED_S = 0.2;
     public static final double STUB_TURRET_SETTLE_S = 0.3;
 
+    public static final boolean ALLIANCE_BLUE = true;
+    public static final double GOAL_X = 48.0;
+    public static final double RED_GOAL_X = 96.0;
+    public static final double GOAL_Y = 96.0;
+    public static final double SHOOTER_RPM_BASE = 300.0;
+    public static final double SHOOTER_RPM_PER_IN = 1.0;
+    public static final double SHOOTER_HOOD_BASE = 0.0;
+    public static final double SHOOTER_HOOD_PER_IN = 0.0;
+
     // free_rpm = 73.63 in/s * 60 / (pi * 4 in); no direct RPM data was found.
     public static final Motor FL = new Motor("fl", "wheel", 6.5, 5.5, 45.0, 537.7, 351.55735379568756);
     public static final Motor FR = new Motor("fr", "wheel", 6.5, -5.5, -45.0, 537.7, 351.55735379568756);
