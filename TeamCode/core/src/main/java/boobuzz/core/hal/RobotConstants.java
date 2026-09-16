@@ -53,8 +53,9 @@ public final class RobotConstants {
     public static final double TELEOP_RESET_POSE_Y = 96.0;
     public static final double TELEOP_RESET_POSE_H = 1.5707963267948966;
 
-    // Debug tap is enabled by robot/simulator entry points; zero disables it.
+    // Simulator default; real robot entry points use REAL_DEBUG_TAP_PORT for safety.
     public static final int DEBUG_TAP_PORT = 5600;
+    public static final int REAL_DEBUG_TAP_PORT = 0;
 
     // free_rpm = 73.63 in/s * 60 / (pi * 4 in); no direct RPM data was found.
     public static final Motor FL = new Motor("fl", "wheel", 6.5, 5.5, 45.0, 537.7, 351.55735379568756);

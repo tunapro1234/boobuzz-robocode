@@ -74,20 +74,22 @@ public final class SimMain {
             }
 
             RobotLoop loop;
+            boolean tracing = a.tapPort != 0 || a.bag != null;
             if (autoController != null) {
                 loop = RobotFactory.createWithController(
-                        hal, mechanism, a.engine, autoController, a.tapPort);
+                        hal, mechanism, a.engine, autoController, a.tapPort, tracing);
             } else if (fixedController != null) {
                 loop = RobotFactory.createWithController(
-                        hal, mechanism, a.engine, fixedController, a.tapPort);
+                        hal, mechanism, a.engine, fixedController, a.tapPort, tracing);
             } else if (fixedStream != null) {
-                loop = RobotFactory.create(hal, mechanism, a.engine, fixedStream, a.tapPort);
+                loop = RobotFactory.create(hal, mechanism, a.engine, fixedStream,
+                        a.tapPort, tracing);
             } else {
                 loop = RobotFactory.createWithController(
                         hal, mechanism, a.engine, new boobuzz.core.controller.teleop.TeleopController(hal),
-                        a.tapPort);
+                        a.tapPort, tracing);
             }
-            if (a.bag != null && !loop.openBag(Path.of(a.bag), controllerName(a))) {
+            if (a.bag != null && !loop.openBag(Path.of(a.bag), controllerName(a), startPose)) {
                 throw new IllegalStateException("could not open bag: " + a.bag);
             }
             System.out.printf("engine: %s%n", loop.engine().name());
@@ -106,6 +108,9 @@ public final class SimMain {
                 }
             }
             double wallSec = (System.nanoTime() - wallStart) / 1e9;
+
+            System.out.printf("RobotLoop tick time: mean=%.4f ms max=%.4f ms%n",
+                    loop.meanTickMillis(), loop.maxTickMillis());
 
             long simMs = hal.now();
             System.out.printf("%d ticks finished.  sim=%.2fs  wall=%.2fs  speedup=%.1fx%n",

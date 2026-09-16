@@ -45,10 +45,18 @@ public final class RobotFactory {
     public static RobotLoop create(IHal hal, Mechanism mechanism,
                                    String engineName, RequestStream fixedStream,
                                    int debugTapPort) {
+        return create(hal, mechanism, engineName, fixedStream, debugTapPort, false);
+    }
+
+    /** Builds a loop with optional seam tracing even when the network tap is disabled. */
+    public static RobotLoop create(IHal hal, Mechanism mechanism,
+                                   String engineName, RequestStream fixedStream,
+                                   int debugTapPort, boolean traceEnabled) {
         IController controller = fixedStream == null
                 ? new TeleopController(hal)
                 : feedback -> new RequestBatch(fixedStream, java.util.List.of(), new int[0]);
-        return createWithController(hal, mechanism, engineName, controller, debugTapPort);
+        return createWithController(hal, mechanism, engineName, controller,
+                debugTapPort, traceEnabled);
     }
 
     /** Builds the selected engine with an explicit controller, used by autonomous entry points. */
@@ -60,13 +68,21 @@ public final class RobotFactory {
     public static RobotLoop createWithController(IHal hal, Mechanism mechanism,
                                                   String engineName, IController controller,
                                                   int debugTapPort) {
+        return createWithController(hal, mechanism, engineName, controller,
+                debugTapPort, false);
+    }
+
+    /** Builds an explicit-controller loop with optional trace recording for bagging. */
+    public static RobotLoop createWithController(IHal hal, Mechanism mechanism,
+                                                  String engineName, IController controller,
+                                                  int debugTapPort, boolean traceEnabled) {
         Objects.requireNonNull(hal, "hal");
         Objects.requireNonNull(mechanism, "mechanism");
         Objects.requireNonNull(engineName, "engineName");
         Objects.requireNonNull(controller, "controller");
         Subsystems baseSubsystems = new Subsystems(
                 new PedroDrive(mechanism), new StubShooter(), new StubIntake(), new StubTurret());
-        SubsystemTrace trace = debugTapPort == 0 ? null : new SubsystemTrace();
+        SubsystemTrace trace = traceEnabled || debugTapPort != 0 ? new SubsystemTrace() : null;
         Subsystems subsystems = trace == null
                 ? baseSubsystems : SubsystemTrace.wrap(baseSubsystems, trace);
         DirectEngine direct = new DirectEngine(subsystems);

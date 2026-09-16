@@ -36,10 +36,11 @@ public final class SeamJson {
         return JsonCodec.stringify(root);
     }
 
-    public static String subsystem(long tMs, List<Map<String, Object>> calls,
+    public static String subsystem(long tMs, List<SubsystemTrace.Call> calls,
                                    List<Event> events) {
         Map<String, Object> root = root("subsystem", tMs);
-        root.put("calls", calls == null ? List.of() : calls);
+        root.put("calls", calls == null ? List.of() : calls.stream()
+                .map(SeamJson::call).toList());
         root.put("events", events == null ? List.of() : events.stream()
                 .map(SeamJson::event).toList());
         return JsonCodec.stringify(root);
@@ -128,6 +129,14 @@ public final class SeamJson {
         result.put("motors", value.motors());
         result.put("servos", value.servos());
         result.put("events", value.events().stream().map(SeamJson::event).toList());
+        return result;
+    }
+
+    private static Map<String, Object> call(SubsystemTrace.Call value) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("sub", value.sub());
+        result.put("op", value.op());
+        result.put("args", value.args().stream().map(SeamJson::value).toList());
         return result;
     }
 

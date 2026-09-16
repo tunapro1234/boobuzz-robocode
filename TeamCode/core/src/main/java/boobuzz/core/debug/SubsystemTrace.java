@@ -13,14 +13,19 @@ import boobuzz.core.subsystem.Subsystems;
 import com.pedropathing.math.Pose;
 
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 /** Records downward subsystem calls without changing the subsystem contracts. */
 public final class SubsystemTrace {
 
-    private final List<Map<String, Object>> calls = new ArrayList<>();
+    private final List<Call> calls = new ArrayList<>();
+
+    /** Immutable call reference retained until the dispatcher serializes it. */
+    public record Call(String sub, String op, List<Object> args) {
+        public Call {
+            args = args == null ? List.of() : List.copyOf(args);
+        }
+    }
 
     public static Subsystems wrap(Subsystems source, SubsystemTrace trace) {
         return new Subsystems(
@@ -31,15 +36,11 @@ public final class SubsystemTrace {
     }
 
     public synchronized void call(String subsystem, String operation, Object... args) {
-        Map<String, Object> call = new LinkedHashMap<>();
-        call.put("sub", subsystem);
-        call.put("op", operation);
-        call.put("args", List.of(args).stream().map(SeamJson::value).toList());
-        calls.add(call);
+        calls.add(new Call(subsystem, operation, List.of(args)));
     }
 
-    public synchronized List<Map<String, Object>> drainCalls() {
-        List<Map<String, Object>> result = List.copyOf(calls);
+    public synchronized List<Call> drainCalls() {
+        List<Call> result = List.copyOf(calls);
         calls.clear();
         return result;
     }

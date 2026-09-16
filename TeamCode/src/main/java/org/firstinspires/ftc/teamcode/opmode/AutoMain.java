@@ -26,7 +26,7 @@ public abstract class AutoMain extends LinearOpMode {
         AutoController controller = new AutoController(sequence);
         RealHal hal = new RealHal(hardwareMap, gamepad1, mechanism, sequence.startPose());
         RobotLoop robot = RobotFactory.createWithController(
-                hal, mechanism, "cplx1", controller, RobotConstants.DEBUG_TAP_PORT);
+                hal, mechanism, "cplx1", controller, RobotConstants.REAL_DEBUG_TAP_PORT);
 
         telemetry.addData("auto", routineName());
         telemetry.addData("steps", sequence.size());

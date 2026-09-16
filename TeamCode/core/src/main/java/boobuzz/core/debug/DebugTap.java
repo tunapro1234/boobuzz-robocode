@@ -1,5 +1,7 @@
 package boobuzz.core.debug;
 
+import com.pedropathing.math.Pose;
+
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
@@ -7,29 +9,42 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * Non-blocking broadcast tap for line-oriented debug records.
+ * One bounded, asynchronous sink for debug tap clients and JSONL bags.
  *
- * <p>The robot loop only enqueues a line.  Each client has an independent
- * bounded queue and writer thread, so a slow laptop cannot stall control.
+ * <p>The robot loop only calls {@link #offer(DebugFrame)}. The dispatcher is
+ * the sole thread that serializes records and performs socket or file I/O.
  */
 public final class DebugTap implements AutoCloseable {
 
-    private static final int QUEUE_CAPACITY = 256;
+    private static final int QUEUE_CAPACITY = 512;
+    private static final int DROP_REPORT_INTERVAL = 64;
 
     private final int port;
     private final ServerSocket server;
     private final Set<Client> clients = ConcurrentHashMap.newKeySet();
+    private final ArrayBlockingQueue<DebugFrame> queue = new ArrayBlockingQueue<>(QUEUE_CAPACITY);
     private final AtomicLong dropped = new AtomicLong();
     private final Thread acceptThread;
+    private final Thread dispatchThread;
+    private volatile BagSpec bagSpec;
     private volatile boolean running = true;
+    private volatile String bagError;
+    private BagWriter bagWriter;
+    private BagSpec activeBag;
+    private long dispatchedFrames;
+    private long reportedDrops;
 
-    /** Creates a disabled tap when {@code port == 0}; otherwise binds immediately. */
+    /** Creates a dispatcher; port zero leaves the network tap disabled. */
     public DebugTap(int port) throws IOException {
         if (port < 0 || port > 65535) {
             throw new IllegalArgumentException("debug tap port out of range: " + port);
@@ -38,22 +53,25 @@ public final class DebugTap implements AutoCloseable {
         if (port == 0) {
             server = null;
             acceptThread = null;
-            running = false;
-            return;
+        } else {
+            ServerSocket opened = new ServerSocket();
+            opened.setReuseAddress(true);
+            opened.bind(new java.net.InetSocketAddress(port));
+            server = opened;
+            acceptThread = new Thread(this::acceptLoop, "debug-tap-accept-" + port);
+            acceptThread.setDaemon(true);
+            acceptThread.start();
         }
-        ServerSocket opened = new ServerSocket();
-        opened.setReuseAddress(true);
-        opened.bind(new java.net.InetSocketAddress(port));
-        server = opened;
-        acceptThread = new Thread(this::acceptLoop, "debug-tap-accept-" + port);
-        acceptThread.setDaemon(true);
-        acceptThread.start();
+        dispatchThread = new Thread(this::dispatchLoop, "debug-tap-dispatch");
+        dispatchThread.setDaemon(true);
+        dispatchThread.start();
     }
 
     public int port() {
         return port;
     }
 
+    /** True when a network listener is active; a port-zero instance may still bag. */
     public boolean enabled() {
         return server != null && running;
     }
@@ -66,13 +84,30 @@ public final class DebugTap implements AutoCloseable {
         return dropped.get();
     }
 
-    /** Enqueues one complete line for every connected listener. */
-    public void publish(String line) {
-        if (!enabled() || line == null) {
+    public String bagError() {
+        return bagError;
+    }
+
+    /** Configures an asynchronous bag; no file is opened by the caller. */
+    public void configureBag(Path path, String engine, String controller,
+                             String constantsHash, Pose startPose) {
+        bagSpec = path == null ? null
+                : new BagSpec(path, engine, controller, constantsHash, startPose);
+    }
+
+    /** Enqueues immutable references without serializing or doing I/O. */
+    public void offer(DebugFrame frame) {
+        if (frame == null || !running) {
             return;
         }
-        for (Client client : clients) {
-            client.offer(line);
+        if (queue.offer(frame)) {
+            return;
+        }
+        // Keep the newest control tick and account for the discarded oldest one.
+        queue.poll();
+        dropped.incrementAndGet();
+        if (!queue.offer(frame)) {
+            dropped.incrementAndGet();
         }
     }
 
@@ -82,16 +117,24 @@ public final class DebugTap implements AutoCloseable {
             return;
         }
         running = false;
-        try {
-            server.close();
-        } catch (IOException ignored) {
-            // Closing an already closed socket is harmless during shutdown.
-        }
-        for (Client client : clients.toArray(Client[]::new)) {
-            remove(client);
+        if (server != null) {
+            try {
+                server.close();
+            } catch (IOException ignored) {
+                // Shutdown is best effort.
+            }
         }
         if (acceptThread != null) {
             acceptThread.interrupt();
+        }
+        dispatchThread.interrupt();
+        try {
+            dispatchThread.join(2000);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        for (Client client : clients.toArray(Client[]::new)) {
+            remove(client);
         }
     }
 
@@ -100,20 +143,122 @@ public final class DebugTap implements AutoCloseable {
             try {
                 Socket socket = server.accept();
                 socket.setTcpNoDelay(true);
-                Client client = new Client(socket);
-                clients.add(client);
-                client.start();
+                clients.add(new Client(socket));
             } catch (SocketException e) {
-                if (running) {
-                    // A transient accept failure must not enter a busy loop.
-                    Thread.yield();
-                }
+                if (running) Thread.yield();
             } catch (IOException e) {
-                if (running) {
-                    Thread.yield();
-                }
+                if (running) Thread.yield();
             }
         }
+    }
+
+    private void dispatchLoop() {
+        try {
+            while (running || !queue.isEmpty()) {
+                ensureBag();
+                DebugFrame frame = queue.poll(100, TimeUnit.MILLISECONDS);
+                if (frame == null) {
+                    continue;
+                }
+                List<String> lines = List.of(
+                        SeamJson.hal(frame.state().t(), frame.state(), frame.action()),
+                        SeamJson.subsystem(frame.state().t(), frame.calls(), frame.action().events()),
+                        SeamJson.logic(frame.state().t(), frame.feedback(), frame.batch()));
+                writeLines(lines);
+                dispatchedFrames++;
+                long dropCount = dropped.get();
+                if (dropCount != reportedDrops
+                        && (dispatchedFrames % DROP_REPORT_INTERVAL == 0 || !running)) {
+                    writeLines(List.of(dropLine(dropCount)));
+                    reportedDrops = dropCount;
+                }
+            }
+            ensureBag();
+            long dropCount = dropped.get();
+            if (dropCount != reportedDrops) {
+                writeLines(List.of(dropLine(dropCount)));
+                reportedDrops = dropCount;
+            }
+        } catch (InterruptedException e) {
+            // close() interrupts polling; drain the already-enqueued frames first.
+            while (!queue.isEmpty()) {
+                DebugFrame frame = queue.poll();
+                if (frame == null) break;
+                try {
+                    ensureBag();
+                    writeLines(List.of(
+                            SeamJson.hal(frame.state().t(), frame.state(), frame.action()),
+                            SeamJson.subsystem(frame.state().t(), frame.calls(), frame.action().events()),
+                            SeamJson.logic(frame.state().t(), frame.feedback(), frame.batch())));
+                } catch (IOException ignored) {
+                    break;
+                }
+            }
+            try {
+                ensureBag();
+                long dropCount = dropped.get();
+                if (dropCount != reportedDrops) writeLines(List.of(dropLine(dropCount)));
+            } catch (IOException ignored) {
+                // Shutdown is best effort.
+            }
+            Thread.currentThread().interrupt();
+        } catch (IOException e) {
+            bagError = e.getMessage() == null ? e.toString() : e.getMessage();
+        } finally {
+            if (bagWriter != null) {
+                bagWriter.close();
+                bagWriter = null;
+            }
+            for (Client client : clients.toArray(Client[]::new)) {
+                remove(client);
+            }
+        }
+    }
+
+    private void ensureBag() throws IOException {
+        BagSpec requested = bagSpec;
+        if (requested == activeBag) {
+            return;
+        }
+        if (bagWriter != null) {
+            bagWriter.close();
+            bagWriter = null;
+        }
+        activeBag = requested;
+        if (requested != null) {
+            try {
+                bagWriter = new BagWriter(requested.path(), requested.engine(),
+                        requested.controller(), requested.constantsHash(), requested.startPose());
+            } catch (IOException e) {
+                bagError = e.getMessage() == null ? e.toString() : e.getMessage();
+                throw e;
+            }
+        }
+    }
+
+    private void writeLines(List<String> lines) throws IOException {
+        for (String line : lines) {
+            writeClients(line);
+        }
+        if (bagWriter != null) {
+            bagWriter.writeLines(lines);
+        }
+    }
+
+    private void writeClients(String line) {
+        for (Client client : clients.toArray(Client[]::new)) {
+            try {
+                client.write(line);
+            } catch (IOException e) {
+                remove(client);
+            }
+        }
+    }
+
+    private String dropLine(long count) {
+        LinkedHashMap<String, Object> line = new LinkedHashMap<>();
+        line.put("tap_dropped", count);
+        return JsonCodec.stringify(line);
     }
 
     private void remove(Client client) {
@@ -124,61 +269,27 @@ public final class DebugTap implements AutoCloseable {
 
     private final class Client implements AutoCloseable {
         private final Socket socket;
-        private final ArrayBlockingQueue<String> queue = new ArrayBlockingQueue<>(QUEUE_CAPACITY);
-        private final Thread writer;
-        private volatile boolean open = true;
+        private final BufferedWriter writer;
 
-        private Client(Socket socket) {
+        private Client(Socket socket) throws IOException {
             this.socket = socket;
-            writer = new Thread(this::writeLoop,
-                    "debug-tap-client-" + socket.getRemoteSocketAddress());
-            writer.setDaemon(true);
+            writer = new BufferedWriter(new OutputStreamWriter(
+                    socket.getOutputStream(), StandardCharsets.UTF_8));
         }
 
-        private void start() {
-            writer.start();
-        }
-
-        private void offer(String line) {
-            if (!open || queue.offer(line)) {
-                return;
-            }
-            queue.poll();
-            if (!queue.offer(line)) {
-                dropped.incrementAndGet();
-            } else {
-                dropped.incrementAndGet();
-            }
-        }
-
-        private void writeLoop() {
-            try (BufferedWriter out = new BufferedWriter(new OutputStreamWriter(
-                    socket.getOutputStream(), StandardCharsets.UTF_8))) {
-                while (open) {
-                    String line = queue.take();
-                    out.write(line);
-                    out.newLine();
-                    out.flush();
-                }
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            } catch (IOException ignored) {
-                // The tap is best-effort; the next publish removes this client.
-            } finally {
-                open = false;
-                clients.remove(this);
-                try {
-                    socket.close();
-                } catch (IOException ignored) {
-                    // Already closed.
-                }
-            }
+        private void write(String line) throws IOException {
+            writer.write(line);
+            writer.newLine();
+            writer.flush();
         }
 
         @Override
         public void close() {
-            open = false;
-            writer.interrupt();
+            try {
+                writer.close();
+            } catch (IOException ignored) {
+                // Already closed.
+            }
             try {
                 socket.close();
             } catch (IOException ignored) {
@@ -186,4 +297,7 @@ public final class DebugTap implements AutoCloseable {
             }
         }
     }
+
+    private record BagSpec(Path path, String engine, String controller,
+                           String constantsHash, Pose startPose) {}
 }

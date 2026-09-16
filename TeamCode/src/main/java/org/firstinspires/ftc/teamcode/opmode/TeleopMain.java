@@ -20,7 +20,7 @@ public class TeleopMain extends LinearOpMode {
         Mechanism mechanism = RobotConstants.mechanism();
         RealHal hal = new RealHal(hardwareMap, gamepad1, mechanism, new Pose(0, 0, 0));
         RobotLoop robot = RobotFactory.create(
-                hal, mechanism, "cplx1", null, RobotConstants.DEBUG_TAP_PORT);
+                hal, mechanism, "cplx1", null, RobotConstants.REAL_DEBUG_TAP_PORT);
 
         telemetry.addLine("RealHal + shared core ready. Press Start.");
         telemetry.update();
