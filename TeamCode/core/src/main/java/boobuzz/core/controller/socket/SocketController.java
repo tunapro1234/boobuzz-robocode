@@ -17,6 +17,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -38,6 +39,7 @@ public final class SocketController implements boobuzz.core.controller.IControll
     private final AtomicReference<RequestBatch> latest =
             new AtomicReference<>(RequestBatch.idle());
     private final AtomicLong lastReceivedNanos = new AtomicLong();
+    private final AtomicBoolean timeoutStopSent = new AtomicBoolean();
     private final ArrayBlockingQueue<Feedback> feedbackQueue =
             new ArrayBlockingQueue<>(FEEDBACK_QUEUE_CAPACITY);
     private final AtomicLong feedbackDrops = new AtomicLong();
@@ -108,6 +110,9 @@ public final class SocketController implements boobuzz.core.controller.IControll
         }
         long received = lastReceivedNanos.get();
         if (received == 0L || System.nanoTime() - received > timeoutNanos) {
+            if (received != 0L && timeoutStopSent.compareAndSet(false, true)) {
+                return RequestBatch.cancelAll();
+            }
             return RequestBatch.idle();
         }
         return latest.get();
@@ -171,6 +176,7 @@ public final class SocketController implements boobuzz.core.controller.IControll
                 try {
                     latest.set(SeamJson.batchFrom(JsonCodec.parseObject(line)));
                     lastReceivedNanos.set(System.nanoTime());
+                    timeoutStopSent.set(false);
                 } catch (RuntimeException e) {
                     inputError = e.getMessage() == null ? e.toString() : e.getMessage();
                 }

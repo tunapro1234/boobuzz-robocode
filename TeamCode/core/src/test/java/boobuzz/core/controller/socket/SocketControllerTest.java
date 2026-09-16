@@ -4,6 +4,15 @@ import boobuzz.core.contract.Feedback;
 import boobuzz.core.contract.PathRequest;
 import boobuzz.core.contract.Request;
 import boobuzz.core.contract.RequestBatch;
+import boobuzz.core.contract.RobotAction;
+import boobuzz.core.contract.RobotState;
+import boobuzz.core.logic.IRobotEngine;
+import boobuzz.core.logic.cplx1.CplxEngine1;
+import boobuzz.core.logic.direct.DirectEngine;
+import boobuzz.core.subsystem.IDrive;
+import boobuzz.core.subsystem.Subsystems;
+import boobuzz.core.subsystem.stub.StubIntake;
+import boobuzz.core.subsystem.stub.StubShooter;
 import boobuzz.core.debug.JsonCodec;
 import boobuzz.core.debug.SeamJson;
 
@@ -19,6 +28,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
+import java.util.List;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -66,10 +76,99 @@ public class SocketControllerTest {
         }
     }
 
+    @Test
+    public void timeoutCancelsAnActivePathInBothEngines() throws Exception {
+        assertTimeoutStops(new DirectEngine(new Subsystems(
+                new RecordingDrive(), new StubShooter(), new StubIntake())));
+        assertTimeoutStops(new CplxEngine1(new Subsystems(
+                new RecordingDrive(), new StubShooter(), new StubIntake())));
+    }
+
+    private static void assertTimeoutStops(IRobotEngine engine) throws Exception {
+        RecordingDrive drive = (RecordingDrive) (engine instanceof DirectEngine
+                ? ((DirectEngine) engine).subsystems().drive()
+                : ((CplxEngine1) engine).subsystems().drive());
+        int port;
+        try (ServerSocket probe = new ServerSocket(0)) {
+            port = probe.getLocalPort();
+        }
+        try (SocketController controller = new SocketController(port, 40);
+             Socket client = new Socket("127.0.0.1", port)) {
+            waitForClient(controller);
+            BufferedWriter out = new BufferedWriter(new OutputStreamWriter(
+                    client.getOutputStream(), StandardCharsets.UTF_8));
+            RequestBatch path = RequestBatch.of(Request.path(91,
+                    PathRequest.named("test-line")));
+            out.write(JsonCodec.stringify(SeamJson.batchMap(path)));
+            out.newLine();
+            out.flush();
+            for (int i = 0; i < 100 && controller.decide(null).requests().isEmpty(); i++) {
+                Thread.sleep(2);
+            }
+
+            TestHal hal = new TestHal();
+            boobuzz.core.RobotLoop loop = new boobuzz.core.RobotLoop(hal, engine, controller);
+            loop.tick();
+            assertTrue("path should drive before timeout", drive.following);
+            Thread.sleep(80);
+            loop.tick();
+            assertTrue("watchdog must stop the active path", drive.stopped);
+            assertEquals(0.0, hal.last.motor("fl"), 1e-9);
+            assertTrue("watchdog must emit one cancel-all batch",
+                    controller.decide(null).cancels().length == 0);
+            loop.close();
+        }
+    }
+
     private static void waitForClient(SocketController controller) throws InterruptedException {
         for (int i = 0; i < 100 && !controller.clientConnected(); i++) {
             Thread.sleep(5);
         }
         assertTrue(controller.clientConnected());
+    }
+
+    private static final class TestHal implements boobuzz.core.hal.IHal {
+        private long now;
+        private RobotAction last = RobotAction.zero();
+
+        @Override public long now() { return now; }
+
+        @Override public RobotState read() {
+            return new RobotState(now, Map.of(), Map.of(), 0.0,
+                    Pose.zero(), 12.6);
+        }
+
+        @Override public void write(RobotAction action) {
+            last = action;
+            now += 20;
+        }
+
+        @Override public boobuzz.core.contract.GamepadState get() {
+            return boobuzz.core.contract.GamepadState.neutral();
+        }
+    }
+
+    private static final class RecordingDrive implements IDrive {
+        private boolean following;
+        private boolean stopped = true;
+
+        @Override public void observe(RobotState state) {}
+        @Override public void update(RobotAction.Builder out) {
+            if (following && !stopped) out.motor("fl", 1.0);
+        }
+        @Override public void manual(double vx, double vy, double omega) {
+            stopped = false;
+            following = false;
+        }
+        @Override public void follow(PathRequest request) {
+            following = true;
+            stopped = false;
+        }
+        @Override public void stop() {
+            stopped = true;
+            following = false;
+        }
+        @Override public boolean pathDone() { return false; }
+        @Override public Pose pose() { return Pose.zero(); }
     }
 }
