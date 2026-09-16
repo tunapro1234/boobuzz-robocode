@@ -126,6 +126,18 @@ public class PedroDriveTest {
         }
     }
 
+    @Test
+    public void nonFiniteManualInputIsZeroedBeforeHal() {
+        PedroDrive drive = new PedroDrive(mechanism, new PathRegistry());
+        drive.manual(Double.NaN, 0.0, 0.0);
+
+        RobotAction action = update(drive);
+        for (double power : action.motors().values()) {
+            assertTrue(Double.isFinite(power));
+            assertEquals(0.0, power, 1e-9);
+        }
+    }
+
     private static RobotAction.Builder output() {
         return new RobotAction.Builder();
     }
