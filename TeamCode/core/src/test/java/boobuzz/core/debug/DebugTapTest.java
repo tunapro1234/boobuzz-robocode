@@ -15,6 +15,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -50,11 +51,59 @@ public class DebugTapTest {
         }
     }
 
+    @Test
+    public void slowClientDoesNotBlockFastClientOrPublisher() throws Exception {
+        int port;
+        try (ServerSocket probe = new ServerSocket(0)) {
+            port = probe.getLocalPort();
+        }
+        try (DebugTap tap = new DebugTap(port);
+             Socket slow = new Socket("127.0.0.1", port);
+             Socket fast = new Socket("127.0.0.1", port)) {
+            slow.setReceiveBufferSize(1024);
+            fast.setSoTimeout(2000);
+            waitForClients(tap, 2);
+            BufferedReader reader = new BufferedReader(new InputStreamReader(
+                    fast.getInputStream(), StandardCharsets.UTF_8));
+            AtomicInteger fastLines = new AtomicInteger();
+            Thread drain = new Thread(() -> {
+                try {
+                    while (reader.readLine() != null) {
+                        fastLines.incrementAndGet();
+                    }
+                } catch (Exception ignored) {
+                    // The test closes the socket after the bounded assertion.
+                }
+            });
+            drain.start();
+
+            long start = System.nanoTime();
+            for (int i = 0; i < 8_000; i++) {
+                tap.offer(frame(i));
+            }
+            long elapsedMs = (System.nanoTime() - start) / 1_000_000L;
+
+            assertTrue("publisher must remain non-blocking", elapsedMs < 500);
+            for (int i = 0; i < 100 && fastLines.get() < 3; i++) {
+                Thread.sleep(5);
+            }
+            assertTrue("fast client did not receive a complete frame", fastLines.get() >= 3);
+            assertTrue("slow-client pressure should be accounted for", tap.droppedCount() > 0);
+            fast.close();
+            slow.close();
+            drain.join(1000);
+        }
+    }
+
     private static void waitForClient(DebugTap tap) throws InterruptedException {
-        for (int i = 0; i < 100 && tap.clientCount() == 0; i++) {
+        waitForClients(tap, 1);
+    }
+
+    private static void waitForClients(DebugTap tap, int expected) throws InterruptedException {
+        for (int i = 0; i < 100 && tap.clientCount() < expected; i++) {
             Thread.sleep(5);
         }
-        assertEquals(1, tap.clientCount());
+        assertEquals(expected, tap.clientCount());
     }
 
     private static DebugFrame frame(long t) {

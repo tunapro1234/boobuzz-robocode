@@ -27,6 +27,7 @@ import java.util.concurrent.atomic.AtomicLong;
 public final class DebugTap implements AutoCloseable {
 
     private static final int QUEUE_CAPACITY = 512;
+    private static final int CLIENT_QUEUE_CAPACITY = 512;
     private static final int DROP_REPORT_INTERVAL = 64;
 
     private final int port;
@@ -240,21 +241,19 @@ public final class DebugTap implements AutoCloseable {
     }
 
     private void writeLines(List<String> lines) throws IOException {
-        for (String line : lines) {
-            writeClients(line);
-        }
+        // The bag is independent of tap-client backpressure and is written first.
         if (bagWriter != null) {
             bagWriter.writeLines(lines);
         }
+        for (String line : lines) {
+            enqueueClients(line);
+        }
     }
 
-    private void writeClients(String line) {
+    /** Enqueues tap lines without doing socket I/O on the dispatcher. */
+    private void enqueueClients(String line) {
         for (Client client : clients.toArray(Client[]::new)) {
-            try {
-                client.write(line);
-            } catch (IOException e) {
-                remove(client);
-            }
+            client.offer(line);
         }
     }
 
@@ -273,28 +272,82 @@ public final class DebugTap implements AutoCloseable {
     private final class Client implements AutoCloseable {
         private final Socket socket;
         private final BufferedWriter writer;
+        private final ArrayBlockingQueue<String> lines =
+                new ArrayBlockingQueue<>(CLIENT_QUEUE_CAPACITY);
+        private final Thread writerThread;
+        private volatile boolean open = true;
 
         private Client(Socket socket) throws IOException {
             this.socket = socket;
             writer = new BufferedWriter(new OutputStreamWriter(
                     socket.getOutputStream(), StandardCharsets.UTF_8));
+            writerThread = new Thread(this::writeLoop,
+                    "debug-tap-client-" + socket.getRemoteSocketAddress());
+            writerThread.setDaemon(true);
+            writerThread.start();
         }
 
-        private void write(String line) throws IOException {
-            writer.write(line);
-            writer.newLine();
-            writer.flush();
+        /** Adds one line, dropping this client's oldest line if it is full. */
+        private void offer(String line) {
+            if (!open || !running) {
+                return;
+            }
+            if (lines.offer(line)) {
+                return;
+            }
+            lines.poll();
+            dropped.incrementAndGet();
+            if (!lines.offer(line)) {
+                dropped.incrementAndGet();
+            }
+        }
+
+        private void writeLoop() {
+            try {
+                while (open || !lines.isEmpty()) {
+                    String line = lines.poll(100, TimeUnit.MILLISECONDS);
+                    if (line == null) {
+                        continue;
+                    }
+                    writer.write(line);
+                    writer.newLine();
+                    writer.flush();
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            } catch (IOException e) {
+                if (open) {
+                    remove(this);
+                }
+            }
         }
 
         @Override
         public void close() {
+            if (!open) {
+                return;
+            }
+            open = false;
             try {
-                writer.close();
+                socket.shutdownOutput();
             } catch (IOException ignored) {
-                // Already closed.
+                // The socket may already be closed by a failed client.
             }
             try {
                 socket.close();
+            } catch (IOException ignored) {
+                // Already closed.
+            }
+            writerThread.interrupt();
+            if (writerThread != Thread.currentThread()) {
+                try {
+                    writerThread.join(500);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+            try {
+                writer.close();
             } catch (IOException ignored) {
                 // Already closed.
             }
