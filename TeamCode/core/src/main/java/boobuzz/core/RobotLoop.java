@@ -5,6 +5,7 @@ import boobuzz.core.contract.Feedback;
 import boobuzz.core.contract.Intent;
 import boobuzz.core.contract.RobotAction;
 import boobuzz.core.contract.RobotState;
+import boobuzz.core.contract.WorldSnapshot;
 import boobuzz.core.logic.RobotEngine;
 import boobuzz.core.hal.Hal;
 
@@ -30,13 +31,13 @@ public final class RobotLoop {
 
     /** Runs one tick. */
     public void tick() {
-        long now = hal.now();
-
         RobotState state = hal.read();
-        Feedback feedback = engine.sense(now, state);    // UP
+        WorldSnapshot snapshot = engine.sense(state);    // UP
+        Feedback feedback = new Feedback(snapshot, engine.drainStatuses(), state.t());
         Intent intent = controller.decide(feedback);     // L3
-        RobotAction action = engine.act(intent);         // DOWN
-        hal.write(action);
+        engine.act(intent);                              // DOWN
+        RobotAction action = engine.action();
+        hal.write(action);                               // HAL
 
         ticks++;
     }

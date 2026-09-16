@@ -1,7 +1,6 @@
 package boobuzz.core.logic.cplx_engine_1;
 
 import boobuzz.core.contract.Drive;
-import boobuzz.core.contract.Feedback;
 import boobuzz.core.contract.Intent;
 import boobuzz.core.contract.PathRequest;
 import boobuzz.core.contract.Request;
@@ -40,29 +39,33 @@ public final class CplxEngine1 implements RobotEngine {
     }
 
     @Override
-    public Feedback sense(long now, RobotState state) {
+    public WorldSnapshot sense(RobotState state) {
         subsystems.observe(state);
-        WorldSnapshot world = new WorldSnapshot(
+        return new WorldSnapshot(
                 state.t(), subsystems.drive().pose(), state.yaw(), state.voltage());
-        List<RequestStatus> statuses = pendingStatuses;
-        pendingStatuses = List.of();
-        return new Feedback(world, statuses, now);
     }
 
     @Override
-    public RobotAction act(Intent intent) {
+    public void act(Intent intent) {
         applyDrive(intent.drive());
         rejectUnsupportedRequests(intent.newRequests());
         lastAction = subsystems.update();
-        return lastAction;
     }
 
     public Subsystems subsystems() {
         return subsystems;
     }
 
-    public RobotAction lastAction() {
+    @Override
+    public RobotAction action() {
         return lastAction;
+    }
+
+    @Override
+    public List<RequestStatus> drainStatuses() {
+        List<RequestStatus> statuses = pendingStatuses;
+        pendingStatuses = List.of();
+        return statuses;
     }
 
     private void applyDrive(Drive command) {

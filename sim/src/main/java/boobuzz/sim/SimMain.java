@@ -45,7 +45,7 @@ public final class SimMain {
                         a.drive[0], a.drive[1], a.drive[2]);
             }
 
-            RobotLoop loop = RobotFactory.create(hal, mechanism, fixedDrive);
+            RobotLoop loop = RobotFactory.create(hal, mechanism, a.engine, fixedDrive);
             System.out.printf("engine: %s%n", loop.engine().name());
 
             long wallStart = System.nanoTime();
@@ -86,6 +86,7 @@ public final class SimMain {
         int connectTimeoutMs = 5000;
         double[] drive = null;
         String pathId = null;
+        String engine = "cplx_engine_1";
 
         static Args parse(String[] argv) {
             Args a = new Args();
@@ -102,6 +103,7 @@ public final class SimMain {
                     case "--h" -> a.h = Double.parseDouble(next(argv, ++i, key));
                     case "--drive" -> a.drive = triple(next(argv, ++i, key));
                     case "--path" -> a.pathId = next(argv, ++i, key);
+                    case "--engine" -> a.engine = next(argv, ++i, key);
                     case "--connect-timeout" ->
                             a.connectTimeoutMs = Integer.parseInt(next(argv, ++i, key));
                     default -> throw new IllegalArgumentException("unknown argument: " + key);
