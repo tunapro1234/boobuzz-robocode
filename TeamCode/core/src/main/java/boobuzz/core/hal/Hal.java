@@ -1,5 +1,8 @@
 package boobuzz.core.hal;
 
+import boobuzz.core.contract.RobotAction;
+import boobuzz.core.contract.RobotState;
+
 /**
  * L1 - hardware abstraction. This is the ONLY difference between simulator and robot.
  *

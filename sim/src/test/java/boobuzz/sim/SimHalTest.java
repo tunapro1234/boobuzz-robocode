@@ -4,10 +4,10 @@ import boobuzz.core.RobotLoop;
 import boobuzz.core.contract.Drive;
 import boobuzz.core.controller.GamepadController;
 import boobuzz.core.contract.Intent;
+import boobuzz.core.contract.RobotAction;
+import boobuzz.core.contract.RobotState;
 import boobuzz.core.logic.cplx_engine_1.CplxEngine1;
 import boobuzz.core.hal.GamepadState;
-import boobuzz.core.hal.RobotAction;
-import boobuzz.core.hal.RobotState;
 import boobuzz.core.hal.Mechanism;
 
 import com.pedropathing.math.Pose;

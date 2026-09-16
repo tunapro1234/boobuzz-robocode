@@ -2,8 +2,8 @@ package boobuzz.core;
 
 import boobuzz.core.hal.GamepadState;
 import boobuzz.core.hal.Hal;
-import boobuzz.core.hal.RobotAction;
-import boobuzz.core.hal.RobotState;
+import boobuzz.core.contract.RobotAction;
+import boobuzz.core.contract.RobotState;
 import boobuzz.core.hal.Mechanism;
 
 import com.pedropathing.math.Pose;

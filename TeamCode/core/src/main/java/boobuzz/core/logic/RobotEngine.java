@@ -2,8 +2,8 @@ package boobuzz.core.logic;
 
 import boobuzz.core.contract.Feedback;
 import boobuzz.core.contract.Intent;
-import boobuzz.core.hal.RobotAction;
-import boobuzz.core.hal.RobotState;
+import boobuzz.core.contract.RobotAction;
+import boobuzz.core.contract.RobotState;
 
 /**
  * L2. Bidirectional: {@link #sense} reads upward, {@link #act} executes downward.

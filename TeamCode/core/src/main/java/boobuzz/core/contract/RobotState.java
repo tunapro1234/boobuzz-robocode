@@ -1,4 +1,4 @@
-package boobuzz.core.hal;
+package boobuzz.core.contract;
 
 import com.pedropathing.math.Pose;
 
@@ -7,8 +7,8 @@ import java.util.Map;
 /**
  * UPWARD raw sensor reading. Matches the protocol documentation exactly.
  *
- * <p>{@code t} is the simulator/robot clock and comes from the same source as
- * {@link Hal#now()} (constitution rule 2: time comes from HAL).
+ * <p>{@code t} is the simulator/robot clock and comes from the HAL time source
+ * (constitution rule 2: time comes from HAL).
  *
  * <p>The simulator's {@code truth} field does NOT ENTER HERE - :core never sees
  * ground truth, otherwise code could work in simulation but fail on the robot.

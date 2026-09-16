@@ -4,8 +4,8 @@ import boobuzz.core.contract.Drive;
 import boobuzz.core.contract.Intent;
 import boobuzz.core.contract.Request;
 import boobuzz.core.contract.RequestStatus;
-import boobuzz.core.hal.RobotAction;
-import boobuzz.core.hal.RobotState;
+import boobuzz.core.contract.RobotAction;
+import boobuzz.core.contract.RobotState;
 import boobuzz.core.logic.Subsystem;
 import boobuzz.core.hal.Mechanism;
 

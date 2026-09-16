@@ -1,7 +1,8 @@
-package boobuzz.core.hal;
+package boobuzz.core.contract;
 
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -13,19 +14,25 @@ import java.util.Map;
  * <p>Keys are names from {@link RobotConstants}. Adding a motor does not change :core.
  * Values are power from -1..1. A missing key means 0.
  */
-public record RobotAction(Map<String, Double> motors, Map<String, Double> servos) {
+public record RobotAction(Map<String, Double> motors, Map<String, Double> servos,
+                          List<Event> events) {
 
     public RobotAction {
         motors = Map.copyOf(motors);
         servos = Map.copyOf(servos);
+        events = events == null ? List.of() : List.copyOf(events);
+    }
+
+    public RobotAction(Map<String, Double> motors, Map<String, Double> servos) {
+        this(motors, servos, List.of());
     }
 
     public static RobotAction zero() {
-        return new RobotAction(Collections.emptyMap(), Collections.emptyMap());
+        return new RobotAction(Collections.emptyMap(), Collections.emptyMap(), List.of());
     }
 
     public static RobotAction ofMotors(Map<String, Double> motors) {
-        return new RobotAction(motors, Collections.emptyMap());
+        return new RobotAction(motors, Collections.emptyMap(), List.of());
     }
 
     public static double clamp(double value, double min, double max) {
@@ -44,6 +51,7 @@ public record RobotAction(Map<String, Double> motors, Map<String, Double> servos
     public static final class Builder {
         private final Map<String, Double> motors = new LinkedHashMap<>();
         private final Map<String, Double> servos = new LinkedHashMap<>();
+        private final List<Event> events = new java.util.ArrayList<>();
 
         public Builder motor(String name, double power) {
             motors.put(name, power);
@@ -55,8 +63,13 @@ public record RobotAction(Map<String, Double> motors, Map<String, Double> servos
             return this;
         }
 
+        public Builder event(String name, long tMs, Map<String, Double> data) {
+            events.add(new Event(name, tMs, data));
+            return this;
+        }
+
         public RobotAction build() {
-            return new RobotAction(motors, servos);
+            return new RobotAction(motors, servos, events);
         }
     }
 }

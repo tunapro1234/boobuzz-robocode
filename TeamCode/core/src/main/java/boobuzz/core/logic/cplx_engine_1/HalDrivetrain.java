@@ -1,6 +1,6 @@
 package boobuzz.core.logic.cplx_engine_1;
 
-import boobuzz.core.hal.RobotAction;
+import boobuzz.core.contract.RobotAction;
 import boobuzz.core.hal.Mechanism;
 
 import com.pedropathing.drivetrain.DrivePowers;
