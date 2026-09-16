@@ -7,6 +7,7 @@ import boobuzz.core.contract.Request;
 import boobuzz.core.contract.RequestBatch;
 import boobuzz.core.contract.RequestStatus;
 import boobuzz.core.contract.RequestStream;
+import boobuzz.core.contract.RequestType;
 import boobuzz.core.contract.RobotAction;
 import boobuzz.core.contract.RobotState;
 import boobuzz.core.contract.WorldSnapshot;
@@ -95,6 +96,7 @@ public final class SeamJson {
     public static RequestBatch batchFrom(Map<String, Object> root) {
         Map<String, Object> batch = root.containsKey("batch")
                 ? JsonCodec.object(root, "batch") : root;
+        validateBatch(batch);
         Map<String, Object> stream = JsonCodec.object(batch, "stream");
         RequestStream requestStream = new RequestStream(
                 JsonCodec.num(stream, "vx", 0.0),
@@ -115,6 +117,172 @@ public final class SeamJson {
         }
         int[] cancelArray = cancels.stream().mapToInt(Integer::intValue).toArray();
         return new RequestBatch(requestStream, requests, cancelArray);
+    }
+
+    /** Rejects malformed controller batches before they can refresh a watchdog. */
+    private static void validateBatch(Map<String, Object> batch) {
+        if (batch == null || !batch.containsKey("stream")
+                || !batch.containsKey("requests") || !batch.containsKey("cancels")) {
+            throw new IllegalArgumentException(
+                    "request batch requires stream, requests, and cancels");
+        }
+        Map<String, Object> stream = requiredObject(batch, "stream");
+        finite(stream, "vx");
+        finite(stream, "vy");
+        finite(stream, "omega");
+        if (!(stream.get("manualDrive") instanceof Boolean)) {
+            throw new IllegalArgumentException("stream.manualDrive must be boolean");
+        }
+        List<Object> requests = requiredList(batch, "requests");
+        for (Object item : requests) {
+            if (!(item instanceof Map<?, ?> raw)) {
+                throw new IllegalArgumentException("request must be an object");
+            }
+            @SuppressWarnings("unchecked") Map<String, Object> request =
+                    (Map<String, Object>) raw;
+            integral(request, "id");
+            Object type = request.get("type");
+            if (!(type instanceof String typeName)) {
+                throw new IllegalArgumentException("request.type must be a string");
+            }
+            RequestType requestType;
+            try {
+                requestType = RequestType.valueOf(typeName);
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("unknown request type: " + typeName, e);
+            }
+            List<Object> params = requiredList(request, "params");
+            for (Object param : params) {
+                finite(param, "request parameter");
+            }
+            Object path = request.get("path");
+            if (requestType == RequestType.PATH) {
+                if (!(path instanceof Map<?, ?> rawPath)) {
+                    throw new IllegalArgumentException("PATH request requires path object");
+                }
+                @SuppressWarnings("unchecked") Map<String, Object> pathMap =
+                        (Map<String, Object>) rawPath;
+                validatePath(pathMap);
+            } else if (path != null) {
+                throw new IllegalArgumentException("only PATH requests may carry a path");
+            }
+        }
+        for (Object cancel : requiredList(batch, "cancels")) {
+            integral(cancel, "cancel id");
+        }
+    }
+
+    private static void validatePath(Map<String, Object> path) {
+        Object pathId = path.get("pathId");
+        if (pathId != null && (!(pathId instanceof String)
+                || ((String) pathId).trim().isEmpty())) {
+            throw new IllegalArgumentException("pathId must be a non-empty string or null");
+        }
+        Object target = path.get("target");
+        if (target != null) validatePose(target, "target");
+        Map<String, Object> constraints = requiredObject(path, "constraints");
+        finite(constraints, "maxPower");
+        finite(constraints, "maxVelocity");
+        List<Object> segments = requiredList(path, "segments");
+        for (Object item : segments) {
+            if (!(item instanceof Map<?, ?> raw)) {
+                throw new IllegalArgumentException("path segment must be an object");
+            }
+            @SuppressWarnings("unchecked") Map<String, Object> segment =
+                    (Map<String, Object>) raw;
+            Object kind = segment.get("kind");
+            if (!(kind instanceof String)
+                    || !("line".equals(kind) || "curve".equals(kind))) {
+                throw new IllegalArgumentException("segment.kind must be line or curve");
+            }
+            validatePose(segment.get("end"), "segment.end");
+            if ("curve".equals(kind)) {
+                for (Object control : requiredList(segment, "controlPoints")) {
+                    validatePose(control, "curve control point");
+                }
+            }
+        }
+        Map<String, Object> heading = requiredObject(path, "heading");
+        Object mode = heading.get("mode");
+        if (!(mode instanceof String modeName)) {
+            throw new IllegalArgumentException("heading.mode must be a string");
+        }
+        try {
+            PathRequest.HeadingMode.valueOf(modeName);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("unknown heading mode: " + modeName, e);
+        }
+        finite(heading, "start");
+        finite(heading, "end");
+        if (!(path.get("holdEnd") instanceof Boolean)) {
+            throw new IllegalArgumentException("path.holdEnd must be boolean");
+        }
+        Object velocity = path.get("velocityConstraint");
+        if (velocity != null) finite(velocity, "velocityConstraint");
+        Object braking = path.get("braking");
+        if (braking != null) {
+            Map<String, Object> brake = requiredObject(path, "braking");
+            finite(brake, "strength");
+            finite(brake, "startMultiplier");
+        }
+    }
+
+    private static void validatePose(Object value, String label) {
+        if (!(value instanceof Map<?, ?> raw)) {
+            throw new IllegalArgumentException(label + " must be an object");
+        }
+        @SuppressWarnings("unchecked") Map<String, Object> pose = (Map<String, Object>) raw;
+        finite(pose, "x");
+        finite(pose, "y");
+        finite(pose, "h");
+    }
+
+    private static Map<String, Object> requiredObject(Map<String, Object> object, String key) {
+        Object value = object.get(key);
+        if (!(value instanceof Map<?, ?> map)) {
+            throw new IllegalArgumentException(key + " must be an object");
+        }
+        @SuppressWarnings("unchecked") Map<String, Object> result = (Map<String, Object>) map;
+        return result;
+    }
+
+    private static List<Object> requiredList(Map<String, Object> object, String key) {
+        Object value = object.get(key);
+        if (!(value instanceof List<?> list)) {
+            throw new IllegalArgumentException(key + " must be an array");
+        }
+        @SuppressWarnings("unchecked") List<Object> result = (List<Object>) list;
+        return result;
+    }
+
+    private static void finite(Map<String, Object> object, String key) {
+        if (!object.containsKey(key)) {
+            throw new IllegalArgumentException(key + " is required");
+        }
+        finite(object.get(key), key);
+    }
+
+    private static void finite(Object value, String label) {
+        if (!(value instanceof Number number) || value instanceof Boolean
+                || !Double.isFinite(number.doubleValue())) {
+            throw new IllegalArgumentException(label + " must be finite number");
+        }
+    }
+
+    private static void integral(Map<String, Object> object, String key) {
+        if (!object.containsKey(key)) {
+            throw new IllegalArgumentException(key + " is required");
+        }
+        integral(object.get(key), key);
+    }
+
+    private static void integral(Object value, String label) {
+        finite(value, label);
+        double number = ((Number) value).doubleValue();
+        if (number != Math.rint(number) || number < Integer.MIN_VALUE
+                || number > Integer.MAX_VALUE) {
+            throw new IllegalArgumentException(label + " must be a 32-bit integer");
+        }
     }
 
     private static Map<String, Object> root(String seam, long tMs) {

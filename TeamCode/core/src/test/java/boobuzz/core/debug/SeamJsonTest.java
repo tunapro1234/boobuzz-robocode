@@ -55,4 +55,17 @@ public class SeamJsonTest {
         assertEquals(10.0, result.path().segments().get(0).end().x(), 1e-9);
         assertFalse(decoded.stream().manualDrive());
     }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void rejectsMissingBatchFields() {
+        SeamJson.batchFrom(Map.of());
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void rejectsNonFiniteStreamValues() {
+        SeamJson.batchFrom(Map.of(
+                "stream", Map.of("vx", Double.NaN, "vy", 0.0,
+                        "omega", 0.0, "manualDrive", true),
+                "requests", List.of(), "cancels", List.of()));
+    }
 }

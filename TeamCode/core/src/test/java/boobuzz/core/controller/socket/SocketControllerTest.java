@@ -84,6 +84,50 @@ public class SocketControllerTest {
                 new RecordingDrive(), new StubShooter(), new StubIntake())));
     }
 
+    @Test
+    public void malformedBatchesDoNotRefreshTheWatchdog() throws Exception {
+        int port;
+        try (ServerSocket probe = new ServerSocket(0)) {
+            port = probe.getLocalPort();
+        }
+        try (SocketController controller = new SocketController(port, 60);
+             Socket client = new Socket("127.0.0.1", port)) {
+            waitForClient(controller);
+            BufferedWriter out = new BufferedWriter(new OutputStreamWriter(
+                    client.getOutputStream(), StandardCharsets.UTF_8));
+            out.write(JsonCodec.stringify(SeamJson.batchMap(
+                    RequestBatch.of(Request.path(12, PathRequest.named("test-line"))))));
+            out.newLine();
+            out.flush();
+            for (int i = 0; i < 100 && controller.decide(null).requests().isEmpty(); i++) {
+                Thread.sleep(2);
+            }
+            assertEquals(12, controller.decide(null).requests().get(0).id());
+
+            String[] malformed = {
+                    "{",
+                    "{}",
+                    "{\"stream\":[] ,\"requests\":[],\"cancels\":[]}",
+                    "{\"stream\":{\"vx\":0,\"vy\":0,\"omega\":0,\"manualDrive\":true},"
+                            + "\"requests\":[{\"id\":1,\"type\":\"NOPE\",\"params\":[],\"path\":null}],"
+                            + "\"cancels\":[]}",
+                    "{\"stream\":{\"vx\":\"fast\",\"vy\":0,\"omega\":0,\"manualDrive\":true},"
+                            + "\"requests\":[],\"cancels\":[]}"};
+            for (String line : malformed) {
+                out.write(line);
+                out.newLine();
+                out.flush();
+                Thread.sleep(5);
+            }
+            Thread.sleep(90);
+            RequestBatch stopped = controller.decide(null);
+            assertTrue("watchdog must cancel the stale path",
+                    stopped.cancels().length == 1
+                            && stopped.cancels()[0] == RequestBatch.CANCEL_ALL);
+            assertTrue(controller.inputError() != null);
+        }
+    }
+
     private static void assertTimeoutStops(IRobotEngine engine) throws Exception {
         RecordingDrive drive = (RecordingDrive) (engine instanceof DirectEngine
                 ? ((DirectEngine) engine).subsystems().drive()
