@@ -8,10 +8,7 @@ import boobuzz.core.contract.RequestStatus;
 import boobuzz.core.contract.RobotAction;
 import boobuzz.core.contract.RobotState;
 import boobuzz.core.contract.WorldSnapshot;
-import boobuzz.core.hal.Mechanism;
 import boobuzz.core.logic.RobotEngine;
-import boobuzz.core.subsystem.StubIntake;
-import boobuzz.core.subsystem.StubShooter;
 import boobuzz.core.subsystem.Subsystems;
 import boobuzz.core.subsystem.pedro.PedroDrive;
 
@@ -24,10 +21,6 @@ public final class CplxEngine1 implements RobotEngine {
     private final Subsystems subsystems;
     private List<RequestStatus> pendingStatuses = List.of();
     private RobotAction lastAction = RobotAction.zero();
-
-    public CplxEngine1(Mechanism mechanism) {
-        this(new Subsystems(new PedroDrive(mechanism), new StubShooter(), new StubIntake()));
-    }
 
     public CplxEngine1(Subsystems subsystems) {
         this.subsystems = subsystems;

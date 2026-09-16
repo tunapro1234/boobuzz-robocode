@@ -9,6 +9,10 @@ import boobuzz.core.contract.RobotState;
 import boobuzz.core.logic.cplx_engine_1.CplxEngine1;
 import boobuzz.core.hal.GamepadState;
 import boobuzz.core.hal.Mechanism;
+import boobuzz.core.subsystem.StubIntake;
+import boobuzz.core.subsystem.StubShooter;
+import boobuzz.core.subsystem.Subsystems;
+import boobuzz.core.subsystem.pedro.PedroDrive;
 
 import com.pedropathing.math.Pose;
 
@@ -29,6 +33,11 @@ public class SimHalTest {
 
     private static Mechanism mechanism() {
         return Mechanism.DEFAULT;
+    }
+
+    private static Subsystems subsystems(Mechanism mechanism) {
+        return new Subsystems(new PedroDrive(mechanism),
+                new StubShooter(), new StubIntake());
     }
 
     private static SimHal connect(FakeSimServer server, Mechanism m, int dtMs) throws Exception {
@@ -75,7 +84,7 @@ public class SimHalTest {
         try (FakeSimServer server = new FakeSimServer(m.motorNames());
              SimHal hal = connect(server, m, 20)) {
 
-            RobotLoop loop = new RobotLoop(hal, new CplxEngine1(m),
+            RobotLoop loop = new RobotLoop(hal, new CplxEngine1(subsystems(m)),
                     fb -> Intent.of(new Drive.Manual(1, 0, 0)));
 
             for (int i = 0; i < 500; i++) {

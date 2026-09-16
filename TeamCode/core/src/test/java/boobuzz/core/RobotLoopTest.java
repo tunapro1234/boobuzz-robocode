@@ -9,6 +9,10 @@ import boobuzz.core.logic.cplx_engine_1.CplxEngine1;
 import boobuzz.core.hal.GamepadState;
 import boobuzz.core.hal.Hal;
 import boobuzz.core.hal.Mechanism;
+import boobuzz.core.subsystem.StubIntake;
+import boobuzz.core.subsystem.StubShooter;
+import boobuzz.core.subsystem.Subsystems;
+import boobuzz.core.subsystem.pedro.PedroDrive;
 
 import com.pedropathing.math.Pose;
 
@@ -43,14 +47,15 @@ public class RobotLoopTest {
         @Override public GamepadState get() { return pad; }
     }
 
-    private static Mechanism mechanism() {
-        return Mechanism.DEFAULT;
+    private static Subsystems subsystems() {
+        return new Subsystems(new PedroDrive(Mechanism.DEFAULT),
+                new StubShooter(), new StubIntake());
     }
 
     @Test
     public void tickTimeComesFromHal() {
         FakeHal hal = new FakeHal();
-        RobotLoop loop = new RobotLoop(hal, new CplxEngine1(mechanism()),
+        RobotLoop loop = new RobotLoop(hal, new CplxEngine1(subsystems()),
                 fb -> Intent.of(new Drive.Manual(1, 0, 0)));
 
         for (int i = 0; i < 10; i++) {
@@ -78,7 +83,7 @@ public class RobotLoopTest {
         FakeHal hal = new FakeHal();
         hal.pad = new GamepadState(0, -1.0, 0, 0,
                 false, false, false, false, false, false, 0, 0, GamepadState.Dpad.NONE);
-        RobotLoop loop = new RobotLoop(hal, new CplxEngine1(mechanism()),
+        RobotLoop loop = new RobotLoop(hal, new CplxEngine1(subsystems()),
                 new GamepadController(hal));
         loop.tick();
 
