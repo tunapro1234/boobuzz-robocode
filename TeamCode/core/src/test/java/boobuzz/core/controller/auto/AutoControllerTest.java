@@ -35,17 +35,45 @@ public class AutoControllerTest {
         assertEquals(RequestType.SPIN_UP, first.requests().get(2).type());
 
         int pathId = first.requests().get(0).id();
+        int warmupId = first.requests().get(2).id();
         RequestBatch active = controller.decide(feedback(20,
                 active(pathId), active(first.requests().get(1).id()),
                 active(first.requests().get(2).id())));
         assertTrue(active.requests().isEmpty());
 
-        RequestBatch stopIntake = controller.decide(feedback(40, RequestStatus.done(pathId)));
+        RequestBatch stopIntake = controller.decide(feedback(40,
+                RequestStatus.done(pathId),
+                RequestStatus.done(first.requests().get(1).id()),
+                RequestStatus.done(warmupId)));
         assertEquals(RequestType.INTAKE_OFF, stopIntake.requests().get(0).type());
         int offId = stopIntake.requests().get(0).id();
 
         controller.decide(feedback(60, RequestStatus.done(offId)));
         assertTrue(controller.isDone());
+    }
+
+    @Test
+    public void attachedWarmupBlocksNextShootUntilItIsDone() {
+        AutoController controller = new AutoController(
+                AutoBuilder.start(new Pose(0.0, 0.0, 0.0))
+                        .lineTo(10.0, 0.0)
+                        .withShooterWarmup(400.0)
+                        .shoot(1)
+                        .build());
+
+        RequestBatch first = controller.decide(feedback(0));
+        int pathId = first.requests().get(0).id();
+        int warmupId = first.requests().get(1).id();
+        assertTrue(controller.decide(feedback(20,
+                active(pathId), active(warmupId))).requests().isEmpty());
+        assertTrue(controller.decide(feedback(40,
+                RequestStatus.done(pathId), active(warmupId))).requests().isEmpty());
+
+        RequestBatch afterWarmup = controller.decide(feedback(60,
+                RequestStatus.done(warmupId)));
+        assertTrue(afterWarmup.requests().isEmpty());
+        RequestBatch shoot = controller.decide(feedback(80));
+        assertEquals(RequestType.SHOOT, shoot.requests().get(0).type());
     }
 
     @Test

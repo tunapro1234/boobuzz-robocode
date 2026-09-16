@@ -7,7 +7,9 @@ import boobuzz.core.contract.RequestStatus;
 import boobuzz.core.contract.RequestStream;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 /** Shared step-to-request runner used by autonomous and tele-operated sequences. */
@@ -22,6 +24,7 @@ public final class SequenceRunner {
     private List<Integer> attachedRequestIds = List.of();
     private long timerStartMs;
     private RequestStatus failure;
+    private final Map<Integer, RequestStatus> terminalStatuses = new HashMap<>();
 
     public SequenceRunner(AutoSequence sequence) {
         this.sequence = Objects.requireNonNull(sequence, "sequence");
@@ -30,6 +33,7 @@ public final class SequenceRunner {
     public RequestBatch decide(Feedback feedback) {
         long now = feedback == null ? timerStartMs : feedback.t();
         List<RequestStatus> statuses = feedback == null ? List.of() : feedback.statuses();
+        rememberTerminalStatuses(statuses);
 
         if (failure != null || sequence.isDone()) {
             return RequestBatch.idle();
@@ -60,7 +64,13 @@ public final class SequenceRunner {
 
         if (phase == Phase.MOTION || phase == Phase.REQUEST) {
             RequestStatus primary = status(statuses, primaryRequestId);
+            if (primary == null) {
+                primary = terminalStatuses.get(primaryRequestId);
+            }
             if (primary != null && primary.state() == RequestStatus.State.DONE) {
+                if (!attachedComplete(statuses)) {
+                    return RequestBatch.idle();
+                }
                 AutoStep current = sequence.current();
                 if (phase == Phase.MOTION && current instanceof AutoStep.Path path
                         && path.intake()) {
@@ -192,6 +202,29 @@ public final class SequenceRunner {
         return false;
     }
 
+    private boolean attachedComplete(List<RequestStatus> statuses) {
+        for (int id : attachedRequestIds) {
+            RequestStatus terminal = terminalStatuses.get(id);
+            RequestStatus current = status(statuses, id);
+            if (current != null && current.terminal()) {
+                terminalStatuses.put(id, current);
+                terminal = current;
+            }
+            if (terminal == null || terminal.state() != RequestStatus.State.DONE) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private void rememberTerminalStatuses(List<RequestStatus> statuses) {
+        for (RequestStatus status : statuses) {
+            if (status.terminal()) {
+                terminalStatuses.put(status.id(), status);
+            }
+        }
+    }
+
     private List<Integer> ownedRequestIds() {
         if (primaryRequestId < 0) {
             return List.of();
@@ -203,7 +236,8 @@ public final class SequenceRunner {
     }
 
     private static RequestStatus status(List<RequestStatus> statuses, int id) {
-        for (RequestStatus status : statuses) {
+        for (int i = statuses.size() - 1; i >= 0; i--) {
+            RequestStatus status = statuses.get(i);
             if (status.id() == id) {
                 return status;
             }
