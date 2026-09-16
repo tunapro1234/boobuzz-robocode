@@ -11,10 +11,8 @@ import boobuzz.core.subsystem.Subsystems;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 
 /** Wiring-only engine: stream arbitration, job ownership, and status draining. */
 public final class DirectEngine implements IRobotEngine {
@@ -25,7 +23,8 @@ public final class DirectEngine implements IRobotEngine {
     private DirectMap.Job shooterJob;
     private List<RequestStatus> pendingStatuses = List.of();
     private RobotAction action = RobotAction.zero();
-    private final Set<Integer> activeIntakeRequestIds = new HashSet<>();
+    /** Actuator owner, separate from terminal request IDs. */
+    private Integer intakeOwnerId;
 
     public DirectEngine(Subsystems subsystems) {
         this.subsystems = Objects.requireNonNull(subsystems, "subsystems");
@@ -68,9 +67,9 @@ public final class DirectEngine implements IRobotEngine {
                 continue;
             }
             cancel(id, statuses);
-            if (activeIntakeRequestIds.remove(id)) {
+            if (intakeOwnerId != null && intakeOwnerId == id) {
                 subsystems.intake().stop();
-                statuses.add(RequestStatus.rejected(id, "cancelled"));
+                intakeOwnerId = null;
             }
         }
 
@@ -90,9 +89,9 @@ public final class DirectEngine implements IRobotEngine {
                     if (request.type() == boobuzz.core.contract.RequestType.INTAKE_OFF
                             || (request.type() == boobuzz.core.contract.RequestType.INTAKE
                             && request.param(0, 0.0) == 0.0)) {
-                        activeIntakeRequestIds.remove(request.id());
+                        intakeOwnerId = null;
                     } else {
-                        activeIntakeRequestIds.add(request.id());
+                        intakeOwnerId = request.id();
                     }
                 }
                 continue;
@@ -164,7 +163,7 @@ public final class DirectEngine implements IRobotEngine {
         subsystems.drive().stop();
         subsystems.shooter().spinDown();
         subsystems.intake().stop();
-        activeIntakeRequestIds.clear();
+        intakeOwnerId = null;
         subsystems.turret().hold();
     }
 

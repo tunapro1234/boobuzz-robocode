@@ -12,10 +12,8 @@ import boobuzz.core.subsystem.Subsystems;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 
 import com.pedropathing.math.Pose;
 
@@ -29,7 +27,8 @@ public final class CplxEngine1 implements IRobotEngine {
     private WorldSnapshot latestWorld;
     private List<RequestStatus> pendingStatuses = List.of();
     private RobotAction action = RobotAction.zero();
-    private final Set<Integer> activeIntakeRequestIds = new HashSet<>();
+    /** Actuator owner, separate from terminal request IDs. */
+    private Integer intakeOwnerId;
 
     public CplxEngine1(Subsystems subsystems) {
         this.subsystems = Objects.requireNonNull(subsystems, "subsystems");
@@ -63,16 +62,16 @@ public final class CplxEngine1 implements IRobotEngine {
             motion.cancelAll(statuses);
             shooter.cancelAll(statuses);
             subsystems.intake().stop();
-            activeIntakeRequestIds.clear();
+            intakeOwnerId = null;
             subsystems.turret().hold();
         }
         motion.act(batch.stream(), batch.requests(), batch.cancels(), statuses);
         for (int id : batch.cancels()) {
             if (id != RequestBatch.CANCEL_ALL) {
                 shooter.cancel(id, statuses);
-                if (activeIntakeRequestIds.remove(id)) {
+                if (intakeOwnerId != null && intakeOwnerId == id) {
                     subsystems.intake().stop();
-                    statuses.add(RequestStatus.rejected(id, "cancelled"));
+                    intakeOwnerId = null;
                 }
             }
         }
@@ -128,10 +127,10 @@ public final class CplxEngine1 implements IRobotEngine {
                 || (request.type() == RequestType.INTAKE
                 && request.param(0, 0.0) == 0.0)) {
             subsystems.intake().stop();
-            activeIntakeRequestIds.remove(request.id());
+            intakeOwnerId = null;
         } else {
             subsystems.intake().run(request.param(0, 1.0));
-            activeIntakeRequestIds.add(request.id());
+            intakeOwnerId = request.id();
         }
         statuses.add(RequestStatus.done(request.id()));
     }

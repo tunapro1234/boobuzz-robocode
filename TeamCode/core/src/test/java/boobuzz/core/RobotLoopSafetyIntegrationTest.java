@@ -69,7 +69,9 @@ public class RobotLoopSafetyIntegrationTest {
         assertTrue(feedbackStatuses.stream().anyMatch(status -> status.id() == 1
                 && status.state() == RequestStatus.State.REJECTED));
         assertTrue(feedbackStatuses.stream().anyMatch(status -> status.id() == 2
-                && status.state() == RequestStatus.State.REJECTED));
+                && status.state() == RequestStatus.State.DONE));
+        assertTrue(feedbackStatuses.stream().noneMatch(status -> status.id() == 2
+                && status.state() != RequestStatus.State.DONE));
         assertTrue(feedbackStatuses.stream().anyMatch(status -> status.id() == 3
                 && status.state() == RequestStatus.State.REJECTED));
         assertEquals(0.0, hal.writes.get(2).motor("fl"), 1e-9);
