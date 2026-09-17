@@ -275,7 +275,8 @@ def pose_error(record: dict[str, Any]) -> tuple[float | None, float | None]:
 def run_one(root: Path, simulator: Path, python: Path, java: Path, classpath: str,
             mechanism: Path, output_dir: Path, scenario: str, engine: str,
             seed: int, ticks: int, dt_ms: int, physics: str,
-            run_number: int) -> list[dict[str, Any]]:
+            run_number: int, path_id: str, start_pose: dict[str, Any],
+            target_pose: dict[str, Any]) -> list[dict[str, Any]]:
     port = free_port()
     server: subprocess.Popen[str] | None = None
     log_path = output_dir / "server-logs" / (
@@ -292,6 +293,13 @@ def run_one(root: Path, simulator: Path, python: Path, java: Path, classpath: st
             "--port", str(port),
             "--dt", str(dt_ms),
             "--ticks", str(ticks),
+            "--path", path_id,
+            "--start-x", str(start_pose["x"]),
+            "--start-y", str(start_pose["y"]),
+            "--start-h", str(start_pose["h"]),
+            "--target-x", str(target_pose["x"]),
+            "--target-y", str(target_pose["y"]),
+            "--target-h", str(target_pose["h"]),
         ]
         records, result = java_records(command, DEFAULT_TIMEOUT_SECONDS)
         for record in records:
@@ -368,6 +376,10 @@ def run(args: argparse.Namespace) -> int:
     )
     output_dir.mkdir(parents=True, exist_ok=True)
     seeds = args.seeds
+    start_pose = fixture.get("start_pose", {"x": 72.0, "y": 72.0, "h": 0.0})
+    target_pose = fixture.get("target_pose", {"x": 120.0, "y": 72.0, "h": 0.0})
+    if not isinstance(start_pose, dict) or not isinstance(target_pose, dict):
+        raise RunnerError("fixture start_pose and target_pose must be objects")
 
     drive = scenario_config(fixture, "A-drive")
     drive_ticks = int(drive.get("ticks", 1000))
@@ -384,6 +396,7 @@ def run(args: argparse.Namespace) -> int:
                 records = run_one(
                     root, simulator, python, java, classpath, mechanism, output_dir,
                     "A-drive", engine, seed, drive_ticks, dt_ms, args.physics, run_number,
+                    str(drive.get("path", "test-line")), start_pose, target_pose,
                 )
                 write_trace(drive_trace, records, "a")
                 if seed == 1:
@@ -403,6 +416,7 @@ def run(args: argparse.Namespace) -> int:
         records = run_one(
             root, simulator, python, java, classpath, mechanism, output_dir,
             "A-cancel", "direct", seed, cancel_ticks, dt_ms, args.physics, run_number,
+            str(cancel.get("path", "test-line")), start_pose, target_pose,
         )
         write_trace(cancel_trace, records, "a")
 

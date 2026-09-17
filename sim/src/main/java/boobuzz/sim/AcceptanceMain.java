@@ -19,10 +19,8 @@ import boobuzz.core.hal.RobotConstants;
 
 import com.pedropathing.math.Pose;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -62,7 +60,7 @@ public final class AcceptanceMain {
     /** Runs one fresh-process scenario and returns a shell status. */
     static int run(String[] args) throws Exception {
         Arguments options = Arguments.parse(args);
-        ScenarioController controller = new ScenarioController(options.scenario);
+        ScenarioController controller = new ScenarioController(options.scenario, options.pathId);
         Mechanism mechanism = RobotConstants.mechanism();
         RecordingHal hal = null;
         List<Trace> traces = new ArrayList<>();
@@ -70,7 +68,7 @@ public final class AcceptanceMain {
         List<RobotAction> actions = new ArrayList<>();
 
         try (SimHal sim = new SimHal(mechanism, options.host, options.port, options.dtMs,
-                options.seed, START, options.connectTimeoutMs);
+                options.seed, options.startPose, options.connectTimeoutMs);
              RobotLoop loop = createLoop(sim, mechanism, options.engine, controller)) {
             hal = controller.hal;
             for (int tick = 0; tick < options.ticks; tick++) {
@@ -81,15 +79,11 @@ public final class AcceptanceMain {
                 traces.add(Trace.of(options.scenario == Scenario.DRIVE ? "A-drive" : "A-cancel",
                         options.seed, sim.now(),
                         loop.engine().name(), controller.lastFeedbackStatuses,
-                        TARGET, sim.read().pinpoint(), sim.truth(), action));
+                        options.targetPose, sim.read().pinpoint(), sim.truth(), action));
                 if (options.scenario == Scenario.CANCEL && tick == CANCEL_TICKS) {
                     throw new IllegalStateException("cancel scenario tick schedule exceeded");
                 }
             }
-            // One final feedback sample makes a terminal status generated on the
-            // last engine tick visible to the acceptance result without another
-            // physics step.
-            allStatuses.addAll(controller.lastFeedbackStatuses);
             Result result = validate(options, traces, allStatuses, actions, loop);
             for (Trace trace : traces) {
                 System.out.println(trace.toJson());
@@ -113,12 +107,14 @@ public final class AcceptanceMain {
     /** Controller schedule is the A03 contract, expressed as one deterministic state machine. */
     private static final class ScenarioController implements IController {
         private final Scenario scenario;
+        private final String pathId;
         private int tick;
         private RecordingHal hal;
         private List<RequestStatus> lastFeedbackStatuses = Collections.emptyList();
 
-        private ScenarioController(Scenario scenario) {
+        private ScenarioController(Scenario scenario, String pathId) {
             this.scenario = scenario;
+            this.pathId = pathId;
         }
 
         @Override
@@ -128,11 +124,11 @@ public final class AcceptanceMain {
             int current = tick++;
             if (scenario == Scenario.DRIVE) {
                 return current == 0
-                        ? RequestBatch.of(Request.path(PATH_ID, PathRequest.named("test-line")))
+                        ? RequestBatch.of(Request.path(PATH_ID, PathRequest.named(pathId)))
                         : RequestBatch.idle();
             }
             if (current == 0) {
-                return RequestBatch.of(Request.path(PATH_ID, PathRequest.named("test-line")));
+                return RequestBatch.of(Request.path(PATH_ID, PathRequest.named(pathId)));
             }
             if (current >= 20 && current < 40) {
                 return new RequestBatch(RequestStream.manual(0.20, 0.0, 0.0),
@@ -180,6 +176,9 @@ public final class AcceptanceMain {
         private int dtMs = DEFAULT_DT_MS;
         private int ticks = DRIVE_TICKS;
         private int connectTimeoutMs = RobotConstants.SIM_CONNECT_TIMEOUT_MS;
+        private Pose startPose = START;
+        private Pose targetPose = TARGET;
+        private String pathId = "test-line";
 
         private static Arguments parse(String[] argv) {
             Arguments result = new Arguments();
@@ -205,6 +204,25 @@ public final class AcceptanceMain {
                     case "--ticks" -> result.ticks = Integer.parseInt(next(argv, ++i, key));
                     case "--connect-timeout" -> result.connectTimeoutMs =
                             Integer.parseInt(next(argv, ++i, key));
+                    case "--path" -> result.pathId = next(argv, ++i, key);
+                    case "--start-x" -> result.startPose = new Pose(
+                            Double.parseDouble(next(argv, ++i, key)),
+                            result.startPose.y(), result.startPose.heading());
+                    case "--start-y" -> result.startPose = new Pose(
+                            result.startPose.x(), Double.parseDouble(next(argv, ++i, key)),
+                            result.startPose.heading());
+                    case "--start-h" -> result.startPose = new Pose(
+                            result.startPose.x(), result.startPose.y(),
+                            Double.parseDouble(next(argv, ++i, key)));
+                    case "--target-x" -> result.targetPose = new Pose(
+                            Double.parseDouble(next(argv, ++i, key)),
+                            result.targetPose.y(), result.targetPose.heading());
+                    case "--target-y" -> result.targetPose = new Pose(
+                            result.targetPose.x(), Double.parseDouble(next(argv, ++i, key)),
+                            result.targetPose.heading());
+                    case "--target-h" -> result.targetPose = new Pose(
+                            result.targetPose.x(), result.targetPose.y(),
+                            Double.parseDouble(next(argv, ++i, key)));
                     default -> throw new IllegalArgumentException("unknown option: " + key);
                 }
             }
@@ -244,9 +262,9 @@ public final class AcceptanceMain {
             if (terminalCount != 1) failures.add("path terminal count=" + terminalCount);
             if (!finite) failures.add("final truth is missing or non-finite");
             if (finite) {
-                double error = distance(finalTruth, TARGET);
+                double error = distance(finalTruth, options.targetPose);
                 double heading = Math.abs(Math.toDegrees(angleDelta(finalTruth.heading(),
-                        TARGET.heading())));
+                        options.targetPose.heading())));
                 if (error > 0.5) failures.add(String.format(Locale.US,
                         "truth target error %.4f in", error));
                 if (heading > 1.0) failures.add(String.format(Locale.US,
