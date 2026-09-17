@@ -59,6 +59,20 @@ public class PedroDriveTest {
     }
 
     @Test
+    public void goToTraversesALineInsteadOfCompletingAtTheStart() {
+        PedroDrive drive = new PedroDrive(mechanism, new PathRegistry());
+        drive.observe(state(0L, 0.0));
+        drive.observe(state(20L, 0.0));
+
+        RobotAction action = update(drive, PathRequest.goTo(
+                new Pose(120.0, 72.0, 0.0), PathRequest.Constraints.defaults()));
+
+        assertTrue(action.motors().values().stream()
+                .anyMatch(power -> Math.abs(power) > 1e-9));
+        assertTrue("GOTO must remain active after its first update", !drive.pathDone());
+    }
+
+    @Test
     public void equalCommandPreservesMotorAction() {
         PedroDrive drive = new PedroDrive(mechanism, new PathRegistry());
         PathRequest first = PathRequest.named("test-line");
