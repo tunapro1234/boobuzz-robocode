@@ -56,6 +56,18 @@ public class StubTurretTest {
                 out.build().events().isEmpty());
     }
 
+    @Test
+    public void holdClearsPendingScanEvent() {
+        StubTurret turret = new StubTurret();
+        turret.observe(state(0));
+        turret.scan();
+        turret.hold();
+
+        RobotAction.Builder out = new RobotAction.Builder();
+        turret.update(out);
+        assertTrue("hold must clear a queued scan event", out.build().events().isEmpty());
+    }
+
     private static RobotState state(long tMs) {
         return new RobotState(tMs, Map.of(), Map.of(), 0.0,
                 new Pose(0.0, 0.0, 0.0), 12.6);
