@@ -96,6 +96,7 @@ public final class SimMain {
             }
 
             RobotLoop loop = null;
+            int runStatus = 0;
             try {
                 boolean tracing = a.tapPort != 0 || a.bag != null;
                 if (replayController != null) {
@@ -165,15 +166,18 @@ public final class SimMain {
                 } else {
                     System.out.printf("auto unfinished: %d/%d steps; %s%n",
                             sequence.index(), sequence.size(), autoController.failureNote());
-                    return 1;
+                    runStatus = 1;
                 }
-            }
-            if (loop.bagError() != null) {
-                throw new IllegalStateException("bag I/O failed: " + loop.bagError());
             }
             } finally {
                 if (loop != null) loop.close();
                 if (socketController != null) socketController.close();
+            }
+            if (loop != null && loop.bagError() != null) {
+                throw new IllegalStateException("bag I/O failed: " + loop.bagError());
+            }
+            if (runStatus != 0) {
+                return runStatus;
             }
         }
         return 0;

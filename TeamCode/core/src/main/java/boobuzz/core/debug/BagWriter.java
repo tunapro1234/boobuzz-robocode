@@ -80,11 +80,12 @@ public final class BagWriter implements AutoCloseable {
         pendingLines = 0;
     }
 
-    /** Writes a seam-shaped footer so drop accounting never breaks tick groups. */
-    public synchronized void closeWithTapDrops(long tapDrops) {
+    /** Writes a seam-shaped footer and returns a terminal I/O error, if one occurred. */
+    public synchronized String closeWithTapDrops(long tapDrops) {
         if (closed) {
-            return;
+            return null;
         }
+        String error = null;
         try {
             if (tapDrops > 0) {
                 LinkedHashMap<String, Object> footer = new LinkedHashMap<>();
@@ -96,11 +97,17 @@ public final class BagWriter implements AutoCloseable {
             }
             writer.flush();
             writer.close();
-        } catch (IOException ignored) {
-            // Shutdown should not mask the robot loop's result.
+        } catch (IOException e) {
+            error = e.getMessage() == null ? e.toString() : e.getMessage();
+            try {
+                writer.close();
+            } catch (IOException ignored) {
+                // Preserve the first terminal failure.
+            }
         } finally {
             closed = true;
         }
+        return error;
     }
 
     @Override

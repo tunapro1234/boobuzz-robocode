@@ -143,6 +143,9 @@ public final class DebugTap implements AutoCloseable {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
+        if (dispatchThread.isAlive() && bagError == null) {
+            bagError = "debug tap dispatcher did not terminate during close";
+        }
         for (Client client : clients.toArray(Client[]::new)) {
             remove(client);
         }
@@ -219,8 +222,13 @@ public final class DebugTap implements AutoCloseable {
             bagError = e.getMessage() == null ? e.toString() : e.getMessage();
         } finally {
             if (bagWriter != null) {
-                bagWriter.closeWithTapDrops(dropped.get());
-                bagWriter = null;
+                try {
+                    closeBag();
+                } catch (IOException e) {
+                    if (bagError == null) {
+                        bagError = e.getMessage() == null ? e.toString() : e.getMessage();
+                    }
+                }
             }
             for (Client client : clients.toArray(Client[]::new)) {
                 remove(client);
@@ -234,8 +242,7 @@ public final class DebugTap implements AutoCloseable {
             return;
         }
         if (bagWriter != null) {
-            bagWriter.closeWithTapDrops(dropped.get());
-            bagWriter = null;
+            closeBag();
         }
         activeBag = requested;
         if (requested != null) {
@@ -246,6 +253,20 @@ public final class DebugTap implements AutoCloseable {
                 bagError = e.getMessage() == null ? e.toString() : e.getMessage();
                 throw e;
             }
+        }
+    }
+
+    private void closeBag() throws IOException {
+        if (bagWriter == null) {
+            return;
+        }
+        String error = bagWriter.closeWithTapDrops(dropped.get());
+        bagWriter = null;
+        if (error != null) {
+            if (bagError == null) {
+                bagError = error;
+            }
+            throw new IOException(error);
         }
     }
 

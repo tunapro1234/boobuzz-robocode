@@ -14,6 +14,8 @@ import java.io.InputStreamReader;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -113,6 +115,24 @@ public class DebugTapTest {
         assertThreadsGone("debug-tap-dispatch", 1000);
         assertThreadsGone("debug-tap-client-", 1000);
         assertThreadsGone("debug-tap-client-watchdog-", 1000);
+    }
+
+    @Test
+    public void reportsBagOpenFailureAfterConfigurationOnClose() throws Exception {
+        Path path = Files.createTempFile("robot-bag-late-failure", ".jsonl");
+        try (DebugTap tap = new DebugTap(0)) {
+            tap.configureBag(path.toFile(), "cplx1", "test", "abc", Pose.zero());
+            Files.delete(path);
+            Files.createDirectory(path);
+            tap.offer(frame(20));
+            for (int i = 0; i < 100 && tap.bagError() == null; i++) {
+                Thread.sleep(5);
+            }
+            tap.close();
+            assertTrue("late bag open failure must be retained", tap.bagError() != null);
+        } finally {
+            Files.deleteIfExists(path);
+        }
     }
 
     private static void waitForClient(DebugTap tap) throws InterruptedException {

@@ -34,7 +34,7 @@ public class BagWriterTest {
                     "{\"seam\":\"hal\",\"t_ms\":20}",
                     "{\"seam\":\"subsystem\",\"t_ms\":20}",
                     "{\"seam\":\"logic\",\"t_ms\":20}"));
-            writer.closeWithTapDrops(7);
+            assertEquals(null, writer.closeWithTapDrops(7));
         }
         List<String> lines = Files.readAllLines(path);
         assertEquals(5, lines.size());

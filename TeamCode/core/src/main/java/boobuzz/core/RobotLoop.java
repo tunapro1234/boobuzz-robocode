@@ -32,6 +32,7 @@ public final class RobotLoop implements AutoCloseable {
     private IRobotEngine engine;
     private final IController controller;
     private DebugTap debugTap;
+    private String lastBagError;
     private SubsystemTrace subsystemTrace;
     private long ticks;
     private long tickNanosTotal;
@@ -161,6 +162,9 @@ public final class RobotLoop implements AutoCloseable {
 
     /** Returns an asynchronous bag I/O failure, if the dispatcher has observed one. */
     public String bagError() {
+        if (lastBagError != null) {
+            return lastBagError;
+        }
         return debugTap == null ? null : debugTap.bagError();
     }
 
@@ -214,7 +218,11 @@ public final class RobotLoop implements AutoCloseable {
 
     private void closeDebugTap() {
         if (debugTap != null) {
-            debugTap.close();
+            DebugTap closing = debugTap;
+            closing.close();
+            if (lastBagError == null) {
+                lastBagError = closing.bagError();
+            }
             debugTap = null;
         }
     }
