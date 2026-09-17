@@ -29,16 +29,33 @@ final class Json {
     }
 
     static String str(Map<String, Object> node, String key) {
-        Object v = node.get(key);
-        return (v == null) ? null : String.valueOf(v);
+        return str(node, key, null);
+    }
+
+    static String str(Map<String, Object> node, String key, String fallback) {
+        if (!node.containsKey(key) || node.get(key) == null) {
+            return fallback;
+        }
+        Object value = node.get(key);
+        if (!(value instanceof String)) {
+            throw new SimProtocolException("JSON field '" + key + "' must be a string");
+        }
+        return (String) value;
     }
 
     static double num(Map<String, Object> node, String key, double fallback) {
-        Object v = node.get(key);
-        if (v instanceof Number n) {
-            return n.doubleValue();
+        if (!node.containsKey(key) || node.get(key) == null) {
+            return fallback;
         }
-        return fallback;
+        Object value = node.get(key);
+        if (!(value instanceof Number n)) {
+            throw new SimProtocolException("JSON field '" + key + "' must be a number");
+        }
+        double result = n.doubleValue();
+        if (!Double.isFinite(result)) {
+            throw new SimProtocolException("JSON field '" + key + "' is not finite");
+        }
+        return result;
     }
 
     static boolean bool(Map<String, Object> node, String key) {
@@ -59,11 +76,18 @@ final class Json {
     static List<String> strings(Map<String, Object> node, String key) {
         Object v = node.get(key);
         if (!(v instanceof List)) {
-            return java.util.Collections.emptyList();
+            if (!node.containsKey(key) || v == null) {
+                return java.util.Collections.emptyList();
+            }
+            throw new SimProtocolException("JSON field '" + key + "' must be an array");
         }
         List<String> result = new ArrayList<>();
         for (Object item : (List<Object>) v) {
-            result.add(String.valueOf(item));
+            if (!(item instanceof String)) {
+                throw new SimProtocolException(
+                        "JSON field '" + key + "' must contain only strings");
+            }
+            result.add((String) item);
         }
         return result;
     }

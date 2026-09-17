@@ -2,6 +2,7 @@ package boobuzz.sim;
 
 import boobuzz.core.contract.GamepadState;
 import boobuzz.core.hal.IHal;
+import boobuzz.core.contract.ActionValidator;
 import boobuzz.core.contract.Event;
 import boobuzz.core.contract.RobotAction;
 import boobuzz.core.contract.RobotState;
@@ -44,7 +45,8 @@ public final class SimHal implements IHal, Closeable {
 
     public static final String DEFAULT_HOST = "127.0.0.1";
     public static final int DEFAULT_PORT = 5555;
-    private static final int PROTO = 1;
+    private static final int PROTO1 = 1;
+    private static final int PROTO2 = 2;
 
     private final Mechanism mechanism;
     private final Socket socket;
@@ -52,6 +54,7 @@ public final class SimHal implements IHal, Closeable {
     private final BufferedWriter out;
     private final int dtMs;
     private final int readTimeoutMs;
+    private final int protocol;
 
     private RobotState state;
     private GamepadState gamepad = GamepadState.neutral();
@@ -77,6 +80,7 @@ public final class SimHal implements IHal, Closeable {
         this.mechanism = mechanism;
         this.dtMs = dtMs;
         this.readTimeoutMs = readTimeoutMs;
+        this.protocol = mechanism.usesProto2() ? PROTO2 : PROTO1;
         this.socket = new Socket();
         try {
             this.socket.connect(new InetSocketAddress(host, port), connectTimeoutMs);
@@ -102,8 +106,11 @@ public final class SimHal implements IHal, Closeable {
     private void handshake(long seed, Pose startPose) throws IOException {
         Pose p = (startPose == null) ? new Pose(0, 0, 0) : startPose;
         StringBuilder sb = new StringBuilder();
-        sb.append("{\"type\":\"reset\",\"seed\":").append(seed)
-                .append(",\"pose\":{\"x\":").append(fmt(p.x()))
+        sb.append("{\"type\":\"reset\",\"seed\":").append(seed);
+        if (protocol == PROTO2) {
+            sb.append(",\"proto\":2");
+        }
+        sb.append(",\"pose\":{\"x\":").append(fmt(p.x()))
                 .append(",\"y\":").append(fmt(p.y()))
                 .append(",\"h\":").append(fmt(p.heading()))
                 .append("}}");
@@ -115,14 +122,18 @@ public final class SimHal implements IHal, Closeable {
             throw new SimProtocolException("expected 'ready', got '" + type + "'");
         }
         int proto = (int) Json.num(ready, "proto", -1);
-        if (proto != PROTO) {
+        if (proto != protocol) {
             throw new SimProtocolException(
-                    "protocol version mismatch: local " + PROTO + ", server " + proto);
+                    "protocol version mismatch: local " + protocol + ", server " + proto);
         }
         List<String> motors = Json.strings(ready, "motors");
         List<String> servos = Json.strings(ready, "servos");
         // A mismatch fails immediately. Powering the wrong motor may go unnoticed on the field.
-        mechanism.requireNames(motors, servos);
+        if (protocol == PROTO2) {
+            mechanism.requireExactNames(motors, servos);
+        } else {
+            mechanism.requireNames(motors, servos);
+        }
 
         // 'ready' carries the initial state (t_ms = 0, reset pose).
         Map<String, Object> initial = Json.obj(ready, "state");
@@ -156,6 +167,16 @@ public final class SimHal implements IHal, Closeable {
     public void write(RobotAction action) {
         try {
             exchange(action, dtMs);
+        } catch (ActionValidator.ValidationException failure) {
+            // A rejected frame must not leave the simulator running the previous
+            // power command. Zero DC/CR outputs and omit positional servos (hold),
+            // then surface the validation error to the caller.
+            try {
+                exchange(RobotAction.zero(), dtMs);
+            } catch (RuntimeException | IOException safeStopFailure) {
+                failure.addSuppressed(safeStopFailure);
+            }
+            throw failure;
         } catch (IOException e) {
             throw new SimProtocolException("step/state exchange failed", e);
         }
@@ -169,11 +190,13 @@ public final class SimHal implements IHal, Closeable {
     // -------------------------------------------------------------- exchange
 
     private void exchange(RobotAction action, int stepMs) throws IOException {
+        ActionValidator.validate(action, mechanism);
         StringBuilder sb = new StringBuilder(256);
         sb.append("{\"type\":\"step\",\"dt_ms\":").append(stepMs).append(",\"motors\":");
         Json.writeNumberMap(sb, fill(action.motors(), mechanism.motorNames()));
         sb.append(",\"servos\":");
-        Json.writeNumberMap(sb, fill(action.servos(), mechanism.servoNames()));
+        Json.writeNumberMap(sb, protocol == PROTO2
+                ? action.servos() : fill(action.servos(), mechanism.servoNames()));
         sb.append(",\"events\":[");
         for (int i = 0; i < action.events().size(); i++) {
             if (i > 0) {
@@ -212,14 +235,18 @@ public final class SimHal implements IHal, Closeable {
 
         Map<String, Object> encNode = Json.obj(msg, "enc");
         Map<String, Integer> enc = new HashMap<>(encNode.size());
-        for (String name : mechanism.motorNames()) {
-            enc.put(name, (int) Math.round(Json.num(encNode, name, 0.0)));
+        for (String name : mechanism.encoderNames()) {
+            if (encNode.containsKey(name)) {
+                enc.put(name, (int) Math.round(Json.num(encNode, name, 0.0)));
+            }
         }
 
         Map<String, Object> velNode = Json.obj(msg, "vel");
         Map<String, Double> vel = new HashMap<>(velNode.size());
-        for (String name : mechanism.motorNames()) {
-            vel.put(name, Json.num(velNode, name, 0.0));
+        for (String name : mechanism.encoderNames()) {
+            if (velNode.containsKey(name)) {
+                vel.put(name, Json.num(velNode, name, 0.0));
+            }
         }
 
         double yaw = Json.num(Json.obj(msg, "imu"), "yaw", 0.0);
@@ -242,7 +269,7 @@ public final class SimHal implements IHal, Closeable {
 
     private static GamepadState readGamepad(Map<String, Object> g) {
         GamepadState.Dpad d = GamepadState.Dpad.valueOf(
-                Json.str(g, "dpad").toUpperCase(java.util.Locale.ROOT));
+                Json.str(g, "dpad", "none").toUpperCase(java.util.Locale.ROOT));
         return new GamepadState(
                 Json.num(g, "lx", 0), Json.num(g, "ly", 0),
                 Json.num(g, "rx", 0), Json.num(g, "ry", 0),

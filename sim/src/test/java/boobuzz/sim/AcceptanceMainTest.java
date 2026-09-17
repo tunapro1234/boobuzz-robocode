@@ -16,7 +16,7 @@ public class AcceptanceMainTest {
 
     @Test
     public void cancelScenarioRunsThroughDirectSimHalAndEmitsTraceSchema() throws Exception {
-        try (FakeSimServer server = new FakeSimServer(Mechanism.DEFAULT.motorNames())) {
+        try (FakeSimServer server = new FakeSimServer(Mechanism.DEFAULT)) {
             PrintStream original = System.out;
             ByteArrayOutputStream captured = new ByteArrayOutputStream();
             try {

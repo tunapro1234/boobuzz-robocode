@@ -1,5 +1,6 @@
 package boobuzz.sim;
 
+import boobuzz.core.hal.Mechanism;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -10,6 +11,10 @@ import java.io.OutputStreamWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -26,15 +31,39 @@ final class FakeSimServer implements Closeable {
     private final ServerSocket server;
     private final Thread thread;
     private final List<String> motorNames;
+    private final List<String> servoNames;
+    private final List<String> encoderNames;
+    private final int protocol;
     private volatile boolean running = true;
     private volatile boolean omitReadyState = false;
     private volatile long readyDelayMs;
+    private volatile List<Map<String, Double>> motorFrames = Collections.emptyList();
+    private volatile List<Map<String, Double>> servoFrames = Collections.emptyList();
     private volatile String gamepadJson =
             "{\"lx\":0,\"ly\":0,\"rx\":0,\"ry\":0,\"a\":false,\"b\":false,\"x\":false,"
                     + "\"y\":false,\"lb\":false,\"rb\":false,\"lt\":0,\"rt\":0,\"dpad\":\"none\"}";
 
+    /** Legacy proto1 wheel-only fixture. */
     FakeSimServer(List<String> motorNames) throws IOException {
-        this.motorNames = motorNames;
+        this(motorNames, Collections.emptyList(), motorNames, 1);
+    }
+
+    /** Typed profile fixture for the proto2 seam. */
+    FakeSimServer(Mechanism mechanism) throws IOException {
+        this(mechanism.motorNames(), mechanism.servoNames(), mechanism.encoderNames(),
+                mechanism.usesProto2() ? 2 : 1);
+    }
+
+    /** Explicit fixture used by mismatch and protocol-negative tests. */
+    FakeSimServer(List<String> motorNames, List<String> servoNames,
+                  List<String> encoderNames, int protocol) throws IOException {
+        if (protocol != 1 && protocol != 2) {
+            throw new IllegalArgumentException("unsupported fake protocol " + protocol);
+        }
+        this.motorNames = List.copyOf(motorNames);
+        this.servoNames = List.copyOf(servoNames);
+        this.encoderNames = List.copyOf(encoderNames);
+        this.protocol = protocol;
         this.server = new ServerSocket(0);
         this.thread = new Thread(this::serve, "fake-sim");
         this.thread.setDaemon(true);
@@ -58,6 +87,16 @@ final class FakeSimServer implements Closeable {
         this.readyDelayMs = delayMs;
     }
 
+    /** Copies of the sparse positional-servo maps received from the client. */
+    List<Map<String, Double>> servoFrames() {
+        return servoFrames;
+    }
+
+    /** Copies of the full DC/CR power maps received from the client. */
+    List<Map<String, Double>> motorFrames() {
+        return motorFrames;
+    }
+
     private void serve() {
         try (Socket s = server.accept();
              BufferedReader in = new BufferedReader(
@@ -67,7 +106,9 @@ final class FakeSimServer implements Closeable {
 
             long tMs = 0;
             double x = 0, y = 0, h = 0;
-            double[] ticks = new double[motorNames.size()];
+            double[] ticks = new double[encoderNames.size()];
+            List<Map<String, Double>> receivedMotors = new ArrayList<>();
+            List<Map<String, Double>> receivedServos = new ArrayList<>();
 
             String line;
             while (running && (line = in.readLine()) != null) {
@@ -88,18 +129,19 @@ final class FakeSimServer implements Closeable {
                     y = Json.num(pose, "y", 0);
                     h = Json.num(pose, "h", 0);
                     tMs = 0;
-                    java.util.Arrays.fill(ticks, 0);
+                    Arrays.fill(ticks, 0);
+                    receivedMotors.clear();
+                    receivedServos.clear();
+                    publishMotorFrames(receivedMotors);
+                    publishServoFrames(receivedServos);
                     StringBuilder sb = new StringBuilder("{\"type\":\"ready\",\"motors\":[");
-                    for (int i = 0; i < motorNames.size(); i++) {
-                        if (i > 0) {
-                            sb.append(',');
-                        }
-                        sb.append('"').append(motorNames.get(i)).append('"');
-                    }
-                    sb.append("],\"servos\":[],\"proto\":1");
+                    appendStrings(sb, motorNames);
+                    sb.append("],\"servos\":[");
+                    appendStrings(sb, servoNames);
+                    sb.append("],\"proto\":").append(protocol);
                     if (!omitReadyState) {
                         sb.append(",\"state\":")
-                                .append(state(0, ticks, new double[motorNames.size()], x, y, h));
+                                .append(state(0, ticks, Collections.emptyMap(), x, y, h));
                     }
                     sb.append('}');
                     write(out, sb.toString());
@@ -111,24 +153,41 @@ final class FakeSimServer implements Closeable {
                     if (dt <= 0) {
                         throw new SimProtocolException("step.dt_ms must be positive, got " + dt);
                     }
-                    Map<String, Object> motors = Json.obj(msg, "motors");
-
-                    double[] p = new double[motorNames.size()];
-                    for (int i = 0; i < motorNames.size(); i++) {
-                        p[i] = Json.num(motors, motorNames.get(i), 0.0);
-                        ticks[i] += p[i] * dt * 0.5;
+                    Map<String, Object> motorNode = Json.obj(msg, "motors");
+                    Map<String, Double> powers = new LinkedHashMap<>();
+                    for (String name : motorNames) {
+                        powers.put(name, Json.num(motorNode, name, 0.0));
                     }
-                    // Simple mecanum kinematics (assumes fl, fr, bl, br order).
-                    double vx = (p[0] + p[1] + p[2] + p[3]) / 4.0;
-                    double vy = (-p[0] + p[1] + p[2] - p[3]) / 4.0;
-                    double w = (-p[0] + p[1] - p[2] + p[3]) / 4.0;
+                    receivedMotors.add(Collections.unmodifiableMap(new LinkedHashMap<>(powers)));
+                    publishMotorFrames(receivedMotors);
+                    Map<String, Object> servoNode = Json.obj(msg, "servos");
+                    Map<String, Double> frameServos = new LinkedHashMap<>();
+                    for (String name : servoNames) {
+                        if (servoNode.containsKey(name)) {
+                            frameServos.put(name, Json.num(servoNode, name, 0.0));
+                        }
+                    }
+                    receivedServos.add(Collections.unmodifiableMap(frameServos));
+                    publishServoFrames(receivedServos);
+
+                    for (int i = 0; i < encoderNames.size(); i++) {
+                        ticks[i] += powerForEncoder(encoderNames.get(i), powers) * dt * 0.5;
+                    }
+                    // Simple mecanum kinematics (assumes fl, fr, bl, br keys).
+                    double fl = powers.getOrDefault("fl", 0.0);
+                    double fr = powers.getOrDefault("fr", 0.0);
+                    double bl = powers.getOrDefault("bl", 0.0);
+                    double br = powers.getOrDefault("br", 0.0);
+                    double vx = (fl + fr + bl + br) / 4.0;
+                    double vy = (-fl + fr + bl - br) / 4.0;
+                    double w = (-fl + fr - bl + br) / 4.0;
                     double sec = dt / 1000.0;
                     x += (vx * Math.cos(h) - vy * Math.sin(h)) * 60.0 * sec;
                     y += (vx * Math.sin(h) + vy * Math.cos(h)) * 60.0 * sec;
                     h += w * 3.0 * sec;
                     tMs += dt;
 
-                    write(out, state(tMs, ticks, p, x, y, h));
+                    write(out, state(tMs, ticks, powers, x, y, h));
 
                 } else if ("bye".equals(type)) {
                     return;
@@ -141,22 +200,32 @@ final class FakeSimServer implements Closeable {
         }
     }
 
-    private String state(long tMs, double[] ticks, double[] powers, double x, double y, double h) {
-        StringBuilder sb = new StringBuilder(256);
+    private double powerForEncoder(String encoder, Map<String, Double> powers) {
+        String motor = switch (encoder) {
+            case "leftFront" -> "fl";
+            case "rightFront" -> "fr";
+            case "leftBack" -> "bl";
+            case "rightBack" -> "br";
+            default -> encoder;
+        };
+        return powers.getOrDefault(motor, 0.0);
+    }
+
+    private String state(long tMs, double[] ticks, Map<String, Double> powers,
+                         double x, double y, double h) {
+        StringBuilder sb = new StringBuilder(512);
         sb.append("{\"type\":\"state\",\"t_ms\":").append(tMs).append(",\"enc\":{");
-        for (int i = 0; i < motorNames.size(); i++) {
-            if (i > 0) {
-                sb.append(',');
-            }
-            sb.append('"').append(motorNames.get(i)).append("\":").append((long) ticks[i]);
+        for (int i = 0; i < encoderNames.size(); i++) {
+            if (i > 0) sb.append(',');
+            String name = encoderNames.get(i);
+            sb.append('"').append(name).append("\":").append((long) ticks[i]);
         }
         sb.append("},\"vel\":{");
-        for (int i = 0; i < motorNames.size(); i++) {
-            if (i > 0) {
-                sb.append(',');
-            }
-            sb.append('"').append(motorNames.get(i)).append("\":")
-                    .append(String.format(Locale.US, "%.3f", powers[i] * 500.0));
+        for (int i = 0; i < encoderNames.size(); i++) {
+            if (i > 0) sb.append(',');
+            String name = encoderNames.get(i);
+            sb.append('"').append(name).append("\":")
+                    .append(String.format(Locale.US, "%.3f", powerForEncoder(name, powers) * 500.0));
         }
         sb.append("},\"imu\":{\"yaw\":").append(String.format(Locale.US, "%.6f", h))
                 .append("},\"pinpoint\":{\"x\":").append(String.format(Locale.US, "%.6f", x))
@@ -168,6 +237,21 @@ final class FakeSimServer implements Closeable {
                 .append(",\"h\":").append(String.format(Locale.US, "%.6f", h))
                 .append("}}");
         return sb.toString();
+    }
+
+    private void publishServoFrames(List<Map<String, Double>> frames) {
+        servoFrames = Collections.unmodifiableList(new ArrayList<>(frames));
+    }
+
+    private void publishMotorFrames(List<Map<String, Double>> frames) {
+        motorFrames = Collections.unmodifiableList(new ArrayList<>(frames));
+    }
+
+    private static void appendStrings(StringBuilder out, List<String> values) {
+        for (int i = 0; i < values.size(); i++) {
+            if (i > 0) out.append(',');
+            out.append('"').append(Json.escape(values.get(i))).append('"');
+        }
     }
 
     private static void write(BufferedWriter out, String line) throws IOException {
