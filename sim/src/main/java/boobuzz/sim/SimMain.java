@@ -212,7 +212,7 @@ public final class SimMain {
         int dtMs = 20;
         long seed = 0;
         double x = 0, y = 0, h = 0;
-        int connectTimeoutMs = 5000;
+        int connectTimeoutMs = RobotConstants.SIM_CONNECT_TIMEOUT_MS;
         double[] drive = null;
         String pathId = null;
         String auto = null;

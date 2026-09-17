@@ -28,6 +28,7 @@ final class FakeSimServer implements Closeable {
     private final List<String> motorNames;
     private volatile boolean running = true;
     private volatile boolean omitReadyState = false;
+    private volatile long readyDelayMs;
     private volatile String gamepadJson =
             "{\"lx\":0,\"ly\":0,\"rx\":0,\"ry\":0,\"a\":false,\"b\":false,\"x\":false,"
                     + "\"y\":false,\"lb\":false,\"rb\":false,\"lt\":0,\"rt\":0,\"dpad\":\"none\"}";
@@ -53,6 +54,10 @@ final class FakeSimServer implements Closeable {
         this.omitReadyState = omit;
     }
 
+    void setReadyDelayMs(long delayMs) {
+        this.readyDelayMs = delayMs;
+    }
+
     private void serve() {
         try (Socket s = server.accept();
              BufferedReader in = new BufferedReader(
@@ -70,6 +75,14 @@ final class FakeSimServer implements Closeable {
                 String type = Json.str(msg, "type");
 
                 if ("reset".equals(type)) {
+                    if (readyDelayMs > 0) {
+                        try {
+                            Thread.sleep(readyDelayMs);
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                            return;
+                        }
+                    }
                     Map<String, Object> pose = Json.obj(msg, "pose");
                     x = Json.num(pose, "x", 0);
                     y = Json.num(pose, "y", 0);

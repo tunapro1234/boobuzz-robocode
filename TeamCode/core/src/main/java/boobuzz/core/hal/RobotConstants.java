@@ -59,6 +59,8 @@ public final class RobotConstants {
     public static final int REAL_DEBUG_TAP_PORT = 0;
     public static final int CONTROL_SOCKET_PORT = 5601;
     public static final int CONTROL_SOCKET_TIMEOUT_MS = 250;
+    public static final int SIM_CONNECT_TIMEOUT_MS = 5000;
+    public static final int SIM_READ_TIMEOUT_MS = 5000;
     public static final String DEFAULT_CONTROLLER = "gamepad";
 
     // free_rpm = 73.63 in/s * 60 / (pi * 4 in); no direct RPM data was found.

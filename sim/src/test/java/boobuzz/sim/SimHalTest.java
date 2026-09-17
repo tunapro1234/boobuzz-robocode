@@ -71,6 +71,19 @@ public class SimHalTest {
     }
 
     @Test
+    public void readTimeoutFailsWithClearSimulatorError() throws Exception {
+        Mechanism m = mechanism();
+        try (FakeSimServer server = new FakeSimServer(m.motorNames())) {
+            server.setReadyDelayMs(250);
+            SimProtocolException e = assertThrows(SimProtocolException.class,
+                    () -> new SimHal(m, "127.0.0.1", server.port(), 20, 0L,
+                            new Pose(0, 0, 0), 2000, 25));
+            assertTrue(e.getMessage().contains("timed out waiting for simulator response"));
+            assertTrue(e.getMessage().contains("25 ms"));
+        }
+    }
+
+    @Test
     public void nameMismatchFails() throws Exception {
         Mechanism m = mechanism();
         try (FakeSimServer server = new FakeSimServer(List.of("fl", "fr", "bl"))) {

@@ -6,6 +6,7 @@ import boobuzz.core.contract.Event;
 import boobuzz.core.contract.RobotAction;
 import boobuzz.core.contract.RobotState;
 import boobuzz.core.hal.Mechanism;
+import boobuzz.core.hal.RobotConstants;
 
 import com.pedropathing.math.Pose;
 
@@ -17,6 +18,7 @@ import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.net.SocketTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -49,6 +51,7 @@ public final class SimHal implements IHal, Closeable {
     private final BufferedReader in;
     private final BufferedWriter out;
     private final int dtMs;
+    private final int readTimeoutMs;
 
     private RobotState state;
     private GamepadState gamepad = GamepadState.neutral();
@@ -57,11 +60,35 @@ public final class SimHal implements IHal, Closeable {
 
     public SimHal(Mechanism mechanism, String host, int port, int dtMs,
                   long seed, Pose startPose, int connectTimeoutMs) throws IOException {
+        this(mechanism, host, port, dtMs, seed, startPose, connectTimeoutMs,
+                RobotConstants.SIM_READ_TIMEOUT_MS);
+    }
+
+    /** Testable constructor with an explicit bounded read timeout. */
+    public SimHal(Mechanism mechanism, String host, int port, int dtMs,
+                  long seed, Pose startPose, int connectTimeoutMs,
+                  int readTimeoutMs) throws IOException {
+        if (connectTimeoutMs <= 0) {
+            throw new IllegalArgumentException("simulator connect timeout must be positive");
+        }
+        if (readTimeoutMs <= 0) {
+            throw new IllegalArgumentException("simulator read timeout must be positive");
+        }
         this.mechanism = mechanism;
         this.dtMs = dtMs;
+        this.readTimeoutMs = readTimeoutMs;
         this.socket = new Socket();
-        this.socket.connect(new InetSocketAddress(host, port), connectTimeoutMs);
+        try {
+            this.socket.connect(new InetSocketAddress(host, port), connectTimeoutMs);
+        } catch (SocketTimeoutException e) {
+            throw new SimProtocolException(
+                    "timed out connecting to simulator after " + connectTimeoutMs + " ms", e);
+        } catch (IOException e) {
+            throw new SimProtocolException(
+                    "could not connect to simulator at " + host + ":" + port, e);
+        }
         this.socket.setTcpNoDelay(true);
+        this.socket.setSoTimeout(readTimeoutMs);
         this.in = new BufferedReader(
                 new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
         this.out = new BufferedWriter(
@@ -234,7 +261,13 @@ public final class SimHal implements IHal, Closeable {
     }
 
     private Map<String, Object> receive() throws IOException {
-        String line = in.readLine();
+        String line;
+        try {
+            line = in.readLine();
+        } catch (SocketTimeoutException e) {
+            throw new SimProtocolException(
+                    "timed out waiting for simulator response after " + readTimeoutMs + " ms", e);
+        }
         if (line == null) {
             throw new ServerClosedException("server closed the connection");
         }
