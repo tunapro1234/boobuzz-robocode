@@ -23,7 +23,8 @@ import java.util.concurrent.atomic.AtomicLong;
  * One bounded, asynchronous sink for debug tap clients and JSONL bags.
  *
  * <p>The robot loop only calls {@link #offer(DebugFrame)}. The dispatcher is
- * the sole thread that serializes records and performs socket or file I/O.
+ * the sole thread that serializes records and writes the bag; per-client workers
+ * only transport already-serialized lines to their sockets.
  */
 public final class DebugTap implements AutoCloseable {
 
