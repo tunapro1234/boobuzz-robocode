@@ -67,7 +67,10 @@ def discover_python(simulator: Path, explicit: str | None) -> Path:
             f"simulator Python executable is missing: {candidate}; "
             "pass --python or set PYTHON"
         )
-    return candidate.resolve()
+    # Keep the venv symlink itself.  Resolving it can silently switch from the
+    # simulator's dependency environment to the system interpreter (and lose
+    # Pymunk), even though the configured executable exists and is runnable.
+    return candidate.absolute()
 
 
 def discover_java(explicit: str | None) -> Path:
