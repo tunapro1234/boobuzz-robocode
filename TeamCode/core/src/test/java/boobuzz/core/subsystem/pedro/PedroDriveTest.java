@@ -43,6 +43,7 @@ public class PedroDriveTest {
     public void goToHoldVelocityTransitionsReachMotorAction() {
         PedroDrive drive = new PedroDrive(mechanism, new PathRegistry());
         drive.observe(state(0L, 0.0));
+        drive.observe(state(20L, 0.0));
 
         RobotAction goTo = update(drive, PathRequest.goTo(
                 new Pose(24.0, 0.0, 0.0), PathRequest.Constraints.defaults()));
@@ -81,6 +82,19 @@ public class PedroDriveTest {
         RobotAction sameTime = update(drive, goTo);
 
         assertEquals(first, sameTime);
+    }
+
+    @Test
+    public void zeroDeltaPathUpdateEmitsFiniteZeroPower() {
+        PedroDrive drive = new PedroDrive(mechanism, new PathRegistry());
+        drive.observe(state(0L, 0.0));
+
+        RobotAction action = update(drive, PathRequest.named("test-line"));
+
+        for (double power : action.motors().values()) {
+            assertTrue("zero-dt power must be finite", Double.isFinite(power));
+            assertEquals(0.0, power, 1e-9);
+        }
     }
 
     @Test

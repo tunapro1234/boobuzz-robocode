@@ -133,7 +133,14 @@ public final class PedroDrive implements boobuzz.core.subsystem.IDrive {
                 start(activePathRequest);
                 startedPathRequest = activePathRequest;
             }
-            follower.update(deltaTimeSeconds);
+            // The first HAL sample (and repeated timestamps) has no elapsed time.
+            // Pedro's follower divides by dt while generating wheel powers, so
+            // updating it at zero would create NaN before HalDrivetrain can help.
+            if (deltaTimeSeconds > 0.0) {
+                follower.update(deltaTimeSeconds);
+            } else {
+                drivetrain.stop();
+            }
             writeFollowerAction(out);
             return;
         }
