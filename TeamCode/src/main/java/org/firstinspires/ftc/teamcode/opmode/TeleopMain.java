@@ -38,12 +38,15 @@ public class TeleopMain extends LinearOpMode {
         } else {
             controller = new TeleopController(hal);
         }
-        RobotLoop robot = RobotFactory.createWithController(
-                hal, mechanism, "cplx1", controller, RobotConstants.REAL_DEBUG_TAP_PORT);
-
-        telemetry.addLine("RealHal + shared core ready. Press Start.");
-        telemetry.update();
+        RobotLoop robot = null;
         try {
+            // Keep controller and loop construction in the same cleanup scope:
+            // a factory failure must not leak the socket controller workers.
+            robot = RobotFactory.createWithController(
+                    hal, mechanism, "cplx1", controller, RobotConstants.REAL_DEBUG_TAP_PORT);
+
+            telemetry.addLine("RealHal + shared core ready. Press Start.");
+            telemetry.update();
             waitForStart();
 
             while (opModeIsActive()) {
@@ -55,7 +58,9 @@ public class TeleopMain extends LinearOpMode {
                 idle();
             }
         } finally {
-            robot.close();
+            if (robot != null) {
+                robot.close();
+            }
             if (socketController != null) {
                 socketController.close();
             }
