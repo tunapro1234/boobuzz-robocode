@@ -151,6 +151,29 @@ public class SimHalTest {
         assertEquals(0.0, Json.num(Json.obj(explicitZero, "servos"), "hood_right", -1), 0.0);
     }
 
+    @Test
+    public void legacyProto1StillZeroFillsPositionalServos() throws Exception {
+        Mechanism legacy = legacyMechanism();
+        try (FakeSimServer server = new FakeSimServer(legacy);
+             SimHal hal = connect(server, legacy, 20)) {
+            hal.write(new RobotAction(Map.of(), Map.of("legacyServo", 0.5)));
+            List<Map<String, Double>> frames = server.servoFrames();
+            assertEquals(1, frames.size());
+            assertEquals(0.5, frames.get(0).get("legacyServo"), 0.0);
+            assertEquals(4, server.motorFrames().get(0).size());
+        }
+    }
+
+    private static Mechanism legacyMechanism() {
+        Mechanism current = Mechanism.DEFAULT;
+        return new Mechanism(
+                List.of("fl", "fr", "bl", "br"),
+                List.of("legacyServo"),
+                Map.of("fl", current.motor("fl"), "fr", current.motor("fr"),
+                        "bl", current.motor("bl"), "br", current.motor("br")),
+                current.drivetrain(), current.pinpoint(), current.physics());
+    }
+
     private static Map<String, Object> fixture(String name) throws Exception {
         try (var stream = SimHalTest.class.getResourceAsStream("/protocol-v2/" + name)) {
             if (stream == null) throw new AssertionError("missing protocol fixture: " + name);
