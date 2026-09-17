@@ -59,6 +59,8 @@ the commands sent to each subsystem, and `logic` contains feedback and the
 controller request batch. Tap and bag output are disabled by default in the real
 robot entry points; enable them explicitly in `RobotConstants` when needed.
 
+For a closed-loop socket smoke test on the real robot, run `python tools/agent_example.py --host 192.168.43.1` from the repository root; it uses port 5601 by default, waits for GOTO and SHOOT completion feedback, and exits nonzero on timeout.
+
 For a socket-controller smoke test, send a JSON `RequestBatch` (or `vx vy omega`
 on one line) with:
 
