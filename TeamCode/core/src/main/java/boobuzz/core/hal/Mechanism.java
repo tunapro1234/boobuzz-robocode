@@ -12,7 +12,11 @@ public record Mechanism(
         Map<String, Motor> motors,
         Drivetrain drivetrain,
         Pinpoint pinpoint,
-        Physics physics) {
+        Physics physics,
+        List<RobotConstants.DcDevice> dcDevices,
+        List<RobotConstants.CrServo> crServos,
+        List<RobotConstants.PosServo> positionalServos,
+        List<String> encoderNames) {
 
     /** Shared mechanism built once from {@link RobotConstants}. */
     public static final Mechanism DEFAULT = RobotConstants.buildMechanism();
@@ -21,6 +25,19 @@ public record Mechanism(
         motorNames = Collections.unmodifiableList(new ArrayList<>(motorNames));
         servoNames = Collections.unmodifiableList(new ArrayList<>(servoNames));
         motors = Collections.unmodifiableMap(new java.util.LinkedHashMap<>(motors));
+        dcDevices = Collections.unmodifiableList(new ArrayList<>(dcDevices));
+        crServos = Collections.unmodifiableList(new ArrayList<>(crServos));
+        positionalServos = Collections.unmodifiableList(new ArrayList<>(positionalServos));
+        encoderNames = Collections.unmodifiableList(new ArrayList<>(encoderNames));
+    }
+
+    /** Legacy six-field constructor for proto1/test-only wheel mechanisms. */
+    public Mechanism(List<String> motorNames, List<String> servoNames,
+                     Map<String, Motor> motors, Drivetrain drivetrain,
+                     Pinpoint pinpoint, Physics physics) {
+        this(motorNames, servoNames, motors, drivetrain, pinpoint, physics,
+                Collections.emptyList(), Collections.emptyList(), Collections.emptyList(),
+                motorNames);
     }
 
     /** Validates the mechanism schema against names reported by the server. */
@@ -47,10 +64,78 @@ public record Mechanism(
         return motor;
     }
 
+    public RobotConstants.DcDevice dcDevice(String name) {
+        for (RobotConstants.DcDevice device : dcDevices) {
+            if (device.name().equals(name)) return device;
+        }
+        throw new MechanismException("RobotConstants does not define DC device '" + name + "'");
+    }
+
+    public RobotConstants.CrServo crServo(String name) {
+        for (RobotConstants.CrServo servo : crServos) {
+            if (servo.name().equals(name)) return servo;
+        }
+        throw new MechanismException("RobotConstants does not define CR servo '" + name + "'");
+    }
+
+    public RobotConstants.PosServo positionalServo(String name) {
+        for (RobotConstants.PosServo servo : positionalServos) {
+            if (servo.name().equals(name)) return servo;
+        }
+        throw new MechanismException(
+                "RobotConstants does not define positional servo '" + name + "'");
+    }
+
+    /** All declared power-device names in ready/step order. */
+    public List<String> powerDeviceNames() {
+        return motorNames;
+    }
+
+    /** Typed DC devices excluding the four wheel Motor records. */
+    public List<RobotConstants.DcDevice> dcDevices() {
+        return dcDevices;
+    }
+
+    public List<RobotConstants.CrServo> crServos() {
+        return crServos;
+    }
+
+    public List<RobotConstants.PosServo> positionalServos() {
+        return positionalServos;
+    }
+
+    /** Alias matching the short B01 declaration name. */
+    public List<RobotConstants.PosServo> posServos() {
+        return positionalServos;
+    }
+
+    public List<String> encoderNames() {
+        return encoderNames;
+    }
+
+    public boolean usesProto2() {
+        return !dcDevices.isEmpty() || !crServos.isEmpty() || !positionalServos.isEmpty();
+    }
+
+    /** Validates ordered ready lists for the versioned seam. */
+    public void requireExactNames(List<String> actualMotors, List<String> actualServos) {
+        List<String> gotMotors = actualMotors == null
+                ? Collections.emptyList() : actualMotors;
+        List<String> gotServos = actualServos == null
+                ? Collections.emptyList() : actualServos;
+        if (!motorNames.equals(gotMotors) || !servoNames.equals(gotServos)) {
+            throw new MechanismException(
+                    "RobotConstants actuator lists do not match exactly.\n"
+                            + "  motors expected=" + motorNames + " actual=" + gotMotors + "\n"
+                            + "  servos expected=" + servoNames + " actual=" + gotServos);
+        }
+    }
+
     public List<String> wheelMotorNames() {
         List<String> wheels = new ArrayList<>();
         for (String name : motorNames) {
-            if ("wheel".equals(motors.get(name).drives())) {
+            Motor motor = motors.get(name);
+            if (motor != null && "wheel".equals(motor.drives())) {
                 wheels.add(name);
             }
         }

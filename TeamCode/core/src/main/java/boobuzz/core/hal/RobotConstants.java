@@ -63,14 +63,44 @@ public final class RobotConstants {
     public static final int SIM_READ_TIMEOUT_MS = 5000;
     public static final String DEFAULT_CONTROLLER = "gamepad";
 
-    // free_rpm = 73.63 in/s * 60 / (pi * 4 in); no direct RPM data was found.
+    // Protocol wheel keys stay stable; FTC HardwareMap names are declared below.
+    // free_rpm = 73.63 in/s * 60 / (pi * 4 in).
     public static final Motor FL = new Motor("fl", "wheel", 6.5, 5.5, 45.0, 537.7, 351.55735379568756);
     public static final Motor FR = new Motor("fr", "wheel", 6.5, -5.5, -45.0, 537.7, 351.55735379568756);
     public static final Motor BL = new Motor("bl", "wheel", -6.5, 5.5, -45.0, 537.7, 351.55735379568756);
     public static final Motor BR = new Motor("br", "wheel", -6.5, -5.5, 45.0, 537.7, 351.55735379568756);
     public static final Motor[] MOTORS = {FL, FR, BL, BR};
 
-    public static final String[] SERVOS = {};
+    public static final String SHOOTER_RIGHT_MOTOR_NAME = "shooterRight";
+    public static final String SHOOTER_LEFT_MOTOR_NAME = "shooterLeft";
+    public static final String SHOOTER_FEEDBACK_ENCODER_NAME = "shooterRight";
+    public static final String INTAKE_MOTOR_NAME = "intake";
+    public static final String FEEDER_MOTOR_NAME = "feeder";
+    public static final String TURRET_PRIMARY_SERVO_NAME = "turret_servo";
+    public static final String TURRET_SECONDARY_SERVO_NAME = "turret_servo2";
+    public static final String TURRET_ENCODER_NAME = "shooterLeft";
+    public static final String TURRET_ANALOG_NAME = "turret_analog";
+    public static final String HOOD_LEFT_SERVO_NAME = "hood_left";
+    public static final String HOOD_RIGHT_SERVO_NAME = "hood_right";
+    public static final String INTAKE_DISTANCE_NAME = "intake_dist";
+    public static final String LIMELIGHT_NAME = "limelight";
+    public static final String LEFT_FRONT_MOTOR_NAME = "leftFront";
+    public static final String RIGHT_FRONT_MOTOR_NAME = "rightFront";
+    public static final String LEFT_BACK_MOTOR_NAME = "leftBack";
+    public static final String RIGHT_BACK_MOTOR_NAME = "rightBack";
+
+    public static final DcDevice INTAKE = new DcDevice(INTAKE_MOTOR_NAME, "REVERSE", "BRAKE", 28.0, 6000.0);
+    public static final DcDevice FEEDER = new DcDevice(FEEDER_MOTOR_NAME, "FORWARD", "BRAKE", 28.0, 6000.0);
+    public static final DcDevice SHOOTER_RIGHT = new DcDevice(SHOOTER_RIGHT_MOTOR_NAME, "REVERSE", "FLOAT", 28.0, 6000.0);
+    public static final DcDevice SHOOTER_LEFT = new DcDevice(SHOOTER_LEFT_MOTOR_NAME, "FORWARD", "FLOAT", 28.0, 6000.0);
+    public static final DcDevice[] DC_DEVICES = {INTAKE, FEEDER, SHOOTER_RIGHT, SHOOTER_LEFT};
+    public static final CrServo TURRET_PRIMARY = new CrServo(TURRET_PRIMARY_SERVO_NAME, "FORWARD");
+    public static final CrServo TURRET_SECONDARY = new CrServo(TURRET_SECONDARY_SERVO_NAME, "FORWARD");
+    public static final CrServo[] CR_SERVOS = {TURRET_PRIMARY, TURRET_SECONDARY};
+    public static final PosServo HOOD_LEFT = new PosServo(HOOD_LEFT_SERVO_NAME, "REVERSE", 1.0);
+    public static final PosServo HOOD_RIGHT = new PosServo(HOOD_RIGHT_SERVO_NAME, "FORWARD", 0.0);
+    public static final PosServo[] SERVOS = {HOOD_LEFT, HOOD_RIGHT};
+    public static final String[] ENCODERS = {"leftFront", "rightFront", "leftBack", "rightBack", "intake", "feeder", "shooterRight", "shooterLeft"};
 
     // MEASURED Pedro 2.x Constants.java values from last season; re-measure on the new chassis.
     public static final Pinpoint PINPOINT = new Pinpoint(161.0, 0.0, "FORWARD", "REVERSED", "goBILDA_4_BAR_POD");
@@ -91,6 +121,16 @@ public final class RobotConstants {
         for (Motor motor : MOTORS) {
             source.append(motor).append('|');
         }
+        for (DcDevice device : DC_DEVICES) {
+            source.append(device).append('|');
+        }
+        for (CrServo servo : CR_SERVOS) {
+            source.append(servo).append('|');
+        }
+        for (PosServo servo : SERVOS) {
+            source.append(servo).append('|');
+        }
+        source.append(Arrays.toString(ENCODERS)).append('|');
         source.append(PINPOINT).append('|').append(TELEOP_RESET_POSE_X).append('|')
                 .append(TELEOP_RESET_POSE_Y).append('|').append(TELEOP_RESET_POSE_H);
         try {
@@ -115,9 +155,15 @@ public final class RobotConstants {
         efficiency.put(FR.name(), EFFICIENCY_FR);
         efficiency.put(BL.name(), EFFICIENCY_BL);
         efficiency.put(BR.name(), EFFICIENCY_BR);
+        List<String> motorNames = new java.util.ArrayList<>();
+        for (Motor motor : MOTORS) motorNames.add(motor.name());
+        for (DcDevice device : DC_DEVICES) motorNames.add(device.name());
+        for (CrServo servo : CR_SERVOS) motorNames.add(servo.name());
+        List<String> servoNames = new java.util.ArrayList<>();
+        for (PosServo servo : SERVOS) servoNames.add(servo.name());
         return new Mechanism(
-                Arrays.asList(FL.name(), FR.name(), BL.name(), BR.name()),
-                Arrays.asList(SERVOS),
+                motorNames,
+                servoNames,
                 motors,
                 new Mechanism.Drivetrain(WHEEL_DIAMETER),
                 new Mechanism.Pinpoint(
@@ -127,12 +173,23 @@ public final class RobotConstants {
                         efficiency,
                         STRAFE_EFF,
                         ZERO_POWER_DECEL_FORWARD_IN_S2,
-                        ZERO_POWER_DECEL_LATERAL_IN_S2));
+                        ZERO_POWER_DECEL_LATERAL_IN_S2),
+                Arrays.asList(DC_DEVICES),
+                Arrays.asList(CR_SERVOS),
+                Arrays.asList(SERVOS),
+                Arrays.asList(ENCODERS));
     }
 
     /** Machine-readable motor configuration in protocol order. */
     public record Motor(String name, String drives, double xForward, double yLeft,
                         double rollerDeg, double ticksPerRev, double freeRpm) {}
+
+    public record DcDevice(String name, String direction, String zeroPower,
+                           double ticksPerRev, double freeRpm) {}
+
+    public record CrServo(String name, String direction) {}
+
+    public record PosServo(String name, String direction, double initialPos) {}
 
     /** Machine-readable Pinpoint configuration. */
     public record Pinpoint(double xPodOffsetMm, double yPodOffsetMm,

@@ -17,8 +17,12 @@ public class MechanismTest {
 
     @Test
     public void motorNamesPreserveOrder() {
-        assertEquals(List.of("fl", "fr", "bl", "br"), testMechanism().motorNames());
+        assertEquals(List.of("fl", "fr", "bl", "br",
+                "intake", "feeder", "shooterRight", "shooterLeft",
+                "turret_servo", "turret_servo2"), testMechanism().motorNames());
         assertEquals(4, RobotConstants.MOTORS.length);
+        assertEquals(4, RobotConstants.DC_DEVICES.length);
+        assertEquals(2, RobotConstants.CR_SERVOS.length);
     }
 
     @Test
@@ -90,8 +94,11 @@ public class MechanismTest {
 
     @Test
     public void servosAreEmptyForNow() {
-        assertEquals(0, RobotConstants.SERVOS.length);
-        assertTrue(testMechanism().servoNames().isEmpty());
+        assertEquals(2, RobotConstants.SERVOS.length);
+        assertEquals(List.of("hood_left", "hood_right"), testMechanism().servoNames());
+        assertEquals(List.of("leftFront", "rightFront", "leftBack", "rightBack",
+                "intake", "feeder", "shooterRight", "shooterLeft"),
+                testMechanism().encoderNames());
     }
 
     @Test
@@ -106,9 +113,23 @@ public class MechanismTest {
     @Test
     public void nameListMismatchFails() {
         Mechanism m = testMechanism();
-        m.requireNames(List.of("br", "bl", "fr", "fl"), List.of()); // order does not matter
+        m.requireNames(List.of("turret_servo2", "bl", "shooterLeft", "feeder",
+                "fr", "br", "intake", "fl", "shooterRight",
+                "turret_servo"), List.of("hood_right", "hood_left")); // order does not matter
         Mechanism.MechanismException e = assertThrows(Mechanism.MechanismException.class,
-                () -> m.requireNames(List.of("fl", "fr", "bl"), List.of()));
+                () -> m.requireNames(List.of("leftFront", "rightFront", "leftBack"),
+                        List.of("hood_left", "hood_right")));
         assertTrue(e.getMessage().contains("RobotConstants"));
+    }
+
+    @Test
+    public void typedDeviceRolesPreserveSharedShooterPort() {
+        Mechanism m = testMechanism();
+        assertEquals("REVERSE", m.dcDevice("shooterRight").direction());
+        assertEquals("FORWARD", m.dcDevice("shooterLeft").direction());
+        assertEquals("shooterRight", RobotConstants.SHOOTER_FEEDBACK_ENCODER_NAME);
+        assertEquals("shooterLeft", RobotConstants.TURRET_ENCODER_NAME);
+        assertEquals("REVERSE", m.positionalServo("hood_left").direction());
+        assertEquals(1.0, m.positionalServo("hood_left").initialPos(), 1e-9);
     }
 }
