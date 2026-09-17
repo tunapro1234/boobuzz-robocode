@@ -4,7 +4,7 @@ import boobuzz.core.contract.PathRequest;
 import boobuzz.core.contract.Request;
 import boobuzz.core.contract.RequestStatus;
 import boobuzz.core.contract.RequestType;
-import boobuzz.core.logic.cplx1.ShooterLogic;
+import boobuzz.core.logic.ShooterCalibration;
 import boobuzz.core.subsystem.Subsystems;
 
 import com.pedropathing.math.Pose;
@@ -152,7 +152,7 @@ public final class DirectMap {
         int count = (int) request.param(0, 0.0);
         double rpm = request.params().length >= 2
                 ? request.param(1, Double.NaN)
-                : ShooterLogic.calibratedRpm(subsystems.drive().pose());
+                : ShooterCalibration.calibratedRpm(subsystems.drive().pose());
         if (!Double.isFinite(rpm) || rpm <= 0.0) {
             statuses.add(RequestStatus.rejected(request.id(),
                     "SHOOT requires a positive finite rpm"));

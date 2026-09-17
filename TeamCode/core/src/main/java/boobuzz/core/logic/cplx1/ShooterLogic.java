@@ -2,6 +2,7 @@ package boobuzz.core.logic.cplx1;
 
 import boobuzz.core.contract.RequestStatus;
 import boobuzz.core.hal.RobotConstants;
+import boobuzz.core.logic.ShooterCalibration;
 import boobuzz.core.subsystem.IShooter;
 
 import com.pedropathing.math.Pose;
@@ -109,12 +110,7 @@ public final class ShooterLogic {
 
     /** Calibrated count-only shot speed shared by both engines. */
     public static double calibratedRpm(Pose pose) {
-        double distance = pose == null ? 0.0 : Math.hypot(
-                (RobotConstants.ALLIANCE_BLUE ? RobotConstants.GOAL_X : RobotConstants.RED_GOAL_X)
-                        - pose.x(),
-                RobotConstants.GOAL_Y - pose.y());
-        return RobotConstants.SHOOTER_RPM_BASE
-                + RobotConstants.SHOOTER_RPM_PER_IN * distance;
+        return ShooterCalibration.calibratedRpm(pose);
     }
 
     public double hoodFor(double distanceInches) {
