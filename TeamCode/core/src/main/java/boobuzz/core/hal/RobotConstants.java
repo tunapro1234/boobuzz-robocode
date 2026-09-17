@@ -115,7 +115,10 @@ public final class RobotConstants {
         StringBuilder source = new StringBuilder()
                 .append(ROBOT_WIDTH).append('|').append(ROBOT_LENGTH).append('|')
                 .append(WHEEL_DIAMETER).append('|').append(BATTERY_V).append('|')
-                .append(MOTOR_TAU_S).append('|').append(STRAFE_EFF).append('|')
+                .append(MOTOR_TAU_S).append('|')
+                .append(EFFICIENCY_FL).append('|').append(EFFICIENCY_FR).append('|')
+                .append(EFFICIENCY_BL).append('|').append(EFFICIENCY_BR).append('|')
+                .append(STRAFE_EFF).append('|')
                 .append(ZERO_POWER_DECEL_FORWARD_IN_S2).append('|')
                 .append(ZERO_POWER_DECEL_LATERAL_IN_S2).append('|');
         for (Motor motor : MOTORS) {
