@@ -33,10 +33,13 @@ final class Json {
     }
 
     static String str(Map<String, Object> node, String key, String fallback) {
-        if (!node.containsKey(key) || node.get(key) == null) {
+        if (!node.containsKey(key)) {
             return fallback;
         }
         Object value = node.get(key);
+        if (value == null) {
+            throw new SimProtocolException("JSON field '" + key + "' must not be null");
+        }
         if (!(value instanceof String)) {
             throw new SimProtocolException("JSON field '" + key + "' must be a string");
         }
@@ -44,10 +47,13 @@ final class Json {
     }
 
     static double num(Map<String, Object> node, String key, double fallback) {
-        if (!node.containsKey(key) || node.get(key) == null) {
+        if (!node.containsKey(key)) {
             return fallback;
         }
         Object value = node.get(key);
+        if (value == null) {
+            throw new SimProtocolException("JSON field '" + key + "' must not be null");
+        }
         if (!(value instanceof Number n)) {
             throw new SimProtocolException("JSON field '" + key + "' must be a number");
         }
@@ -59,24 +65,36 @@ final class Json {
     }
 
     static boolean bool(Map<String, Object> node, String key) {
+        if (!node.containsKey(key)) {
+            return false;
+        }
         Object v = node.get(key);
         if (v instanceof Boolean b) {
             return b;
         }
-        return v instanceof String s && "true".equalsIgnoreCase(s.trim());
+        throw new SimProtocolException("JSON field '" + key + "' must be boolean");
     }
 
     @SuppressWarnings("unchecked")
     static Map<String, Object> obj(Map<String, Object> node, String key) {
+        if (!node.containsKey(key)) {
+            return java.util.Collections.emptyMap();
+        }
         Object v = node.get(key);
-        return (v instanceof Map) ? (Map<String, Object>) v : java.util.Collections.emptyMap();
+        if (v == null) {
+            throw new SimProtocolException("JSON field '" + key + "' must not be null");
+        }
+        if (!(v instanceof Map)) {
+            throw new SimProtocolException("JSON field '" + key + "' must be an object");
+        }
+        return (Map<String, Object>) v;
     }
 
     @SuppressWarnings("unchecked")
     static List<String> strings(Map<String, Object> node, String key) {
         Object v = node.get(key);
         if (!(v instanceof List)) {
-            if (!node.containsKey(key) || v == null) {
+            if (!node.containsKey(key)) {
                 return java.util.Collections.emptyList();
             }
             throw new SimProtocolException("JSON field '" + key + "' must be an array");
