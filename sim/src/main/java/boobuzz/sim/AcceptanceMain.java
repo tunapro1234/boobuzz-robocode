@@ -355,7 +355,7 @@ public final class AcceptanceMain {
             field(out, "commanded_target", poseJson(target));
             field(out, "truth", poseJson(truth));
             field(out, "sensed_pose", poseJson(sensed));
-            field(out, "motors", numberMapJson(action.motors()));
+            field(out, "motors", motorMapJson(action.motors()));
             field(out, "servos", numberMapJson(action.servos()));
             field(out, "events", eventsJson(action.events()));
             out.append('}');
@@ -422,6 +422,18 @@ public final class AcceptanceMain {
             out.append(quote(entry.getKey())).append(':').append(number(entry.getValue()));
         }
         return out.append('}').toString();
+    }
+
+    /** Trace all declared wheels, including explicit zeroes for sparse actions. */
+    private static String motorMapJson(Map<String, Double> values) {
+        Map<String, Double> complete = new java.util.LinkedHashMap<>();
+        for (RobotConstants.Motor motor : RobotConstants.MOTORS) {
+            complete.put(motor.name(), values.getOrDefault(motor.name(), 0.0));
+        }
+        for (Map.Entry<String, Double> entry : values.entrySet()) {
+            complete.putIfAbsent(entry.getKey(), entry.getValue());
+        }
+        return numberMapJson(complete);
     }
 
     private static String statusesJson(List<RequestStatus> statuses) {
