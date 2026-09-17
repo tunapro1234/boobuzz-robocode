@@ -9,12 +9,14 @@ import boobuzz.core.contract.WorldSnapshot;
 import boobuzz.core.debug.DebugTap;
 import boobuzz.core.debug.DebugFrame;
 import boobuzz.core.debug.SubsystemTrace;
+import boobuzz.core.logic.EngineRegistry;
 import boobuzz.core.logic.IRobotEngine;
 import boobuzz.core.hal.IHal;
 
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Map;
 import java.util.Objects;
 import java.io.File;
 
@@ -28,7 +30,7 @@ import java.io.File;
 public final class RobotLoop implements AutoCloseable {
 
     private final IHal hal;
-    private final List<IRobotEngine> engines;
+    private final Map<Integer, IRobotEngine> enginesByIndex;
     private IRobotEngine engine;
     private final IController controller;
     private DebugTap debugTap;
@@ -62,10 +64,11 @@ public final class RobotLoop implements AutoCloseable {
                      IRobotEngine initialEngine, IController controller,
                      int debugTapPort) {
         this.hal = Objects.requireNonNull(hal, "hal");
-        this.engines = Collections.unmodifiableList(new ArrayList<>(engines));
+        this.enginesByIndex = EngineRegistry.bind(engines);
         this.engine = Objects.requireNonNull(initialEngine, "initial engine");
         this.controller = Objects.requireNonNull(controller, "controller");
-        if (this.engines.isEmpty() || !this.engines.contains(initialEngine)) {
+        if (this.enginesByIndex.isEmpty()
+                || !this.enginesByIndex.containsValue(initialEngine)) {
             throw new IllegalArgumentException("initial engine must be in engine list");
         }
         if (debugTapPort != 0) {
@@ -87,12 +90,13 @@ public final class RobotLoop implements AutoCloseable {
             RequestBatch controllerBatch = controller.decide(feedback); // L3
             RequestBatch batch = controllerBatch;
             List<boobuzz.core.contract.RequestStatus> switchStatuses = new ArrayList<>();
-            int switchIndex = switchIndex(controllerBatch, engines.size(), switchStatuses);
+            int switchIndex = switchIndex(controllerBatch, enginesByIndex, switchStatuses);
             pendingLoopStatuses = switchStatuses;
-            boolean switched = switchIndex >= 0 && switchIndex < engines.size()
-                    && engines.get(switchIndex) != engine;
+            IRobotEngine selectedEngine = EngineRegistry.find(enginesByIndex, switchIndex);
+            boolean switched = selectedEngine != null;
             if (switched) {
-                // Quiesce the old owner now.  The selected engine starts on the next tick.
+                // Quiesce the current owner now. The selected engine starts on the next tick,
+                // even when a replay explicitly selects the already-active stable slot.
                 engine.act(RequestBatch.cancelAll());
                 List<boobuzz.core.contract.RequestStatus> oldStatuses = engine.drainStatuses();
                 if (!oldStatuses.isEmpty()) {
@@ -101,7 +105,7 @@ public final class RobotLoop implements AutoCloseable {
                     combined.addAll(oldStatuses);
                     pendingLoopStatuses = Collections.unmodifiableList(new ArrayList<>(combined));
                 }
-                setEngine(engines.get(switchIndex));
+                setEngine(selectedEngine);
                 batch = withoutSwitchRequests(batch);
             } else {
                 engine.act(withoutSwitchRequests(batch));     // DOWN
@@ -239,7 +243,8 @@ public final class RobotLoop implements AutoCloseable {
         debugTap.offer(new DebugFrame(state, action, calls, feedback, batch));
     }
 
-    private static int switchIndex(RequestBatch batch, int engineCount,
+    private static int switchIndex(RequestBatch batch,
+                                   Map<Integer, IRobotEngine> enginesByIndex,
                                    List<boobuzz.core.contract.RequestStatus> statuses) {
         if (batch == null) {
             return -1;
@@ -254,9 +259,14 @@ public final class RobotLoop implements AutoCloseable {
                     continue;
                 }
                 int target = (int) index;
-                if (target < 0 || target >= engineCount) {
+                if (!EngineRegistry.isImplementedIndex(target)) {
                     statuses.add(boobuzz.core.contract.RequestStatus.rejected(
-                            request.id(), "SWITCH_ENGINE index is out of range"));
+                            request.id(), "SWITCH_ENGINE index is reserved or unknown"));
+                    continue;
+                }
+                if (!enginesByIndex.containsKey(target)) {
+                    statuses.add(boobuzz.core.contract.RequestStatus.rejected(
+                            request.id(), "SWITCH_ENGINE engine is unavailable"));
                     continue;
                 }
                 if (selected < 0) {

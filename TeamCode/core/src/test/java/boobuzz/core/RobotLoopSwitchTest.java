@@ -10,6 +10,7 @@ import boobuzz.core.contract.RobotState;
 import boobuzz.core.contract.WorldSnapshot;
 import boobuzz.core.controller.IController;
 import boobuzz.core.hal.IHal;
+import boobuzz.core.logic.EngineRegistry;
 import boobuzz.core.logic.IRobotEngine;
 
 import com.pedropathing.math.Pose;
@@ -62,7 +63,8 @@ public class RobotLoopSwitchTest {
                 pendingStatuses = List.of(RequestStatus.rejected(77, "engine switch"));
             }
             if (batch.cancels().length == 0) {
-                action = RobotAction.ofMotors(Map.of("fl", name.equals("old") ? 0.7 : 0.4));
+                action = RobotAction.ofMotors(Map.of("fl",
+                        name.equals(EngineRegistry.DIRECT_NAME) ? 0.7 : 0.4));
             }
         }
 
@@ -78,8 +80,8 @@ public class RobotLoopSwitchTest {
     @Test
     public void switchCancelsOldEngineAndStartsNewOnNextTick() {
         FakeHal hal = new FakeHal();
-        RecordingEngine oldEngine = new RecordingEngine("old");
-        RecordingEngine newEngine = new RecordingEngine("new");
+        RecordingEngine oldEngine = new RecordingEngine(EngineRegistry.DIRECT_NAME);
+        RecordingEngine newEngine = new RecordingEngine(EngineRegistry.CPLX1_NAME);
         IController controller = new IController() {
             private boolean sent;
 
@@ -89,7 +91,8 @@ public class RobotLoopSwitchTest {
                 return RequestBatch.of(Request.switchEngine(7, 1));
             }
         };
-        RobotLoop loop = new RobotLoop(hal, List.of(oldEngine, newEngine), oldEngine, controller);
+        // The binding is by stable name, not by this list's order.
+        RobotLoop loop = new RobotLoop(hal, List.of(newEngine, oldEngine), oldEngine, controller);
 
         loop.tick();
         assertSame(newEngine, loop.engine());
@@ -115,8 +118,8 @@ public class RobotLoopSwitchTest {
             }
             @Override public GamepadState get() { return hal.get(); }
         };
-        RecordingEngine first = new RecordingEngine("old");
-        RecordingEngine second = new RecordingEngine("new");
+        RecordingEngine first = new RecordingEngine(EngineRegistry.DIRECT_NAME);
+        RecordingEngine second = new RecordingEngine(EngineRegistry.CPLX1_NAME);
         IController controller = new IController() {
             private int tick;
 
@@ -143,7 +146,7 @@ public class RobotLoopSwitchTest {
     @Test
     public void malformedAndOutOfRangeSwitchesAreRejectedInFeedback() {
         FakeHal hal = new FakeHal();
-        RecordingEngine engine = new RecordingEngine("only");
+        RecordingEngine engine = new RecordingEngine(EngineRegistry.DIRECT_NAME);
         List<RequestStatus> seen = new ArrayList<>();
         IController controller = new IController() {
             private int tick;
@@ -173,7 +176,7 @@ public class RobotLoopSwitchTest {
     @Test
     public void repeatedSwitchToCurrentEngineCompletesWithoutHandoff() {
         FakeHal hal = new FakeHal();
-        RecordingEngine engine = new RecordingEngine("only");
+        RecordingEngine engine = new RecordingEngine(EngineRegistry.DIRECT_NAME);
         List<RequestStatus> seen = new ArrayList<>();
         IController controller = new IController() {
             private boolean sent;
@@ -200,8 +203,8 @@ public class RobotLoopSwitchTest {
     @Test
     public void oldEngineCancellationStatusIsForwardedAfterHandoff() {
         FakeHal hal = new FakeHal();
-        RecordingEngine oldEngine = new RecordingEngine("old");
-        RecordingEngine newEngine = new RecordingEngine("new");
+        RecordingEngine oldEngine = new RecordingEngine(EngineRegistry.DIRECT_NAME);
+        RecordingEngine newEngine = new RecordingEngine(EngineRegistry.CPLX1_NAME);
         List<RequestStatus> seen = new ArrayList<>();
         IController controller = new IController() {
             private int tick;
