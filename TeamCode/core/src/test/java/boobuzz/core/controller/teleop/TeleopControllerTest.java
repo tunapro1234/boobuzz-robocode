@@ -13,6 +13,7 @@ import com.pedropathing.math.Pose;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 /** Field-oriented drive conversion ends in the robot-frame request stream. */
@@ -124,6 +125,30 @@ public class TeleopControllerTest {
         RequestStream d = streamOf(new TeleopController(pad).decide(noPose));
         assertEquals(0.0, d.vx(), EPS);
         assertEquals(-1.0, d.vy(), EPS);
+    }
+
+    @Test
+    public void subDeadbandStickDoesNotCancelPath() {
+        Pad pad = new Pad();
+        TeleopController controller = new TeleopController(pad);
+        pad.state = new GamepadState(0, 0, 0, 0,
+                false, false, false, true, false, false, 0, 0,
+                GamepadState.Dpad.NONE);
+        RequestBatch sequence = controller.decide(at(0.0));
+        assertTrue(sequence.requests().stream()
+                .anyMatch(request -> request.type() == RequestType.PATH));
+
+        pad.state = new GamepadState(0, -0.01, 0, 0,
+                false, false, false, false, false, false, 0, 0,
+                GamepadState.Dpad.NONE);
+        RequestBatch quiet = controller.decide(new Feedback(
+                new WorldSnapshot(20, new Pose(72, 72, 0.0), 0.0, 12.6),
+                java.util.List.of(), 20));
+
+        assertFalse(quiet.stream().manualDrive());
+        assertEquals(0, quiet.cancels().length);
+        assertTrue(controller.sequenceRunner() != null
+                && !controller.sequenceRunner().isFailed());
     }
 
     @Test

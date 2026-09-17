@@ -70,9 +70,7 @@ public final class TeleopMap {
             vx = forward * cos + left * sin;
             vy = -forward * sin + left * cos;
         }
-        boolean manualInput = Math.abs(g.lx()) > 0.0
-                || Math.abs(g.ly()) > 0.0
-                || Math.abs(g.rx()) > 0.0;
+        boolean manualInput = forward != 0.0 || left != 0.0 || omega != 0.0;
         RequestStream stream = new RequestStream(vx, vy, omega, manualInput);
 
         // Right bumper pressed -> one three-piece shot request.
