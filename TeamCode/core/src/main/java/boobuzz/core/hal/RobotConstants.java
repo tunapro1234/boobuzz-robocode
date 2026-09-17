@@ -112,8 +112,14 @@ public final class RobotConstants {
 
     /** Stable hash for bag headers; it is derived from all machine-read constants. */
     public static String constantsHash() {
+        return constantsHashForMass(ROBOT_MASS_KG);
+    }
+
+    // Package-private seam for the mass-sensitivity regression test; production uses ROBOT_MASS_KG above.
+    static String constantsHashForMass(double robotMassKg) {
         StringBuilder source = new StringBuilder()
                 .append(ROBOT_WIDTH).append('|').append(ROBOT_LENGTH).append('|')
+                .append(robotMassKg).append('|')
                 .append(WHEEL_DIAMETER).append('|').append(BATTERY_V).append('|')
                 .append(MOTOR_TAU_S).append('|')
                 .append(EFFICIENCY_FL).append('|').append(EFFICIENCY_FR).append('|')
