@@ -23,7 +23,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertFalse;
 
 public class RobotLoopTest {
 
@@ -77,7 +77,7 @@ public class RobotLoopTest {
         assertEquals(0.0, m.vx(), 1e-9);
         assertEquals(0.0, m.vy(), 1e-9);
         assertEquals(0.0, m.omega(), 1e-9);
-        assertTrue(m.manualDrive());
+        assertFalse(m.manualDrive());
     }
 
     @Test
