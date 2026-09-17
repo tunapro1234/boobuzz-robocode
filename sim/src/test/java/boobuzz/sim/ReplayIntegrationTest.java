@@ -2,13 +2,16 @@ package boobuzz.sim;
 
 import boobuzz.core.RobotFactory;
 import boobuzz.core.RobotLoop;
+import boobuzz.core.controller.IController;
 import boobuzz.core.controller.replay.ReplayController;
-import boobuzz.core.contract.RequestStream;
+import boobuzz.core.contract.Feedback;
+import boobuzz.core.contract.PathRequest;
+import boobuzz.core.contract.Request;
+import boobuzz.core.contract.RequestBatch;
 import boobuzz.core.hal.Mechanism;
 
 import com.pedropathing.math.Pose;
 
-import org.junit.Assume;
 import org.junit.Test;
 
 import java.io.File;
@@ -25,16 +28,18 @@ import static org.junit.Assert.assertNotNull;
 /** Real Python-server record/replay proof for the deterministic seam contract. */
 public class ReplayIntegrationTest {
 
+    private static final int RECORD_TICKS = 10_000;
+
     @Test
     public void seededRecordAndReplayAreBitEqual() throws Exception {
-        File simulator = new File("/home/shared/projects/boobuzz/re-cock-nize");
-        File python = new File(simulator, ".venv/bin/python");
-        File root = new File(System.getProperty("user.dir"));
-        if ("sim".equals(root.getName())) root = root.getParentFile();
+        File simulator = simulatorRoot();
+        File python = pythonExecutable(simulator);
+        File root = repositoryRoot();
         File mechanism = new File(root,
                 "TeamCode/core/src/main/java/boobuzz/core/hal/RobotConstants.java");
-        Assume.assumeTrue("re-cock-nize venv is required for this integration test",
-                python.isFile() && mechanism.isFile());
+        if (!mechanism.isFile()) {
+            throw new AssertionError("RobotConstants.java is missing: " + mechanism);
+        }
 
         File bag = File.createTempFile("robot-replay", ".jsonl");
         int recordPort = freePort(5580);
@@ -42,13 +47,13 @@ public class ReplayIntegrationTest {
         Process recordServer = startServer(simulator, python, mechanism, recordPort);
         List<PoseBits> recordedTruth = new ArrayList<>();
         try {
-            Pose start = new Pose(12.0, 34.0, 0.25);
+            Pose start = new Pose(72.0, 72.0, 0.0);
             Mechanism m = Mechanism.DEFAULT;
             try (SimHal hal = connect(m, recordPort, start);
-                 RobotLoop loop = RobotFactory.create(hal, m, "cplx1",
-                         RequestStream.manual(0.25, 0.0, 0.0), 0, true)) {
+                 RobotLoop loop = RobotFactory.createWithController(
+                         hal, m, "cplx1", new TestLineController(), 0, true)) {
                 assertTrueOpenBag(loop, bag, start);
-                for (int i = 0; i < 80; i++) {
+                for (int i = 0; i < RECORD_TICKS; i++) {
                     loop.tick();
                     recordedTruth.add(PoseBits.of(hal.truth()));
                 }
@@ -57,10 +62,12 @@ public class ReplayIntegrationTest {
             stopServer(recordServer);
         }
 
+        assertTruncatedBagRejected();
+
         Process replayServer = startServer(simulator, python, mechanism, replayPort);
         try {
             ReplayController replay = new ReplayController(bag);
-            assertEquals(80, replay.tickCount());
+            assertEquals(RECORD_TICKS, replay.tickCount());
             assertNotNull(replay.initialPose());
             List<PoseBits> replayedTruth = readTruthFromBagRun(replay, m(), replayPort);
             assertEquals("truth sequence length", recordedTruth.size(), replayedTruth.size());
@@ -70,6 +77,64 @@ public class ReplayIntegrationTest {
         } finally {
             stopServer(replayServer);
             if (!bag.delete()) bag.deleteOnExit();
+        }
+    }
+
+    private static File repositoryRoot() throws IOException {
+        File root = new File(System.getProperty("user.dir")).getAbsoluteFile();
+        if ("sim".equals(root.getName())) root = root.getParentFile();
+        return root.getCanonicalFile();
+    }
+
+    private static File simulatorRoot() throws IOException {
+        String configured = System.getProperty("ftc.sim.root");
+        if (configured == null || configured.trim().isEmpty()) {
+            configured = System.getenv("FTC_SIM_ROOT");
+        }
+        File root;
+        if (configured != null && !configured.trim().isEmpty()) {
+            root = new File(configured.trim());
+        } else {
+            root = new File(repositoryRoot().getParentFile(), "re-cock-nize");
+        }
+        root = root.getCanonicalFile();
+        if (!root.isDirectory()) {
+            throw new AssertionError("simulator root is missing: " + root
+                    + "; set FTC_SIM_ROOT or -Dftc.sim.root");
+        }
+        return root;
+    }
+
+    private static File pythonExecutable(File simulator) {
+        String configured = System.getProperty("ftc.sim.python");
+        if (configured == null || configured.trim().isEmpty()) {
+            configured = System.getenv("PYTHON");
+        }
+        File python = configured == null || configured.trim().isEmpty()
+                ? new File(simulator, ".venv/bin/python")
+                : new File(configured.trim());
+        if (!python.isFile()) {
+            throw new AssertionError("simulator Python executable is missing: " + python
+                    + "; set PYTHON or -Dftc.sim.python");
+        }
+        return python;
+    }
+
+    private static void assertTruncatedBagRejected() throws IOException {
+        File truncated = File.createTempFile("robot-replay-truncated", ".jsonl");
+        try {
+            java.nio.file.Files.writeString(truncated.toPath(),
+                    "{\"bag\":1,\"engine\":\"cplx1\","
+                            + "\"start_pose\":{\"x\":72,\"y\":72,\"h\":0}}\n"
+                            + "{\"seam\":\"logic\",\"t_ms\":0}\n");
+            try {
+                new ReplayController(truncated);
+                throw new AssertionError("truncated replay bag was accepted");
+            } catch (IllegalArgumentException expected) {
+                // The incomplete logic seam must not silently become an idle replay.
+            }
+        } finally {
+            if (!truncated.delete()) truncated.deleteOnExit();
         }
     }
 
@@ -149,6 +214,17 @@ public class ReplayIntegrationTest {
         }
         stopServer(process);
         throw new IOException("simulator did not listen on " + port);
+    }
+
+    private static final class TestLineController implements IController {
+        private boolean sent;
+
+        @Override
+        public RequestBatch decide(Feedback feedback) {
+            if (sent) return RequestBatch.idle();
+            sent = true;
+            return RequestBatch.of(Request.path(1, PathRequest.named("test-line")));
+        }
     }
 
     private static void stopServer(Process process) throws InterruptedException {
