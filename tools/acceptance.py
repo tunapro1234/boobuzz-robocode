@@ -18,6 +18,7 @@ import socket
 import subprocess
 import sys
 import time
+import re
 from typing import Any, Iterable
 
 
@@ -77,14 +78,56 @@ def discover_java(explicit: str | None) -> Path:
     configured = explicit or os.environ.get("JAVA")
     if configured:
         candidate = Path(configured).expanduser()
-    else:
-        java_home = os.environ.get("JAVA_HOME")
-        candidate = Path(java_home) / "bin/java" if java_home else Path(shutil.which("java") or "")
-    if not candidate.is_file():
-        raise RunnerError(
-            f"Java executable is missing: {candidate}; pass --java or set JAVA_HOME"
-        )
-    return candidate.resolve()
+        if not candidate.is_file():
+            located = shutil.which(configured)
+            candidate = Path(located) if located else candidate
+        if not candidate.is_file():
+            raise RunnerError(
+                f"Java executable is missing: {candidate}; pass --java or set JAVA_HOME"
+            )
+        return candidate.resolve()
+
+    candidates: list[Path] = []
+    java_home = os.environ.get("JAVA_HOME")
+    if java_home:
+        candidates.append(Path(java_home) / "bin/java")
+    on_path = shutil.which("java")
+    if on_path:
+        candidates.append(Path(on_path))
+    # If PATH points at an older JDK, inspect installed JDK homes rather than
+    # silently launching a runtime too old for the compiled Java distribution.
+    jvm_root = Path("/usr/lib/jvm")
+    if jvm_root.is_dir():
+        candidates.extend(sorted(jvm_root.glob("*/bin/java"), reverse=True))
+
+    compatible: list[tuple[int, Path]] = []
+    seen: set[Path] = set()
+    for candidate in candidates:
+        if not candidate.is_file():
+            continue
+        candidate = candidate.resolve()
+        if candidate in seen:
+            continue
+        seen.add(candidate)
+        try:
+            version = subprocess.run(
+                [str(candidate), "-version"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=2.0,
+                check=False,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            continue
+        match = re.search(r'version\s+"(\d+)', version.stderr + version.stdout)
+        if match and int(match.group(1)) >= 17:
+            compatible.append((int(match.group(1)), candidate))
+    if compatible:
+        return max(compatible, key=lambda item: item[0])[1]
+    raise RunnerError(
+        "no installed Java runtime >= 17 was found; pass --java or set JAVA_HOME"
+    )
 
 
 def discover_classpath(root: Path, explicit_dist: str | None,
