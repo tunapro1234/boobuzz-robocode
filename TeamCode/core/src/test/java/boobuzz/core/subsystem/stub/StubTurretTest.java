@@ -39,6 +39,23 @@ public class StubTurretTest {
         assertFalse(turret.onTarget());
     }
 
+    @Test
+    public void holdCancelsPendingAimSettleAndTransitionEvents() {
+        StubTurret turret = new StubTurret();
+        long settleMs = Math.round(RobotConstants.STUB_TURRET_SETTLE_S * 1000.0);
+        turret.observe(state(0));
+        turret.aimAt(10.0, 10.0);
+        turret.observe(state(settleMs));
+        turret.hold();
+        turret.observe(state(settleMs + 100));
+
+        assertFalse("a cancelled aim must not become locked later", turret.onTarget());
+        RobotAction.Builder out = new RobotAction.Builder();
+        turret.update(out);
+        assertTrue("cancelled transitions must not emit stale events",
+                out.build().events().isEmpty());
+    }
+
     private static RobotState state(long tMs) {
         return new RobotState(tMs, Map.of(), Map.of(), 0.0,
                 new Pose(0.0, 0.0, 0.0), 12.6);

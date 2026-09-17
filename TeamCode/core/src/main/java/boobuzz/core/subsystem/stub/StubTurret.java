@@ -58,7 +58,12 @@ public final class StubTurret implements ITurret {
 
     @Override
     public void hold() {
+        // Holding cancels an in-flight aim/scan transition. Keep angleRad as the
+        // physical hold position, but do not report a later lock for old work.
+        aiming = false;
         scanning = false;
+        lockedEventPending = false;
+        scanEventPending = false;
     }
 
     @Override
