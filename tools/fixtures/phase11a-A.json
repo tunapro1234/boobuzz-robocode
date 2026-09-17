@@ -1,0 +1,29 @@
+{
+  "chapter": "A",
+  "protocol": 1,
+  "dt_ms": 20,
+  "start_pose": {"x": 72.0, "y": 72.0, "h": 0.0},
+  "target_pose": {"x": 120.0, "y": 72.0, "h": 0.0},
+  "scenarios": {
+    "A-drive": {
+      "ticks": 1000,
+      "path": "test-line",
+      "request_id": 1,
+      "engines": ["direct", "cplx1"],
+      "seed1_repeats": 2,
+      "seed42_repeats": 1,
+      "truth_tolerance_in": 0.5,
+      "truth_tolerance_deg": 1.0
+    },
+    "A-cancel": {
+      "ticks": 101,
+      "path": "test-line",
+      "request_id": 1,
+      "manual_tick": 20,
+      "cancel_tick": 40,
+      "switch_ticks": [60, 80],
+      "switch_engines": [1, 0],
+      "seed_repeats": [42, 1]
+    }
+  }
+}
