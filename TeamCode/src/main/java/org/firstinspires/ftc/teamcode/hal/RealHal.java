@@ -1,12 +1,14 @@
 package org.firstinspires.ftc.teamcode.hal;
 
+import boobuzz.core.contract.ActionValidator;
 import boobuzz.core.contract.GamepadState;
-import boobuzz.core.hal.IHal;
 import boobuzz.core.contract.RobotAction;
 import boobuzz.core.contract.RobotState;
+import boobuzz.core.hal.IHal;
 import boobuzz.core.hal.Mechanism;
 
 import com.pedropathing.math.Pose;
+import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.Gamepad;
 import com.qualcomm.robotcore.hardware.HardwareMap;
@@ -46,9 +48,13 @@ public final class RealHal implements IHal {
 
         Map<String, Integer> encoders = new LinkedHashMap<>();
         Map<String, Double> velocities = new LinkedHashMap<>();
-        for (Map.Entry<String, DcMotorEx> entry : hardware.motors.entrySet()) {
-            encoders.put(entry.getKey(), entry.getValue().getCurrentPosition());
-            velocities.put(entry.getKey(), entry.getValue().getVelocity());
+        for (String name : mechanism.encoderNames()) {
+            DcMotorEx motor = hardware.encoders.get(name);
+            if (motor == null) {
+                throw new IllegalStateException("missing declared encoder input: " + name);
+            }
+            encoders.put(name, motor.getCurrentPosition());
+            velocities.put(name, motor.getVelocity());
         }
 
         double heading = hardware.pinpoint.getHeading(AngleUnit.RADIANS);
@@ -61,14 +67,49 @@ public final class RealHal implements IHal {
 
     @Override
     public void write(RobotAction action) {
-        for (String name : mechanism.motorNames()) {
-            hardware.motors.get(name).setPower(
-                    RobotAction.clamp(action.motor(name), -1.0, 1.0));
+        try {
+            // Validate the complete frame before touching any output.
+            ActionValidator.validate(action, mechanism);
+            for (String name : mechanism.motorNames()) {
+                double power = RobotAction.clamp(action.motor(name), -1.0, 1.0);
+                DcMotorEx dc = hardware.motors.get(name);
+                if (dc != null) {
+                    dc.setPower(power);
+                    continue;
+                }
+                CRServo cr = hardware.crServos.get(name);
+                if (cr != null) {
+                    cr.setPower(power);
+                    continue;
+                }
+                throw new IllegalStateException("no bound power device for '" + name + "'");
+            }
+
+            // Proto2 is sparse: absent positional keys hold their last device value.
+            // Legacy proto1 keeps the historical full-map zero fill.
+            if (mechanism.usesProto2()) {
+                for (Map.Entry<String, Double> entry : action.servos().entrySet()) {
+                    Servo servo = requireServo(entry.getKey());
+                    servo.setPosition(RobotAction.clamp(entry.getValue(), 0.0, 1.0));
+                }
+            } else {
+                for (String name : mechanism.servoNames()) {
+                    Servo servo = requireServo(name);
+                    servo.setPosition(RobotAction.clamp(action.servo(name), 0.0, 1.0));
+                }
+            }
+        } catch (RuntimeException failure) {
+            hardware.stopPower();
+            throw failure;
         }
-        for (String name : mechanism.servoNames()) {
-            Servo servo = hardware.servos.get(name);
-            servo.setPosition(RobotAction.clamp(action.servo(name), 0.0, 1.0));
+    }
+
+    private Servo requireServo(String name) {
+        Servo servo = hardware.servos.get(name);
+        if (servo == null) {
+            throw new IllegalStateException("no bound positional servo for '" + name + "'");
         }
+        return servo;
     }
 
     @Override
@@ -103,5 +144,4 @@ public final class RealHal implements IHal {
         if (gamepad.dpad_right) return GamepadState.Dpad.RIGHT;
         return GamepadState.Dpad.NONE;
     }
-
 }
