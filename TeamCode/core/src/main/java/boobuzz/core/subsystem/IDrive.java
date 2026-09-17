@@ -22,7 +22,7 @@ public interface IDrive extends ISubsystem {
 
     /** Resets the software/localizer pose used by path following. */
     default void resetPose(Pose pose) {
-        // Legacy drive implementations without a localizer can safely ignore this seam.
+        throw new UnsupportedOperationException("drive does not support resetPose");
     }
 
     boolean pathDone();

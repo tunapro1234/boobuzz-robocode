@@ -21,6 +21,7 @@ import org.junit.Test;
 import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThrows;
 
 public class ResetPoseEngineTest {
 
@@ -44,6 +45,22 @@ public class ResetPoseEngineTest {
 
         assertPose(30.0, 70.0, -0.25, drive.resetPose);
         assertEquals(RequestStatus.State.DONE, status(engine, 8).state());
+    }
+
+    @Test
+    public void unsupportedDriveResetIsExplicitInsteadOfSilent() {
+        IDrive legacy = new IDrive() {
+            @Override public void observe(RobotState state) {}
+            @Override public void update(RobotAction.Builder out) {}
+            @Override public void manual(double vx, double vy, double omega) {}
+            @Override public void follow(PathRequest request) {}
+            @Override public void stop() {}
+            @Override public boolean pathDone() { return true; }
+            @Override public Pose pose() { return Pose.zero(); }
+        };
+
+        assertThrows(UnsupportedOperationException.class,
+                () -> legacy.resetPose(Pose.zero()));
     }
 
     private static Subsystems subsystems(RecordingDrive drive) {
