@@ -29,6 +29,8 @@ import java.util.concurrent.atomic.AtomicReference;
 public final class SocketController implements boobuzz.core.controller.IController, AutoCloseable {
 
     private static final int FEEDBACK_QUEUE_CAPACITY = 64;
+    private static final long CONNECTION_WRITE_DEADLINE_NANOS =
+            TimeUnit.MILLISECONDS.toNanos(1000);
 
     private final int port;
     private final long timeoutNanos;
@@ -225,6 +227,8 @@ public final class SocketController implements boobuzz.core.controller.IControll
         private final ArrayBlockingQueue<String> outbound =
                 new ArrayBlockingQueue<>(FEEDBACK_QUEUE_CAPACITY);
         private final Thread writerThread;
+        private final Thread writeWatchdogThread;
+        private volatile long writeStartedNanos;
         private volatile boolean open = true;
 
         private Connection(Socket socket) throws IOException {
@@ -238,8 +242,12 @@ public final class SocketController implements boobuzz.core.controller.IControll
             readerThread.setDaemon(true);
             writerThread = new Thread(this::writeLoop,
                     "control-socket-writer-" + socket.getRemoteSocketAddress());
+            writeWatchdogThread = new Thread(this::writeDeadlineLoop,
+                    "control-socket-writer-watchdog-" + socket.getRemoteSocketAddress());
             writerThread.setDaemon(true);
+            writeWatchdogThread.setDaemon(true);
             writerThread.start();
+            writeWatchdogThread.start();
         }
 
         private void offer(String line) {
@@ -255,17 +263,39 @@ public final class SocketController implements boobuzz.core.controller.IControll
                 while (open || !outbound.isEmpty()) {
                     String line = outbound.poll(100, TimeUnit.MILLISECONDS);
                     if (line == null) continue;
+                    writeStartedNanos = System.nanoTime();
                     writer.write(line);
                     writer.newLine();
                     writer.flush();
+                    writeStartedNanos = 0L;
                 }
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             } catch (IOException e) {
+                writeStartedNanos = 0L;
                 if (open) {
                     connection.compareAndSet(this, null);
                     close();
                 }
+            } finally {
+                writeStartedNanos = 0L;
+            }
+        }
+
+        private void writeDeadlineLoop() {
+            try {
+                while (open) {
+                    long started = writeStartedNanos;
+                    if (started != 0L
+                            && System.nanoTime() - started > CONNECTION_WRITE_DEADLINE_NANOS) {
+                        connection.compareAndSet(this, null);
+                        close();
+                        return;
+                    }
+                    Thread.sleep(25L);
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
             }
         }
 
@@ -298,6 +328,14 @@ public final class SocketController implements boobuzz.core.controller.IControll
             if (writerThread != Thread.currentThread()) {
                 try {
                     writerThread.join(1000);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+            writeWatchdogThread.interrupt();
+            if (writeWatchdogThread != Thread.currentThread()) {
+                try {
+                    writeWatchdogThread.join(500);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                 }

@@ -31,6 +31,8 @@ public final class DebugTap implements AutoCloseable {
     private static final int QUEUE_CAPACITY = 512;
     private static final int CLIENT_QUEUE_CAPACITY = 512;
     private static final int DROP_REPORT_INTERVAL = 64;
+    private static final long CLIENT_WRITE_DEADLINE_NANOS =
+            TimeUnit.MILLISECONDS.toNanos(1000);
 
     private final int port;
     private final ServerSocket server;
@@ -282,6 +284,8 @@ public final class DebugTap implements AutoCloseable {
         private final ArrayBlockingQueue<String> lines =
                 new ArrayBlockingQueue<>(CLIENT_QUEUE_CAPACITY);
         private final Thread writerThread;
+        private final Thread writeWatchdogThread;
+        private volatile long writeStartedNanos;
         private volatile boolean open = true;
 
         private Client(Socket socket) throws IOException {
@@ -290,8 +294,12 @@ public final class DebugTap implements AutoCloseable {
                     socket.getOutputStream(), StandardCharsets.UTF_8));
             writerThread = new Thread(this::writeLoop,
                     "debug-tap-client-" + socket.getRemoteSocketAddress());
+            writeWatchdogThread = new Thread(this::writeDeadlineLoop,
+                    "debug-tap-client-watchdog-" + socket.getRemoteSocketAddress());
             writerThread.setDaemon(true);
+            writeWatchdogThread.setDaemon(true);
             writerThread.start();
+            writeWatchdogThread.start();
         }
 
         /** Adds one line, dropping this client's oldest line if it is full. */
@@ -316,16 +324,37 @@ public final class DebugTap implements AutoCloseable {
                     if (line == null) {
                         continue;
                     }
+                    writeStartedNanos = System.nanoTime();
                     writer.write(line);
                     writer.newLine();
                     writer.flush();
+                    writeStartedNanos = 0L;
                 }
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             } catch (IOException e) {
+                writeStartedNanos = 0L;
                 if (open) {
                     remove(this);
                 }
+            } finally {
+                writeStartedNanos = 0L;
+            }
+        }
+
+        private void writeDeadlineLoop() {
+            try {
+                while (open) {
+                    long started = writeStartedNanos;
+                    if (started != 0L
+                            && System.nanoTime() - started > CLIENT_WRITE_DEADLINE_NANOS) {
+                        remove(this);
+                        return;
+                    }
+                    Thread.sleep(25L);
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
             }
         }
 
@@ -349,6 +378,14 @@ public final class DebugTap implements AutoCloseable {
             if (writerThread != Thread.currentThread()) {
                 try {
                     writerThread.join(500);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+            writeWatchdogThread.interrupt();
+            if (writeWatchdogThread != Thread.currentThread()) {
+                try {
+                    writeWatchdogThread.join(500);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                 }

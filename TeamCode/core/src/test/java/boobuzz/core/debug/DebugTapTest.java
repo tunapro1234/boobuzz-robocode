@@ -111,6 +111,8 @@ public class DebugTapTest {
         }
         assertThreadsGone("debug-tap-accept-", 1000);
         assertThreadsGone("debug-tap-dispatch", 1000);
+        assertThreadsGone("debug-tap-client-", 1000);
+        assertThreadsGone("debug-tap-client-watchdog-", 1000);
     }
 
     private static void waitForClient(DebugTap tap) throws InterruptedException {

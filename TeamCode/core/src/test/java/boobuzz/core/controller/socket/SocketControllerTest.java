@@ -145,6 +145,8 @@ public class SocketControllerTest {
         }
         assertThreadsGone("control-socket-accept-", 1000);
         assertThreadsGone("control-socket-reader-", 1000);
+        assertThreadsGone("control-socket-writer-", 1000);
+        assertThreadsGone("control-socket-writer-watchdog-", 1000);
         assertThreadsGone("control-socket-feedback", 1000);
     }
 
