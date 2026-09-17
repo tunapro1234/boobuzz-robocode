@@ -25,6 +25,7 @@ public class MechanismTest {
     public void robotDimensionsAndPhysicsComeFromConstants() {
         assertEquals(18.0, RobotConstants.ROBOT_WIDTH, 1e-9);
         assertEquals(18.0, RobotConstants.ROBOT_LENGTH, 1e-9);
+        assertEquals(12.0, RobotConstants.ROBOT_MASS_KG, 1e-9);
         assertEquals("deg", RobotConstants.ANGLE_UNIT);
         assertEquals("mecanum", RobotConstants.DRIVETRAIN_TYPE);
         assertEquals(4.0, RobotConstants.WHEEL_DIAMETER, 1e-9);
