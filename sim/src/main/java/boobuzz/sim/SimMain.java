@@ -168,6 +168,9 @@ public final class SimMain {
                     return 1;
                 }
             }
+            if (loop.bagError() != null) {
+                throw new IllegalStateException("bag I/O failed: " + loop.bagError());
+            }
             } finally {
                 if (loop != null) loop.close();
                 if (socketController != null) socketController.close();

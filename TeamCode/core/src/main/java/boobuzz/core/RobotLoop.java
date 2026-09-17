@@ -159,6 +159,11 @@ public final class RobotLoop implements AutoCloseable {
         return debugTap;
     }
 
+    /** Returns an asynchronous bag I/O failure, if the dispatcher has observed one. */
+    public String bagError() {
+        return debugTap == null ? null : debugTap.bagError();
+    }
+
     public void setSubsystemTrace(SubsystemTrace trace) {
         subsystemTrace = trace;
     }
