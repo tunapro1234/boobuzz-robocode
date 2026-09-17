@@ -6,8 +6,7 @@ import boobuzz.core.contract.RequestBatch;
 import boobuzz.core.contract.RequestStream;
 import boobuzz.core.hal.IHal;
 import boobuzz.core.debug.SubsystemTrace;
-import boobuzz.core.logic.cplx1.CplxEngine1;
-import boobuzz.core.logic.direct.DirectEngine;
+import boobuzz.core.logic.EngineRegistry;
 import boobuzz.core.logic.IRobotEngine;
 import boobuzz.core.hal.Mechanism;
 import boobuzz.core.subsystem.stub.StubIntake;
@@ -16,6 +15,7 @@ import boobuzz.core.subsystem.stub.StubTurret;
 import boobuzz.core.subsystem.Subsystems;
 import boobuzz.core.subsystem.pedro.PedroDrive;
 
+import java.util.List;
 import java.util.Objects;
 
 /** Builds the shared engine/controller chain for the robot and simulator. */
@@ -24,12 +24,12 @@ public final class RobotFactory {
     private RobotFactory() {}
 
     public static RobotLoop create(IHal hal, Mechanism mechanism) {
-        return create(hal, mechanism, "cplx1", null);
+        return create(hal, mechanism, EngineRegistry.CPLX1_NAME, null);
     }
 
     /** Builds a loop with a fixed per-tick stream instead of the HAL gamepad. */
     public static RobotLoop create(IHal hal, Mechanism mechanism, RequestStream fixedStream) {
-        return create(hal, mechanism, "cplx1", fixedStream);
+        return create(hal, mechanism, EngineRegistry.CPLX1_NAME, fixedStream);
     }
 
     public static RobotLoop create(IHal hal, Mechanism mechanism, String engineName) {
@@ -86,15 +86,13 @@ public final class RobotFactory {
         SubsystemTrace trace = traceEnabled || debugTapPort != 0 ? new SubsystemTrace() : null;
         Subsystems subsystems = trace == null
                 ? baseSubsystems : SubsystemTrace.wrap(baseSubsystems, trace);
-        DirectEngine direct = new DirectEngine(subsystems);
-        CplxEngine1 cplx1 = new CplxEngine1(subsystems);
-        IRobotEngine engine = switch (engineName) {
-            case "cplx1", "cplx_engine_1" -> cplx1;
-            case "direct" -> direct;
-            default -> throw new IllegalArgumentException(
-                    "unknown engine: " + engineName + " (expected direct or cplx1)");
-        };
-        RobotLoop loop = new RobotLoop(hal, java.util.Arrays.asList(direct, cplx1), engine,
+        List<IRobotEngine> engines = EngineRegistry.create(subsystems);
+        IRobotEngine engine = EngineRegistry.find(
+                EngineRegistry.bind(engines), EngineRegistry.indexForName(engineName));
+        if (engine == null) {
+            throw new IllegalArgumentException("engine is not available: " + engineName);
+        }
+        RobotLoop loop = new RobotLoop(hal, engines, engine,
                 controller, debugTapPort);
         loop.setSubsystemTrace(trace);
         return loop;

@@ -5,6 +5,7 @@ import boobuzz.core.hal.IHal;
 import boobuzz.core.contract.RobotAction;
 import boobuzz.core.contract.RobotState;
 import boobuzz.core.hal.Mechanism;
+import boobuzz.core.logic.EngineRegistry;
 
 import com.pedropathing.math.Pose;
 
@@ -14,6 +15,7 @@ import org.junit.Test;
 import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 
 public class RobotFactoryTest {
 
@@ -29,6 +31,30 @@ public class RobotFactoryTest {
         StubHal hal = new StubHal();
         assertEquals("cplx1",
                 RobotFactory.create(hal, mechanism).engine().name());
+    }
+
+    @Test
+    public void replayAliasKeepsCplx1Binding() {
+        StubHal hal = new StubHal();
+        assertEquals("cplx1", RobotFactory.create(hal, mechanism,
+                EngineRegistry.CPLX1_ALIAS).engine().name());
+    }
+
+    @Test
+    public void directSelectorUsesStableIndexZero() {
+        StubHal hal = new StubHal();
+        assertEquals(EngineRegistry.DIRECT_INDEX,
+                EngineRegistry.indexForName(EngineRegistry.DIRECT_NAME));
+        assertEquals("direct", RobotFactory.create(hal, mechanism,
+                EngineRegistry.DIRECT_NAME).engine().name());
+    }
+
+    @Test
+    public void futureSelectorsAreReservedUntilImplemented() {
+        assertFalse(EngineRegistry.isImplementedIndex(EngineRegistry.CPLX2_INDEX));
+        assertFalse(EngineRegistry.isImplementedIndex(EngineRegistry.VISION_A_INDEX));
+        assertFalse(EngineRegistry.isImplementedIndex(EngineRegistry.VISION_B_INDEX));
+        assertFalse(EngineRegistry.isImplementedIndex(EngineRegistry.RANGE_INDEX));
     }
 
     private static final class StubHal implements IHal {
