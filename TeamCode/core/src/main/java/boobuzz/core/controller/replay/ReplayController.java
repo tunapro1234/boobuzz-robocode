@@ -29,9 +29,9 @@ public final class ReplayController implements IController {
 
     public ReplayController(File bagPath) throws IOException {
         List<RequestBatch> loadedBatches = new ArrayList<>();
-        Pose loadedPose = null;
         Pose headerPose = null;
         String loadedEngine = "cplx1";
+        boolean headerSeen = false;
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(
                 new FileInputStream(bagPath), StandardCharsets.UTF_8))) {
             String line;
@@ -39,32 +39,29 @@ public final class ReplayController implements IController {
             if (line.trim().isEmpty()) continue;
             Map<String, Object> root = JsonCodec.parseObject(line);
             if (root.containsKey("bag")) {
+                headerSeen = true;
                 loadedEngine = JsonCodec.str(root, "engine", loadedEngine);
                 Map<String, Object> start = JsonCodec.object(root, "start_pose");
-                if (!start.isEmpty()) {
-                    headerPose = new Pose(JsonCodec.num(start, "x", 0.0),
-                            JsonCodec.num(start, "y", 0.0),
-                            JsonCodec.num(start, "h", 0.0));
+                if (start.isEmpty()) {
+                    throw new IOException("replay bag requires a start_pose reset pose");
                 }
+                headerPose = new Pose(JsonCodec.num(start, "x", 0.0),
+                        JsonCodec.num(start, "y", 0.0),
+                        JsonCodec.num(start, "h", 0.0));
                 continue;
             }
             String seam = JsonCodec.str(root, "seam", "");
             if ("logic".equals(seam)) {
                 loadedBatches.add(SeamJson.batchFrom(root));
-            } else if ("hal".equals(seam) && loadedPose == null) {
-                Map<String, Object> state = JsonCodec.object(root, "state");
-                Map<String, Object> pinpoint = JsonCodec.object(state, "pinpoint");
-                if (!pinpoint.isEmpty()) {
-                    loadedPose = new Pose(JsonCodec.num(pinpoint, "x", 0.0),
-                            JsonCodec.num(pinpoint, "y", 0.0),
-                            JsonCodec.num(pinpoint, "h", 0.0));
-                }
             }
             }
         }
+        if (!headerSeen || headerPose == null) {
+            throw new IOException("replay bag is missing its start_pose header");
+        }
         batches = Collections.unmodifiableList(new ArrayList<>(loadedBatches));
         // The header is the reset pose; the first HAL seam is already post-reset.
-        initialPose = headerPose == null ? loadedPose : headerPose;
+        initialPose = headerPose;
         engineName = loadedEngine;
     }
 

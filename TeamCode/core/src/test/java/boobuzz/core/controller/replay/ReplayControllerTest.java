@@ -12,12 +12,14 @@ import com.pedropathing.math.Pose;
 
 import org.junit.Test;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
 public class ReplayControllerTest {
@@ -61,6 +63,18 @@ public class ReplayControllerTest {
             assertEquals(12.0, replay.initialPose().x(), 0.0);
             assertEquals(34.0, replay.initialPose().y(), 0.0);
             assertEquals(0.5, replay.initialPose().heading(), 0.0);
+        } finally {
+            Files.deleteIfExists(bag);
+        }
+    }
+
+    @Test
+    public void legacyBagWithoutHeaderPoseIsRejected() throws Exception {
+        Path bag = Files.createTempFile("replay-legacy", ".jsonl");
+        String header = JsonCodec.stringify(Map.of("bag", 1, "engine", "cplx1"));
+        Files.write(bag, List.of(header));
+        try {
+            assertThrows(IOException.class, () -> new ReplayController(bag.toFile()));
         } finally {
             Files.deleteIfExists(bag);
         }
