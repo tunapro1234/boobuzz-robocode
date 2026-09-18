@@ -9,7 +9,7 @@ import boobuzz.core.debug.SubsystemTrace;
 import boobuzz.core.logic.EngineRegistry;
 import boobuzz.core.logic.IRobotEngine;
 import boobuzz.core.hal.Mechanism;
-import boobuzz.core.subsystem.stub.StubIntake;
+import boobuzz.core.subsystem.intake.PowerIntake;
 import boobuzz.core.subsystem.stub.StubShooter;
 import boobuzz.core.subsystem.stub.StubTurret;
 import boobuzz.core.subsystem.Subsystems;
@@ -82,7 +82,7 @@ public final class RobotFactory {
         Objects.requireNonNull(engineName, "engineName");
         Objects.requireNonNull(controller, "controller");
         Subsystems baseSubsystems = new Subsystems(
-                new PedroDrive(mechanism), new StubShooter(), new StubIntake(), new StubTurret());
+                new PedroDrive(mechanism), new StubShooter(), new PowerIntake(), new StubTurret());
         SubsystemTrace trace = traceEnabled || debugTapPort != 0 ? new SubsystemTrace() : null;
         Subsystems subsystems = trace == null
                 ? baseSubsystems : SubsystemTrace.wrap(baseSubsystems, trace);

@@ -30,6 +30,12 @@ public class MechanismTest {
         assertEquals(18.0, RobotConstants.ROBOT_WIDTH, 1e-9);
         assertEquals(18.0, RobotConstants.ROBOT_LENGTH, 1e-9);
         assertEquals(12.0, RobotConstants.ROBOT_MASS_KG, 1e-9);
+        assertEquals(9.0, RobotConstants.INTAKE_MOUTH_FORWARD_IN, 1e-9);
+        assertEquals(3.2, RobotConstants.INTAKE_OPENING_IN, 1e-9);
+        assertEquals(2.0, RobotConstants.INTAKE_CAPTURE_DEPTH_IN, 1e-9);
+        assertEquals(3.0, RobotConstants.INTAKE_CAPACITY, 1e-9);
+        assertEquals(2.8, RobotConstants.POLLEN_DIAMETER_IN, 1e-9);
+        assertEquals(3.6, RobotConstants.NECTAR_DIAMETER_IN, 1e-9);
         assertEquals("deg", RobotConstants.ANGLE_UNIT);
         assertEquals("mecanum", RobotConstants.DRIVETRAIN_TYPE);
         assertEquals(4.0, RobotConstants.WHEEL_DIAMETER, 1e-9);

@@ -6,6 +6,9 @@ import boobuzz.core.contract.RobotAction;
 import boobuzz.core.contract.RobotState;
 import boobuzz.core.hal.Mechanism;
 import boobuzz.core.logic.EngineRegistry;
+import boobuzz.core.logic.cplx1.CplxEngine1;
+import boobuzz.core.logic.direct.DirectEngine;
+import boobuzz.core.subsystem.intake.PowerIntake;
 
 import com.pedropathing.math.Pose;
 
@@ -16,6 +19,7 @@ import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 public class RobotFactoryTest {
 
@@ -55,6 +59,17 @@ public class RobotFactoryTest {
         assertFalse(EngineRegistry.isImplementedIndex(EngineRegistry.VISION_A_INDEX));
         assertFalse(EngineRegistry.isImplementedIndex(EngineRegistry.VISION_B_INDEX));
         assertFalse(EngineRegistry.isImplementedIndex(EngineRegistry.RANGE_INDEX));
+    }
+
+    @Test
+    public void factoryWiresPowerIntakeIntoBothEngines() {
+        StubHal hal = new StubHal();
+        assertTrue(((DirectEngine) RobotFactory.create(hal, mechanism,
+                EngineRegistry.DIRECT_NAME).engine()).subsystems().intake()
+                instanceof PowerIntake);
+        assertTrue(((CplxEngine1) RobotFactory.create(hal, mechanism,
+                EngineRegistry.CPLX1_NAME).engine()).subsystems().intake()
+                instanceof PowerIntake);
     }
 
     private static final class StubHal implements IHal {

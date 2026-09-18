@@ -16,6 +16,13 @@ public final class RobotConstants {
     public static final double ROBOT_WIDTH = 18.0;
     public static final double ROBOT_LENGTH = 18.0;
     public static final double ROBOT_MASS_KG = 12.0;
+    // Provisional B02 pollen-intake fixture geometry, in inches.
+    public static final double INTAKE_MOUTH_FORWARD_IN = 9.0;
+    public static final double INTAKE_OPENING_IN = 3.2;
+    public static final double INTAKE_CAPTURE_DEPTH_IN = 2.0;
+    public static final double INTAKE_CAPACITY = 3.0;
+    public static final double POLLEN_DIAMETER_IN = 2.8;
+    public static final double NECTAR_DIAMETER_IN = 3.6;
     public static final String ANGLE_UNIT = "deg";
     public static final String DRIVETRAIN_TYPE = "mecanum";
     public static final double WHEEL_DIAMETER = 4.0;
@@ -120,6 +127,12 @@ public final class RobotConstants {
         StringBuilder source = new StringBuilder()
                 .append(ROBOT_WIDTH).append('|').append(ROBOT_LENGTH).append('|')
                 .append(robotMassKg).append('|')
+                .append(INTAKE_MOUTH_FORWARD_IN).append('|')
+                .append(INTAKE_OPENING_IN).append('|')
+                .append(INTAKE_CAPTURE_DEPTH_IN).append('|')
+                .append(INTAKE_CAPACITY).append('|')
+                .append(POLLEN_DIAMETER_IN).append('|')
+                .append(NECTAR_DIAMETER_IN).append('|')
                 .append(WHEEL_DIAMETER).append('|').append(BATTERY_V).append('|')
                 .append(MOTOR_TAU_S).append('|')
                 .append(EFFICIENCY_FL).append('|').append(EFFICIENCY_FR).append('|')
