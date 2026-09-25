@@ -53,6 +53,7 @@ public final class DirectEngine implements IRobotEngine {
         subsystems.observe(state);
         subsystems.turret().setRobotPose(subsystems.drive().pose());
         recovery.observe(state.t());
+        map.observe(state.t());
         return new WorldSnapshot(
                 state.t(), subsystems.drive().pose(), state.yaw(), state.voltage());
     }
@@ -67,7 +68,8 @@ public final class DirectEngine implements IRobotEngine {
         if (cancelAll) {
             cancelAll(statuses);
         }
-        boolean driveRequest = batch.requests().stream()
+        List<Request> requests = RequestBatch.withoutCancelled(batch, statuses);
+        boolean driveRequest = requests.stream()
                 .anyMatch(request -> DirectMap.isDrive(request.type()));
 
         if (batch.stream().manualDrive()) {
@@ -89,7 +91,7 @@ public final class DirectEngine implements IRobotEngine {
             }
         }
 
-        for (Request request : batch.requests()) {
+        for (Request request : requests) {
             if (batch.stream().manualDrive() && DirectMap.isDrive(request.type())) {
                 statuses.add(RequestStatus.rejected(request.id(), "overridden by manual drive"));
                 continue;
@@ -100,7 +102,11 @@ public final class DirectEngine implements IRobotEngine {
                 driveJob = null;
             }
             if (request.type() == RequestType.STOP_SHOOTING) {
-                map.stopShooting(shooterJob);
+                if (shooterJob != null || !recovery.blocksShooter()) {
+                    if (map.stopShooting(shooterJob, statuses)) {
+                        shooterJob = null;
+                    }
+                }
                 statuses.add(RequestStatus.done(request.id()));
                 continue;
             }

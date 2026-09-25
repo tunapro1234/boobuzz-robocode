@@ -45,7 +45,10 @@ public final class ShooterLogic {
     private boolean turretOwned;
     private long prepareSinceMs = -1;
     private long pulseEndedMs = -1;
+    private long beganMs;
     private boolean recoveryHold;
+    /** A finished SHOOT/SPIN_UP left the flywheel at speed; STOP_SHOOTING spins it down. */
+    private boolean warm;
 
     public ShooterLogic(IShooter shooter, TurretLogic turret) {
         this(shooter, turret, MechanismProfile.STUB);
@@ -131,10 +134,23 @@ public final class ShooterLogic {
         recoveryHold = hold;
     }
 
-    /** STOP_SHOOTING: finish the current pulse, start no new ones. Always accepted. */
-    public RequestStatus stopShooting(int id) {
+    /**
+     * STOP_SHOOTING: finish the current pulse, start no new ones, then spin down (archive
+     * ShootingController: releasing RT returns to IDLE and calls shooter.disable()). A
+     * completed shot or spin-up kept the flywheel warm; that is spun down here too.
+     * Always accepted.
+     */
+    public RequestStatus stopShooting(int id, List<RequestStatus> statuses) {
         if (shot && busy()) {
             stopping = true;
+        } else if (busy()) {
+            shooter.spinDown();
+            finishWith(State.COMPLETE, statuses,
+                    new RequestStatus(requestId, RequestStatus.State.DONE, 0.0, "stopped"));
+            warm = false;
+        } else if (warm) {
+            shooter.spinDown();
+            warm = false;
         }
         return RequestStatus.done(id);
     }
@@ -210,6 +226,7 @@ public final class ShooterLogic {
 
     private void stop() {
         shooter.spinDown();
+        warm = false;
         turret.holdForShot(false);
         state = State.IDLE;
         requestId = -1;
@@ -230,6 +247,8 @@ public final class ShooterLogic {
         presetPending = false;
         explicitRpm = targetRpm;
         prepareSinceMs = -1;
+        beganMs = nowMs;
+        warm = false;
         latchTargets();
         if (shot && !turretOwned) {
             turret.enable();
@@ -271,14 +290,24 @@ public final class ShooterLogic {
         if (!shot) {
             if (shooter.isReady()) {
                 finish(statuses, RequestStatus.done(requestId));
+                warm = true;
             } else {
                 statuses.add(active(requestId, 0.0, "spinning up"));
             }
             return;
         }
-        if (remaining == 0 || stopping) {
+        if (stopping) {
+            // Archive: releasing RT (FINISHING_PULSE -> IDLE) disables the shooter.
+            shooter.spinDown();
             finish(statuses, remaining == 0 ? RequestStatus.done(requestId)
                     : new RequestStatus(requestId, RequestStatus.State.DONE, progress(), "stopped"));
+            return;
+        }
+        if (remaining == 0) {
+            // Archive: RT held keeps AUTO_SHOOT spinning between pulses; the flywheel
+            // stays warm for the next one-at-a-time SHOOT until STOP_SHOOTING or a cancel.
+            finish(statuses, RequestStatus.done(requestId));
+            warm = true;
             return;
         }
         if (recoveryHold) {
@@ -294,7 +323,8 @@ public final class ShooterLogic {
         }
         String blocked = blockReason();
         if (blocked != null) {
-            if (turret.startupDone() && prepareSinceMs < 0) {
+            if (prepareSinceMs < 0 && (turret.startupDone()
+                    || nowMs - beganMs >= RobotConstants.SHOT_TURRET_STARTUP_BOUND_MS)) {
                 prepareSinceMs = nowMs;
             }
             if (prepareSinceMs >= 0 && nowMs - prepareSinceMs > RobotConstants.SHOT_PREPARE_TIMEOUT_MS) {

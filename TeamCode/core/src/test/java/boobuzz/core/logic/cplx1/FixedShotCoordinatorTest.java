@@ -181,7 +181,9 @@ public class FixedShotCoordinatorTest {
         rig.turret.status = ITurret.AimResult.NOT_INITIALIZED;
         rig.turret.onTarget = false;
         rig.run(RequestBatch.of(Request.shoot(2, 1)));
-        for (int i = 0; i < 250; i++) {
+        // Startup ends inside the bound: the whole prepare timeout still follows it.
+        long startupTicks = RobotConstants.SHOT_TURRET_STARTUP_BOUND_MS / 20 - 5;
+        for (int i = 0; i < startupTicks; i++) {
             rig.run(RequestBatch.idle());
             assertEquals(RequestStatus.State.ACTIVE, rig.status(2).state());
         }
@@ -196,6 +198,24 @@ public class FixedShotCoordinatorTest {
         assertTrue(rig.t - startupDone <= RobotConstants.SHOT_PREPARE_TIMEOUT_MS + 40);
         assertEquals(0.0, rig.last.motor(FLYWHEEL), 0.0);
         assertEquals(ShooterLogic.State.FAULT, rig.engine.shooter().state());
+    }
+
+    @Test
+    public void neverInitializedTurretFailsAfterTheStartupBound() {
+        Rig rig = new Rig();
+        rig.turret.status = ITurret.AimResult.NOT_INITIALIZED;
+        rig.turret.onTarget = false;
+        rig.run(RequestBatch.of(Request.shoot(2, 1)));
+        long began = rig.t;
+        RequestStatus failed = rig.runUntilTerminal(2);
+        assertEquals(RequestStatus.State.FAILED, failed.state());
+        assertEquals("prepare timeout: aiming: NOT_INITIALIZED", failed.note());
+        long waited = rig.t - began;
+        long limit = RobotConstants.SHOT_TURRET_STARTUP_BOUND_MS
+                + RobotConstants.SHOT_PREPARE_TIMEOUT_MS;
+        assertTrue("failed after " + waited + " ms", waited > limit);
+        assertTrue("failed after " + waited + " ms", waited <= limit + 40);
+        assertEquals(0.0, rig.last.motor(FLYWHEEL), 0.0);
     }
 
     @Test
@@ -226,6 +246,49 @@ public class FixedShotCoordinatorTest {
             rig.run(RequestBatch.idle());
         }
         assertEquals(1, pulses(rig.trace).size());
+        assertEquals("archive: releasing RT disables the shooter", 0.0,
+                rig.last.motor(FLYWHEEL), 0.0);
+    }
+
+    @Test
+    public void countDoneKeepsTheFlywheelWarmUntilStopShooting() {
+        Rig rig = new Rig();
+        rig.run(RequestBatch.of(Request.shoot(2, 1)));
+        assertEquals(RequestStatus.State.DONE, rig.runUntilTerminal(2).state());
+        for (int i = 0; i < 50; i++) {
+            rig.run(RequestBatch.idle());
+            assertTrue("warm between one-at-a-time shots", rig.last.motor(FLYWHEEL) > 0.0);
+        }
+        rig.run(RequestBatch.of(Request.stopShooting(3)));
+        assertEquals(RequestStatus.State.DONE, rig.status(3).state());
+        assertEquals(0.0, rig.last.motor(FLYWHEEL), 0.0);
+        assertEquals(0.0, rig.shooter.targetRpm(), 0.0);
+    }
+
+    @Test
+    public void stopShootingEndsASpinUp() {
+        Rig rig = new Rig();
+        rig.run(RequestBatch.of(Request.spinUp(2, 3000.0)));
+        assertEquals(RequestStatus.State.ACTIVE, rig.status(2).state());
+        rig.run(RequestBatch.of(Request.stopShooting(3)));
+        RequestStatus stopped = rig.status(2);
+        assertEquals(RequestStatus.State.DONE, stopped.state());
+        assertEquals("stopped", stopped.note());
+        assertEquals(0.0, rig.last.motor(FLYWHEEL), 0.0);
+    }
+
+    @Test
+    public void aRequestCancelledInItsOwnBatchNeverStarts() {
+        Rig rig = new Rig();
+        rig.run(new RequestBatch(RequestStream.idle(), List.of(Request.shoot(2, 1)),
+                new int[] {2}));
+        RequestStatus cancelled = rig.status(2);
+        assertEquals(RequestStatus.State.REJECTED, cancelled.state());
+        assertEquals("cancelled", cancelled.note());
+        assertEquals(0.0, rig.last.motor(FLYWHEEL), 0.0);
+        rig.run(RequestBatch.idle());
+        assertEquals(0.0, rig.last.motor(FLYWHEEL), 0.0);
+        assertEquals(0.0, rig.last.motor(FEEDER), 0.0);
     }
 
     @Test

@@ -82,7 +82,8 @@ public final class CplxEngine1 implements IRobotEngine {
             intakeOwnerId = null;
             turret.disable();
         }
-        motion.act(batch.stream(), batch.requests(), batch.cancels(), statuses);
+        List<Request> requests = RequestBatch.withoutCancelled(batch, statuses);
+        motion.act(batch.stream(), requests, batch.cancels(), statuses);
         for (int id : batch.cancels()) {
             if (id != RequestBatch.CANCEL_ALL) {
                 shooter.cancel(id, statuses);
@@ -94,7 +95,7 @@ public final class CplxEngine1 implements IRobotEngine {
             }
         }
 
-        for (Request request : batch.requests()) {
+        for (Request request : requests) {
             switch (request.type()) {
                 case RESET_POSE -> handleResetPose(request, statuses);
                 case SHOOT -> {
@@ -111,7 +112,7 @@ public final class CplxEngine1 implements IRobotEngine {
                 case INTAKE, INTAKE_ON, INTAKE_OFF -> handleIntake(request, statuses);
                 case TURRET_AIM -> handleTurretAim(request, statuses);
                 case SET_SHOT_PRESET -> handleShotPreset(request, statuses);
-                case STOP_SHOOTING -> statuses.add(shooter.stopShooting(request.id()));
+                case STOP_SHOOTING -> statuses.add(shooter.stopShooting(request.id(), statuses));
                 case MECHANISM_RECOVERY -> handleRecovery(request, statuses);
                 default -> { }
             }

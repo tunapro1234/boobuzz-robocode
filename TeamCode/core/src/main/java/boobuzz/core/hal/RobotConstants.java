@@ -151,6 +151,12 @@ public final class RobotConstants {
     // <= 2 in/s and <= 5 deg/s held for 150 ms).
     public static final int SHOT_MAX_COUNT = 3;
     public static final long SHOT_PREPARE_TIMEOUT_MS = 3000;
+    // Derived bound, not a new value: a shot waits at most one full archive turret
+    // calibration window (TURRET_FULL_TRUST_S + TURRET_FADE_OUT_S) for turret startup
+    // before its prepare timeout starts anyway (review B08 major 1: a turret that never
+    // initializes must fail the shot, not leave it active forever).
+    public static final long SHOT_TURRET_STARTUP_BOUND_MS =
+            Math.round((TURRET_FULL_TRUST_S + TURRET_FADE_OUT_S) * 1000.0);
     public static final long STATIONARY_WINDOW_MS = 200;
     public static final long STATIONARY_MAX_SAMPLE_GAP_MS = 100;
     public static final double STATIONARY_MAX_SPEED_IN_S = 2.0;

@@ -8,6 +8,7 @@ import boobuzz.core.hal.RobotConstants;
 import boobuzz.core.logic.MechanismProfile;
 import boobuzz.core.logic.ShooterCalibration;
 import boobuzz.core.logic.shot.ShotPreset;
+import boobuzz.core.subsystem.ITurret;
 import boobuzz.core.subsystem.Subsystems;
 
 import com.pedropathing.math.Pose;
@@ -25,6 +26,7 @@ public final class DirectMap {
     private ShotPreset preset = ShotPreset.DEFAULT;
     private boolean presetExplicit;
     private boolean feedHeld;
+    private long nowMs;
 
     public DirectMap(Subsystems subsystems) {
         this(subsystems, MechanismProfile.STUB);
@@ -35,16 +37,34 @@ public final class DirectMap {
         this.profile = profile;
     }
 
+    /** Loop time for the turret startup bound of a gated shot. */
+    public void observe(long nowMs) {
+        this.nowMs = nowMs;
+    }
+
     /** MECHANISM_RECOVERY owns the feeder: an active shot starts no new pulse. */
     public void holdFeed(boolean hold) {
         feedHeld = hold;
     }
 
-    /** STOP_SHOOTING: the active shot finishes its current pulse and starts no new ones. */
-    public void stopShooting(Job job) {
+    /**
+     * STOP_SHOOTING: the active shot finishes its current pulse, starts no new ones and
+     * spins the flywheel down when it ends (archive: releasing RT disables the shooter).
+     * Returns true when the job ended here (a SPIN_UP), false when it keeps running.
+     */
+    public boolean stopShooting(Job job, List<RequestStatus> statuses) {
         if (job instanceof ShootJob shoot) {
             shoot.remaining = 0;
+            shoot.stopping = true;
+            return false;
         }
+        if (job instanceof SpinJob spin) {
+            subsystems.shooter().spinDown();
+            statuses.add(new RequestStatus(spin.id(), RequestStatus.State.DONE, 0.0, "stopped"));
+            return true;
+        }
+        subsystems.shooter().spinDown();
+        return false;
     }
 
     /** Starts one request and returns a job when it remains active. */
@@ -190,12 +210,19 @@ public final class DirectMap {
                     "SHOOT requires a positive finite rpm"));
             return null;
         }
-        subsystems.shooter().spinUp(rpm);
+        ShootJob job = new ShootJob(request.id(), count, rpm, usePreset, preset.turretRad());
         if (usePreset) {
+            // Review B08 major 2: a preset shot never feeds past a rejected turret aim.
+            ITurret.AimResult aim = subsystems.turret().aimRelative(preset.turretRad());
+            if (aim != ITurret.AimResult.ACCEPTED && aim != ITurret.AimResult.NOT_INITIALIZED) {
+                statuses.add(RequestStatus.rejected(request.id(), "turret: " + aim));
+                return null;
+            }
+            job.aimSinceMs = aim == ITurret.AimResult.ACCEPTED ? -1 : nowMs;
             subsystems.shooter().setHoodAngleDeg(preset.hoodDeg());
-            subsystems.turret().aimRelative(preset.turretRad());
         }
-        return new ShootJob(request.id(), count, rpm);
+        subsystems.shooter().spinUp(rpm);
+        return job;
     }
 
     private Job setPreset(Request request, List<RequestStatus> statuses) {
@@ -263,11 +290,27 @@ public final class DirectMap {
 
     private boolean advanceShoot(ShootJob shoot, List<RequestStatus> statuses) {
         var shooter = subsystems.shooter();
-        shooter.spinUp(shoot.rpm);
+        if (!shoot.stopping) {
+            shooter.spinUp(shoot.rpm);
+        }
+        String aimProblem = shoot.gated && !shooter.isFeeding() && shoot.remaining > 0
+                ? reaim(shoot) : null;
+        if (aimProblem != null && !aimProblem.isEmpty()) {
+            shooter.spinDown();
+            statuses.add(new RequestStatus(shoot.id(), RequestStatus.State.FAILED, 0.0,
+                    aimProblem));
+            return true;
+        }
         if (shooter.isFeeding()) {
             statuses.add(active(shoot.id(), 0.5, "feeding"));
-        } else if (!shooter.isReady()) {
+        } else if (shoot.remaining > 0 && aimProblem != null) {
+            statuses.add(active(shoot.id(), 0.0, "turret starting"));
+        } else if (shoot.remaining > 0 && !shooter.isReady()) {
             statuses.add(active(shoot.id(), 0.0, "spinning up"));
+        } else if (shoot.remaining > 0 && shoot.gated && !shooter.hoodSettled()) {
+            statuses.add(active(shoot.id(), 0.0, "hood settling"));
+        } else if (shoot.remaining > 0 && shoot.gated && !subsystems.turret().onTarget()) {
+            statuses.add(active(shoot.id(), 0.0, "aiming"));
         } else if (shoot.remaining > 0 && feedHeld) {
             statuses.add(active(shoot.id(), 0.0, "mechanism recovery"));
         } else if (shoot.remaining > 0) {
@@ -279,10 +322,41 @@ public final class DirectMap {
                 statuses.add(active(shoot.id(), 0.0, "feed not accepted"));
             }
         } else {
+            if (shoot.stopping) {
+                shooter.spinDown();
+            }
             statuses.add(RequestStatus.done(shoot.id()));
             return true;
         }
         return false;
+    }
+
+    /**
+     * Keeps a gated shot's turret aim alive: null while the aim is accepted, "" while the
+     * turret is still starting (re-aimed every tick), a failure note when the aim is
+     * rejected or startup outlasts one archive calibration window.
+     */
+    private String reaim(ShootJob shoot) {
+        ITurret turret = subsystems.turret();
+        if (turret.aimStatus() == ITurret.AimResult.ACCEPTED) {
+            shoot.aimSinceMs = -1;
+            return null;
+        }
+        ITurret.AimResult aim = turret.aimRelative(shoot.turretRad);
+        if (aim == ITurret.AimResult.ACCEPTED) {
+            shoot.aimSinceMs = -1;
+            return null;
+        }
+        if (aim != ITurret.AimResult.NOT_INITIALIZED) {
+            return "turret: " + aim;
+        }
+        if (shoot.aimSinceMs < 0) {
+            shoot.aimSinceMs = nowMs;
+        }
+        if (nowMs - shoot.aimSinceMs >= RobotConstants.SHOT_TURRET_STARTUP_BOUND_MS) {
+            return "turret startup timeout: " + aim;
+        }
+        return "";
     }
 
     private static RequestStatus active(int id, double progress, String note) {
@@ -303,12 +377,20 @@ public final class DirectMap {
 
     private static final class ShootJob extends Job {
         private final double rpm;
+        /** Preset shots wait for hood and turret like the cplx1 feed gates. */
+        private final boolean gated;
+        private final double turretRad;
         private int remaining;
+        private boolean stopping;
+        /** Start of the current NOT_INITIALIZED wait, -1 while the aim is accepted. */
+        private long aimSinceMs = -1;
 
-        private ShootJob(int id, int remaining, double rpm) {
+        private ShootJob(int id, int remaining, double rpm, boolean gated, double turretRad) {
             super(id);
             this.remaining = remaining;
             this.rpm = rpm;
+            this.gated = gated;
+            this.turretRad = turretRad;
         }
     }
 
