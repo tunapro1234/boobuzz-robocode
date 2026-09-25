@@ -9,6 +9,7 @@ import boobuzz.core.contract.RobotAction;
 import boobuzz.core.contract.RobotState;
 import boobuzz.core.hal.RobotConstants;
 import boobuzz.core.logic.MechanismProfile;
+import boobuzz.core.logic.shot.ShotPreset;
 import boobuzz.core.subsystem.IDrive;
 import boobuzz.core.subsystem.ITurret;
 import boobuzz.core.subsystem.Subsystems;
@@ -145,6 +146,32 @@ public class DirectShotGateTest {
     }
 
     @Test
+    public void invalidTurretAimLeavesThePresetShotRunning() {
+        Rig rig = new Rig();
+        rig.run(RequestBatch.of(Request.shoot(2, 1)));
+        rig.run(RequestBatch.of(Request.turretAim(3, Double.NaN, 96.0)));
+        assertEquals(RequestStatus.State.REJECTED, rig.status(3).state());
+        assertEquals(RequestStatus.State.ACTIVE, rig.status(2).state());
+        assertEquals(RequestStatus.State.DONE, rig.runUntilTerminal(2).state());
+    }
+
+    @Test
+    public void aTurretHoldingAfterRecalibrationIsReaimedToThePreset() {
+        Rig rig = new Rig();
+        rig.run(RequestBatch.of(Request.shoot(2, 2)));
+        while (rig.feederPulses == 0) {
+            rig.run(RequestBatch.idle());
+        }
+        while (rig.last.motor(FEEDER) > 0.0) {
+            rig.run(RequestBatch.idle());
+        }
+        // Real turret: recalibrated into HOLD at its current angle, status ACCEPTED.
+        rig.turret.lastRelative = Double.NaN;
+        rig.run(RequestBatch.idle());
+        assertEquals(ShotPreset.DEFAULT.turretRad(), rig.turret.lastRelative, 0.0);
+    }
+
+    @Test
     public void presetChangeAppliesFromTheNextPulse() {
         Rig rig = new Rig();
         rig.run(RequestBatch.of(Request.shoot(2, 2)));
@@ -152,6 +179,7 @@ public class DirectShotGateTest {
             rig.run(RequestBatch.idle());
         }
         double first = rig.shooter.targetRpm();
+        // Test inputs inside the preset limits, distinct from the default preset.
         rig.run(RequestBatch.of(Request.setShotPreset(3, 3000.0, 40.0, 0.1)));
         assertEquals(RequestStatus.State.DONE, rig.status(3).state());
         while (rig.last.motor(FEEDER) > 0.0) {

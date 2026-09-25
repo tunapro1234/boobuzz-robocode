@@ -363,13 +363,12 @@ public final class DirectMap {
     /** Null when a preset shot may feed, otherwise the first blocking reason. */
     private String gatedBlockReason(ShootJob shoot) {
         ITurret turret = subsystems.turret();
-        if (turret.aimStatus() != ITurret.AimResult.ACCEPTED) {
-            // Re-aim every tick: a turret still starting (or recalibrating) takes the
-            // latched preset angle as soon as it can.
-            ITurret.AimResult aim = turret.aimRelative(shoot.latched.turretRad());
-            if (aim != ITurret.AimResult.ACCEPTED && aim != ITurret.AimResult.NOT_INITIALIZED) {
-                return "turret: " + aim;
-            }
+        // Re-aim every waiting tick, even when the status reads ACCEPTED: after a fault the
+        // real turret recalibrates into HOLD at its current angle and reports ACCEPTED
+        // for that hold. Re-issuing the same angle keeps the settle timer (idempotent).
+        ITurret.AimResult aim = turret.aimRelative(shoot.latched.turretRad());
+        if (aim != ITurret.AimResult.ACCEPTED && aim != ITurret.AimResult.NOT_INITIALIZED) {
+            return "turret: " + aim;
         }
         if (!subsystems.shooter().isReady()) {
             return "spinning up";
@@ -378,8 +377,8 @@ public final class DirectMap {
             return "hood settling";
         }
         if (!turret.onTarget()) {
-            ITurret.AimResult aim = turret.aimStatus();
-            return aim == ITurret.AimResult.ACCEPTED ? "aiming" : "aiming: " + aim;
+            ITurret.AimResult status = turret.aimStatus();
+            return status == ITurret.AimResult.ACCEPTED ? "aiming" : "aiming: " + status;
         }
         return null;
     }
