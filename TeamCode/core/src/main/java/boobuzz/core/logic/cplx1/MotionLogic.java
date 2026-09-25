@@ -17,6 +17,14 @@ public final class MotionLogic {
 
     private final IDrive drive;
     private MotionJob active;
+    /**
+     * True while the last DONE drive request's end hold is running. Like the archive
+     * and simple-code, DONE does not stop the follower: it keeps holding the end pose
+     * until the next drive request, manual drive, a cancel of {@link #holdingId},
+     * CANCEL_ALL or RESET_POSE.
+     */
+    private boolean holding;
+    private int holdingId;
 
     public MotionLogic(IDrive drive) {
         this.drive = Objects.requireNonNull(drive, "drive");
@@ -29,15 +37,19 @@ public final class MotionLogic {
 
         if (stream.manualDrive()) {
             cancelActive("overridden by manual drive", statuses);
+            holding = false;   // manual() replaces the follower's hold
             drive.manual(stream.vx(), stream.vy(), stream.omega());
         }
         for (int id : cancels == null ? new int[0] : cancels) {
             if (id == boobuzz.core.contract.RequestBatch.CANCEL_ALL) {
                 cancelActive("engine switch", statuses);
+                releaseHold();
                 continue;
             }
             if (active != null && active.id == id) {
                 cancelActive("cancelled", statuses);
+            } else if (holding && holdingId == id) {
+                releaseHold();
             }
         }
 
@@ -51,10 +63,13 @@ public final class MotionLogic {
                 statuses.add(RequestStatus.rejected(request.id(), "drive already has a request"));
             } else {
                 active = start(request, statuses);
+                if (active != null) {
+                    holding = false;   // the new request replaces the hold
+                }
             }
         }
 
-        if (!stream.manualDrive() && !driveRequest && active == null) {
+        if (!stream.manualDrive() && !driveRequest && active == null && !holding) {
             drive.stop();
         }
         advance(statuses);
@@ -70,12 +85,14 @@ public final class MotionLogic {
 
     public void cancelAll(List<RequestStatus> statuses) {
         cancelActive("engine switch", statuses);
+        holding = false;
         drive.stop();
     }
 
     public void resetPose(Pose pose, List<RequestStatus> statuses) {
         Objects.requireNonNull(pose, "pose");
         cancelActive("reset pose", statuses);
+        holding = false;   // resetPose() drops the follower's request
         drive.resetPose(pose);
     }
 
@@ -122,6 +139,8 @@ public final class MotionLogic {
             statuses.add(active(active.id, 0.0, active.note));
         } else if (drive.pathDone()) {
             statuses.add(RequestStatus.done(active.id));
+            holding = true;   // keep the end hold running
+            holdingId = active.id;
             active = null;
         } else {
             statuses.add(active(active.id, 0.0, active.note));
@@ -134,6 +153,15 @@ public final class MotionLogic {
         }
         statuses.add(RequestStatus.rejected(active.id, note));
         active = null;
+        drive.stop();
+    }
+
+    /** Stops the end hold of a DONE request, if one is running. */
+    private void releaseHold() {
+        if (!holding) {
+            return;
+        }
+        holding = false;
         drive.stop();
     }
 

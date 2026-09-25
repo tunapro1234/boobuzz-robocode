@@ -20,6 +20,14 @@ public final class DirectEngine implements IRobotEngine {
     private final Subsystems subsystems;
     private final DirectMap map;
     private DirectMap.Job driveJob;
+    /**
+     * True while the last DONE drive request's end hold is running. Like the archive
+     * and simple-code, DONE does not stop the follower: it keeps holding the end pose
+     * until the next drive request, manual drive, a cancel of {@link #holdingDriveId},
+     * CANCEL_ALL or RESET_POSE.
+     */
+    private boolean holdingDrive;
+    private int holdingDriveId;
     private DirectMap.Job shooterJob;
     private List<RequestStatus> pendingStatuses = Collections.emptyList();
     private RobotAction action = RobotAction.zero();
@@ -58,6 +66,7 @@ public final class DirectEngine implements IRobotEngine {
 
         if (batch.stream().manualDrive()) {
             cancelDrive(statuses, "overridden by manual drive");
+            holdingDrive = false;   // manual() replaces the follower's hold
             subsystems.drive().manual(batch.stream().vx(), batch.stream().vy(),
                     batch.stream().omega());
         }
@@ -67,6 +76,9 @@ public final class DirectEngine implements IRobotEngine {
                 continue;
             }
             cancel(id, statuses);
+            if (holdingDrive && holdingDriveId == id) {
+                releaseDriveHold();
+            }
             if (intakeOwnerId != null && intakeOwnerId == id) {
                 subsystems.intake().stop();
                 intakeOwnerId = null;
@@ -83,6 +95,9 @@ public final class DirectEngine implements IRobotEngine {
                 map.cancel(driveJob, "reset pose", statuses);
                 driveJob = null;
             }
+            if (request.type() == boobuzz.core.contract.RequestType.RESET_POSE) {
+                holdingDrive = false;   // resetPose() drops the follower's request
+            }
             DirectMap.Job job = map.start(request, driveJob != null, shooterJob != null, statuses);
             if (job == null) {
                 if (isIntake(request)) {
@@ -98,16 +113,20 @@ public final class DirectEngine implements IRobotEngine {
             }
             if (DirectMap.isDrive(request.type())) {
                 driveJob = job;
+                holdingDrive = false;   // the new request replaces the hold
             } else if (isShooter(request)) {
                 shooterJob = job;
             }
         }
 
-        if (!batch.stream().manualDrive() && !driveRequest && driveJob == null) {
+        if (!batch.stream().manualDrive() && !driveRequest && driveJob == null
+                && !holdingDrive) {
             subsystems.drive().stop();
         }
 
         if (driveJob != null && map.advance(driveJob, statuses)) {
+            holdingDrive = true;   // DONE: keep the end hold running
+            holdingDriveId = driveJob.id();
             driveJob = null;
         }
         if (shooterJob != null && map.advance(shooterJob, statuses)) {
@@ -160,11 +179,21 @@ public final class DirectEngine implements IRobotEngine {
             map.cancel(shooterJob, "engine switch", statuses);
             shooterJob = null;
         }
+        holdingDrive = false;
         subsystems.drive().stop();
         subsystems.shooter().spinDown();
         subsystems.intake().stop();
         intakeOwnerId = null;
         subsystems.turret().hold();
+    }
+
+    /** Stops the end hold of a DONE drive request, if one is running. */
+    private void releaseDriveHold() {
+        if (!holdingDrive) {
+            return;
+        }
+        holdingDrive = false;
+        subsystems.drive().stop();
     }
 
     private static boolean containsCancelAll(int[] cancels) {

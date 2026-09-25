@@ -85,6 +85,9 @@ public final class PedroDrive implements boobuzz.core.subsystem.IDrive {
         Objects.requireNonNull(request, "request");
         manualActive = false;
         activePathRequest = request;
+        // Every follow() is a new request and restarts from the current pose, even
+        // when it equals the request whose end hold is still running.
+        startedPathRequest = null;
     }
 
     @Override
