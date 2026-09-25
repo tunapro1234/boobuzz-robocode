@@ -34,6 +34,8 @@ final class HalTimeForesight extends Foresight {
     /** Mirrors Pedro's private {@code !resetTimer}; false after construction and reset. */
     private boolean holdTimerArmed;
     private long holdTimerStartMs;
+    /** True for an in-place turn: only heading/translation/velocity may end it. */
+    private boolean settleOnly;
 
     HalTimeForesight(ForesightConfig config, LongSupplier halTimeMs) {
         super(config);
@@ -44,6 +46,24 @@ final class HalTimeForesight extends Foresight {
     public void reset() {
         super.reset();
         holdTimerArmed = false;
+        settleOnly = false;
+    }
+
+    /**
+     * Resets for an in-place turn hold that ends only when Pedro's heading,
+     * translational and velocity constraints hold together, never on the timeout.
+     *
+     * <p>Pedro's {@code timeoutConstraint} is the archive's path-end timeout
+     * (Pedro 2.0.4 {@code PathConstraints(0.99, 100, 1, 1)}): it counts from reaching
+     * the parametric end of a travelled path. A hold started from rest arms it on its
+     * first tick, so a turn would report done 100 ms after it began whatever its
+     * heading error. The archive had no turn time limit: its {@code turnTo} was a
+     * busy {@code followPath} and has no caller. The next {@link #reset()} (any
+     * {@code follow} or hold start) restores the timeout.
+     */
+    void resetForSettle() {
+        reset();
+        settleOnly = true;
     }
 
     @Override
@@ -58,7 +78,7 @@ final class HalTimeForesight extends Foresight {
 
     @Override
     public boolean timeoutCondition() {
-        return holdTimerArmed
+        return !settleOnly && holdTimerArmed
                 && halTimeMs.getAsLong() - holdTimerStartMs > config.timeoutConstraint.get();
     }
 }

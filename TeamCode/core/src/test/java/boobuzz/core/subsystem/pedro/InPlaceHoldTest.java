@@ -17,7 +17,8 @@ import static org.junit.Assert.assertTrue;
 /**
  * An in-place turn (same x/y, new heading) runs as a Pedro hold. TURN_TO is done
  * "when the in-place path is done" (phase-1.1 gamepad-map-analysis), so the hold
- * must report busy until it settles or its timeout ends it, never on its first tick.
+ * must report busy until it settles, never on its first tick and never on Pedro's
+ * 100 ms path-end timeout while the heading error is still large.
  */
 public class InPlaceHoldTest {
 
@@ -39,6 +40,52 @@ public class InPlaceHoldTest {
         // Heading reached and the robot is still: Pedro's hold conditions end it.
         tick(drive, 60L, TARGET);
         assertTrue(drive.pathDone());
+    }
+
+    @Test
+    public void stuckTurnStaysBusyPastThePathEndTimeout() {
+        PedroDrive drive = new PedroDrive(Mechanism.DEFAULT, new PathRegistry());
+        tick(drive, 0L, 0.0);
+        drive.turnTo(TARGET);
+        // Heading stuck at 0 for 400 ms: four times Pedro's 100 ms timeoutConstraint.
+        for (long t = 20L; t <= 420L; t += DT_MS) {
+            tick(drive, t, 0.0);
+            assertFalse("stuck turn reported done at t=" + t, drive.pathDone());
+        }
+        tick(drive, 440L, TARGET);
+        assertTrue(drive.pathDone());
+    }
+
+    @Test
+    public void stuckNamedHoldStaysBusyPastThePathEndTimeout() {
+        PedroDrive drive = new PedroDrive(Mechanism.DEFAULT, new PathRegistry());
+        observe(drive, 0L, 120.0, 72.0, 0.0);
+        update(drive);
+        drive.follow(PathRequest.named("test-turn"));
+        for (long t = 20L; t <= 420L; t += DT_MS) {
+            observe(drive, t, 120.0, 72.0, 0.0);
+            update(drive);
+            assertFalse("stuck named hold reported done at t=" + t, drive.pathDone());
+        }
+    }
+
+    @Test
+    public void pathAfterATurnKeepsItsEndTimeout() {
+        PedroDrive drive = new PedroDrive(Mechanism.DEFAULT, new PathRegistry());
+        tick(drive, 0L, 0.0);
+        drive.turnTo(TARGET);
+        tick(drive, 20L, 0.0);
+        drive.follow(PathRequest.goTo(new Pose(X + 24.0, Y, 0.0),
+                PathRequest.Constraints.defaults()));
+        tick(drive, 40L, 0.0);   // the path starts here, from (X, Y)
+        // At the end point but 0.5 rad off heading: only the timeout can end it.
+        boolean done = false;
+        for (long t = 60L; t <= 400L && !done; t += DT_MS) {
+            observe(drive, t, X + 24.0, Y, 0.5);
+            update(drive);
+            done = drive.pathDone();
+        }
+        assertTrue("path end timeout was lost after an in-place turn", done);
     }
 
     @Test
