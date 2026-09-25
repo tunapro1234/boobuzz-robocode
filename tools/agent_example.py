@@ -99,13 +99,9 @@ def wait_for_done(connection: AgentConnection, request_id: int,
                 if state == "DONE":
                     return
                 if state in {"REJECTED", "FAILED"}:
+                    # SocketController delivers each request once, so a
+                    # rejection here is real, never a duplicate delivery.
                     note = status.get("note", "no reason")
-                    if note in {"drive already has a request",
-                                 "shooter already has a request"}:
-                        # SocketController retains the last edge batch until the
-                        # next line arrives; duplicate delivery is harmless while
-                        # the keepalive empty batch is clearing it.
-                        continue
                     raise AgentError(
                         f"request {request_id} {state}: {note}")
         if time.monotonic() >= next_refresh:

@@ -5,6 +5,7 @@ import boobuzz.core.contract.PathRequest;
 import boobuzz.core.contract.Request;
 import boobuzz.core.contract.RequestBatch;
 import boobuzz.core.contract.RequestStatus;
+import boobuzz.core.contract.RequestStream;
 import boobuzz.core.contract.RobotAction;
 import boobuzz.core.contract.RobotState;
 import boobuzz.core.logic.IRobotEngine;
@@ -100,10 +101,12 @@ public class SocketControllerTest {
                     RequestBatch.of(Request.path(12, PathRequest.named("test-line"))))));
             out.newLine();
             out.flush();
-            for (int i = 0; i < 100 && controller.decide(null).requests().isEmpty(); i++) {
-                Thread.sleep(2);
+            RequestBatch first = RequestBatch.idle();
+            for (int i = 0; i < 100 && first.requests().isEmpty(); i++) {
+                first = controller.decide(null);
+                if (first.requests().isEmpty()) Thread.sleep(2);
             }
-            assertEquals(12, controller.decide(null).requests().get(0).id());
+            assertEquals(12, first.requests().get(0).id());
 
             String[] malformed = {
                     "{",
@@ -126,6 +129,50 @@ public class SocketControllerTest {
                     stopped.cancels().length == 1
                             && stopped.cancels()[0] == RequestBatch.CANCEL_ALL);
             assertTrue(controller.inputError() != null);
+        }
+    }
+
+    @Test
+    public void requestsAndCancelsAreDeliveredOnceWhileTheStreamPersists() throws Exception {
+        int port;
+        try (ServerSocket probe = new ServerSocket(0)) {
+            port = probe.getLocalPort();
+        }
+        try (SocketController controller = new SocketController(port, 1000);
+             Socket client = new Socket("127.0.0.1", port)) {
+            waitForClient(controller);
+            BufferedWriter out = new BufferedWriter(new OutputStreamWriter(
+                    client.getOutputStream(), StandardCharsets.UTF_8));
+            // Two lines before any tick: both edges survive, in arrival order,
+            // and the newer stream wins.
+            out.write(JsonCodec.stringify(SeamJson.batchMap(new RequestBatch(
+                    RequestStream.manual(0.25, 0.0, 0.0),
+                    List.of(Request.path(7, PathRequest.named("test-line"))),
+                    new int[] {3}))));
+            out.newLine();
+            out.write(JsonCodec.stringify(SeamJson.batchMap(new RequestBatch(
+                    RequestStream.manual(0.5, 0.0, 0.0),
+                    List.of(Request.shoot(8, 1)), new int[] {4}))));
+            out.newLine();
+            out.flush();
+            waitForBatches(controller, 2);
+
+            RequestBatch first = controller.decide(null);
+            assertEquals(2, first.requests().size());
+            assertEquals(7, first.requests().get(0).id());
+            assertEquals(8, first.requests().get(1).id());
+            assertEquals(2, first.cancels().length);
+            assertEquals(3, first.cancels()[0]);
+            assertEquals(4, first.cancels()[1]);
+            assertEquals(0.5, first.stream().vx(), 0.0);
+
+            for (int tick = 0; tick < 3; tick++) {
+                RequestBatch later = controller.decide(null);
+                assertTrue("a request is an edge", later.requests().isEmpty());
+                assertEquals("a cancel is an edge", 0, later.cancels().length);
+                assertTrue(later.stream().manualDrive());
+                assertEquals("the stream is a level", 0.5, later.stream().vx(), 0.0);
+            }
         }
     }
 
@@ -214,9 +261,8 @@ public class SocketControllerTest {
             out.write(JsonCodec.stringify(SeamJson.batchMap(path)));
             out.newLine();
             out.flush();
-            for (int i = 0; i < 100 && controller.decide(null).requests().isEmpty(); i++) {
-                Thread.sleep(2);
-            }
+            // Wait without calling decide: the request is delivered to one tick only.
+            waitForBatches(controller, 1);
 
             TestHal hal = new TestHal();
             boobuzz.core.RobotLoop loop = new boobuzz.core.RobotLoop(hal, engine, controller);
@@ -230,6 +276,14 @@ public class SocketControllerTest {
                     controller.decide(null).cancels().length == 0);
             loop.close();
         }
+    }
+
+    private static void waitForBatches(SocketController controller, long count)
+            throws InterruptedException {
+        for (int i = 0; i < 200 && controller.batchesReceived() < count; i++) {
+            Thread.sleep(5);
+        }
+        assertEquals(count, controller.batchesReceived());
     }
 
     private static void waitForClient(SocketController controller) throws InterruptedException {

@@ -25,6 +25,13 @@ import java.util.concurrent.atomic.AtomicReference;
  * Line-oriented external controller. Network work and JSON conversion stay on
  * background threads; {@link #decide(Feedback)} only reads atomics and queues a
  * feedback reference for the writer.
+ *
+ * <p>Each received line is a {@link RequestBatch}. Its stream is a level: every
+ * tick reuses the newest received stream until the next line (or the watchdog)
+ * replaces it. Its requests and cancels are edges: they reach {@code decide}
+ * exactly once, so a client that sends one GOTO or SHOOT line gets one GOTO or
+ * SHOOT, not one per tick until its next line. Lines that arrive between two
+ * ticks are merged in arrival order.
  */
 public final class SocketController implements boobuzz.core.controller.IController, AutoCloseable {
 
@@ -38,8 +45,12 @@ public final class SocketController implements boobuzz.core.controller.IControll
     private final Thread acceptThread;
     private final Thread feedbackDispatchThread;
     private final AtomicReference<Connection> connection = new AtomicReference<>();
+    /** Newest received stream with no requests or cancels; returned every tick. */
     private final AtomicReference<RequestBatch> latest =
             new AtomicReference<>(RequestBatch.idle());
+    /** Received requests and cancels that no tick has consumed yet, or null. */
+    private final AtomicReference<RequestBatch> pending = new AtomicReference<>();
+    private final AtomicLong batchesReceived = new AtomicLong();
     private final AtomicLong lastReceivedNanos = new AtomicLong();
     private final AtomicBoolean timeoutStopSent = new AtomicBoolean();
     private final ArrayBlockingQueue<Feedback> feedbackQueue =
@@ -105,19 +116,41 @@ public final class SocketController implements boobuzz.core.controller.IControll
         return inputError;
     }
 
+    /** Number of well-formed batch lines received since construction. */
+    public long batchesReceived() {
+        return batchesReceived.get();
+    }
+
     @Override
     public RequestBatch decide(Feedback feedback) {
         if (feedback != null) {
             enqueueFeedback(feedback);
         }
+        // Take the edges before reading the receive time: the reader publishes the
+        // time first, so edges taken here are never older than the time checked.
+        RequestBatch edges = pending.getAndSet(null);
         long received = lastReceivedNanos.get();
         if (received == 0L || System.nanoTime() - received > timeoutNanos) {
+            // Stale edges are dropped with the stream: the watchdog cancels everything.
             if (received != 0L && timeoutStopSent.compareAndSet(false, true)) {
                 return RequestBatch.cancelAll();
             }
             return RequestBatch.idle();
         }
-        return latest.get();
+        return edges != null ? edges : latest.get();
+    }
+
+    /** Merges two unconsumed batches: newer stream, requests and cancels in order. */
+    private static RequestBatch merge(RequestBatch older, RequestBatch newer) {
+        if (older == null) return newer;
+        java.util.List<boobuzz.core.contract.Request> requests =
+                new java.util.ArrayList<>(older.requests());
+        requests.addAll(newer.requests());
+        int[] a = older.cancels();
+        int[] b = newer.cancels();
+        int[] cancels = java.util.Arrays.copyOf(a, a.length + b.length);
+        System.arraycopy(b, 0, cancels, a.length, b.length);
+        return new RequestBatch(newer.stream(), requests, cancels);
     }
 
     @Override
@@ -183,9 +216,12 @@ public final class SocketController implements boobuzz.core.controller.IControll
             while (running && source.open && (line = source.reader.readLine()) != null) {
                 if (line.trim().isEmpty()) continue;
                 try {
-                    latest.set(SeamJson.batchFrom(JsonCodec.parseObject(line)));
+                    RequestBatch batch = SeamJson.batchFrom(JsonCodec.parseObject(line));
+                    latest.set(new RequestBatch(batch.stream(), null, null));
                     lastReceivedNanos.set(System.nanoTime());
                     timeoutStopSent.set(false);
+                    pending.accumulateAndGet(batch, SocketController::merge);
+                    batchesReceived.incrementAndGet();
                 } catch (RuntimeException e) {
                     inputError = e.getMessage() == null ? e.toString() : e.getMessage();
                 }
