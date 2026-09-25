@@ -116,6 +116,14 @@ public final class DirectEngine implements IRobotEngine {
             if (request.type() == boobuzz.core.contract.RequestType.RESET_POSE) {
                 holdingDrive = false;   // resetPose() drops the follower's request
             }
+            if (request.type() == RequestType.TURRET_AIM && map.ownsTurretTarget(shooterJob)
+                    && request.params().length >= 2
+                    && Double.isFinite(request.param(0, Double.NaN))
+                    && Double.isFinite(request.param(1, Double.NaN))) {
+                // Like cplx1: a field aim takes the turret away from a preset shot.
+                map.cancel(shooterJob, "turret retargeted", statuses);
+                shooterJob = null;
+            }
             if (request.type() == RequestType.STOP_SHOOTING) {
                 if (shooterJob != null || !recovery.blocksShooter()) {
                     if (map.stopShooting(shooterJob, statuses)) {

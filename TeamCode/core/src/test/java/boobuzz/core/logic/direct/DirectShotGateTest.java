@@ -9,6 +9,7 @@ import boobuzz.core.contract.RobotAction;
 import boobuzz.core.contract.RobotState;
 import boobuzz.core.hal.RobotConstants;
 import boobuzz.core.logic.MechanismProfile;
+import boobuzz.core.logic.shot.ShotPreset;
 import boobuzz.core.subsystem.IDrive;
 import boobuzz.core.subsystem.ITurret;
 import boobuzz.core.subsystem.Subsystems;
@@ -85,14 +86,121 @@ public class DirectShotGateTest {
         rig.turret.status = ITurret.AimResult.NOT_INITIALIZED;
         rig.run(RequestBatch.of(Request.shoot(2, 1)));
         long began = rig.t;
-        assertEquals("turret starting", rig.status(2).note());
         RequestStatus failed = rig.runUntilTerminal(2);
         assertEquals(RequestStatus.State.FAILED, failed.state());
-        assertEquals("turret startup timeout: NOT_INITIALIZED", failed.note());
-        assertTrue(rig.t - began >= RobotConstants.SHOT_TURRET_STARTUP_BOUND_MS);
-        assertTrue(rig.t - began <= RobotConstants.SHOT_TURRET_STARTUP_BOUND_MS + 40);
+        assertEquals("prepare timeout: aiming: NOT_INITIALIZED", failed.note());
+        long limit = RobotConstants.SHOT_TURRET_STARTUP_BOUND_MS
+                + RobotConstants.SHOT_PREPARE_TIMEOUT_MS;
+        assertTrue(rig.t - began > limit);
+        assertTrue(rig.t - began <= limit + 40);
         assertEquals(0.0, rig.last.motor(FLYWHEEL), 0.0);
         assertEquals(0, rig.feederPulses);
+    }
+
+    @Test
+    public void turretNeverOnTargetFailsAfterThePrepareTimeout() {
+        Rig rig = new Rig();
+        rig.turret.onTarget = false;
+        rig.run(RequestBatch.of(Request.shoot(2, 1)));
+        long began = rig.t;
+        RequestStatus failed = rig.runUntilTerminal(2);
+        assertEquals(RequestStatus.State.FAILED, failed.state());
+        assertEquals("prepare timeout: aiming", failed.note());
+        assertTrue(rig.t - began > RobotConstants.SHOT_PREPARE_TIMEOUT_MS);
+        assertTrue(rig.t - began <= RobotConstants.SHOT_PREPARE_TIMEOUT_MS + 40);
+        assertEquals(0.0, rig.last.motor(FLYWHEEL), 0.0);
+    }
+
+    @Test
+    public void turretRecalibratingBetweenPulsesIsReaimedAndTheShotFinishes() {
+        Rig rig = new Rig();
+        rig.run(RequestBatch.of(Request.shoot(2, 2)));
+        while (rig.feederPulses == 0) {
+            rig.run(RequestBatch.idle());
+        }
+        // The real turret drops to NOT_INITIALIZED on a fault and recalibrates.
+        rig.turret.status = ITurret.AimResult.NOT_INITIALIZED;
+        rig.turret.current = ITurret.AimResult.NOT_INITIALIZED;
+        for (int i = 0; i < RobotConstants.SHOT_TURRET_STARTUP_BOUND_MS / 20; i++) {
+            rig.run(RequestBatch.idle());
+            assertEquals(RequestStatus.State.ACTIVE, rig.status(2).state());
+        }
+        assertEquals(1, rig.feederPulses);
+        rig.turret.status = ITurret.AimResult.ACCEPTED;
+        RequestStatus done = rig.runUntilTerminal(2);
+        assertEquals(done.note(), RequestStatus.State.DONE, done.state());
+        assertEquals(2, rig.feederPulses);
+        assertEquals(ITurret.AimResult.ACCEPTED, rig.turret.aimStatus());
+    }
+
+    @Test
+    public void turretAimRetargetsAPresetShot() {
+        Rig rig = new Rig();
+        rig.run(RequestBatch.of(Request.shoot(2, 2)));
+        rig.run(RequestBatch.of(Request.turretAim(3, 48.0, 96.0)));
+        assertEquals(RequestStatus.State.DONE, rig.status(3).state());
+        RequestStatus cancelled = rig.status(2);
+        assertEquals(RequestStatus.State.REJECTED, cancelled.state());
+        assertEquals("turret retargeted", cancelled.note());
+        assertEquals(0.0, rig.last.motor(FLYWHEEL), 0.0);
+    }
+
+    @Test
+    public void invalidTurretAimLeavesThePresetShotRunning() {
+        Rig rig = new Rig();
+        rig.run(RequestBatch.of(Request.shoot(2, 1)));
+        rig.run(RequestBatch.of(Request.turretAim(3, Double.NaN, 96.0)));
+        assertEquals(RequestStatus.State.REJECTED, rig.status(3).state());
+        assertEquals(RequestStatus.State.ACTIVE, rig.status(2).state());
+        assertEquals(RequestStatus.State.DONE, rig.runUntilTerminal(2).state());
+    }
+
+    @Test
+    public void aTurretHoldingAfterRecalibrationIsReaimedToThePreset() {
+        Rig rig = new Rig();
+        rig.run(RequestBatch.of(Request.shoot(2, 2)));
+        while (rig.feederPulses == 0) {
+            rig.run(RequestBatch.idle());
+        }
+        while (rig.last.motor(FEEDER) > 0.0) {
+            rig.run(RequestBatch.idle());
+        }
+        // Real turret: recalibrated into HOLD at its current angle, status ACCEPTED.
+        rig.turret.lastRelative = Double.NaN;
+        rig.run(RequestBatch.idle());
+        assertEquals(ShotPreset.DEFAULT.turretRad(), rig.turret.lastRelative, 0.0);
+    }
+
+    @Test
+    public void presetChangeAppliesFromTheNextPulse() {
+        Rig rig = new Rig();
+        rig.run(RequestBatch.of(Request.shoot(2, 2)));
+        while (rig.last.motor(FEEDER) == 0.0) {
+            rig.run(RequestBatch.idle());
+        }
+        double first = rig.shooter.targetRpm();
+        // Test inputs inside the preset limits, distinct from the default preset.
+        rig.run(RequestBatch.of(Request.setShotPreset(3, 3000.0, 40.0, 0.1)));
+        assertEquals(RequestStatus.State.DONE, rig.status(3).state());
+        while (rig.last.motor(FEEDER) > 0.0) {
+            assertEquals("the running pulse keeps its rpm", first, rig.shooter.targetRpm(), 0.0);
+            rig.run(RequestBatch.idle());
+        }
+        rig.run(RequestBatch.idle());
+        assertEquals(3000.0, rig.shooter.targetRpm(), 0.0);
+        assertEquals(0.1, rig.turret.lastRelative, 0.0);
+        assertEquals(RequestStatus.State.DONE, rig.runUntilTerminal(2).state());
+    }
+
+    @Test
+    public void stopShootingDuringAJamClearLeavesTheRecoveryInCharge() {
+        Rig rig = new Rig();
+        rig.run(RequestBatch.of(Request.mechanismRecovery(2, 2)));
+        rig.run(RequestBatch.of(Request.stopShooting(3)));
+        assertEquals(RequestStatus.State.DONE, rig.status(3).state());
+        assertEquals(RequestStatus.State.ACTIVE, rig.status(2).state());
+        assertEquals("jam clear keeps driving the flywheel", 1.0,
+                rig.last.motor(FLYWHEEL), 0.0);
     }
 
     @Test
@@ -107,7 +215,6 @@ public class DirectShotGateTest {
         rig.turret.status = ITurret.AimResult.ACCEPTED;
         RequestStatus done = rig.runUntilTerminal(2);
         assertEquals(done.note(), RequestStatus.State.DONE, done.state());
-        assertTrue("re-aimed after startup", rig.turret.relativeCalls > 1);
     }
 
     @Test
@@ -133,6 +240,8 @@ public class DirectShotGateTest {
         assertTrue("the running pulse is not cut", rig.last.motor(FEEDER) > 0.0);
         RequestStatus done = rig.runUntilTerminal(2);
         assertEquals(RequestStatus.State.DONE, done.state());
+        assertEquals("stopped", done.note());
+        assertEquals(1.0 / 3.0, done.progress(), 1e-9);
         assertEquals(1, rig.feederPulses);
         assertEquals(0.0, rig.last.motor(FLYWHEEL), 0.0);
     }
@@ -218,14 +327,14 @@ public class DirectShotGateTest {
         boolean onTarget = true;
         AimResult status = AimResult.ACCEPTED;
         AimResult current = AimResult.NOT_INITIALIZED;
-        int relativeCalls;
+        double lastRelative = Double.NaN;
 
         @Override public void observe(RobotState state) {}
         @Override public void update(RobotAction.Builder out) {}
         @Override public void setRobotPose(Pose pose) {}
         @Override public void aimAt(double fieldX, double fieldY) {}
         @Override public AimResult aimRelative(double angleRad) {
-            relativeCalls++;
+            lastRelative = angleRad;
             current = status;
             return current;
         }
