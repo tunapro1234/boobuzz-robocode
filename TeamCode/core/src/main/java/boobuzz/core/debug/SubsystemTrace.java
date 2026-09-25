@@ -155,6 +155,17 @@ public final class SubsystemTrace {
             delegate.hold();
         }
 
+        @Override public AimResult aimRelative(double angleRad) {
+            trace.call("turret", "aimRelative", angleRad);
+            return delegate.aimRelative(angleRad);
+        }
+
+        @Override public void disable() {
+            trace.call("turret", "disable");
+            delegate.disable();
+        }
+
+        @Override public AimResult aimStatus() { return delegate.aimStatus(); }
         @Override public boolean onTarget() { return delegate.onTarget(); }
         @Override public double angleRad() { return delegate.angleRad(); }
     }

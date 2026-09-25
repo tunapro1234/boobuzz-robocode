@@ -82,6 +82,9 @@ public class ShooterCancellationTest {
             @Override public void hold() {}
             @Override public boolean onTarget() { return true; }
             @Override public double angleRad() { return 0.0; }
+            @Override public AimResult aimRelative(double angleRad) { return AimResult.ACCEPTED; }
+            @Override public AimResult aimStatus() { return AimResult.ACCEPTED; }
+            @Override public void disable() {}
         });
     }
 
