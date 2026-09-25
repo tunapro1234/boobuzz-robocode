@@ -42,6 +42,12 @@ public final class RobotConstants {
     // |lateralZeroPowerAcceleration|.
     public static final double ZERO_POWER_DECEL_LATERAL_IN_S2 = 85.98;
 
+    // Archive FeederPowerSubsystem: HardwareConstants.FeederPower.feedPower/singleBallDurationMs.
+    public static final double FEEDER_PULSE_POWER = 1.0;
+    public static final long FEEDER_PULSE_MS = 350;
+    // Archive lvbelc5 ShootingController.FEEDER_DELAY_MS (post-pulse delay, not pulse length).
+    public static final long FEEDER_POST_PULSE_DELAY_MS = 100;
+
     // Timing-only defaults for the phase-1.1 simulator mechanism stubs.
     public static final double STUB_SPINUP_S = 0.5;
     public static final double STUB_FEED_S = 0.2;
