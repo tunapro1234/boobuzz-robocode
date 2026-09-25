@@ -18,9 +18,17 @@ public final class PedroConstants {
     // Source: the archive ran Pedro 2.0.4 FollowerConstants defaults (javap):
     // coefficientsHeadingPIDF P=1.0 (F=0.01), coefficientsTranslationalPIDF P=0.1
     // (F=0.015). Pedro 3.0 keeps only the P terms here; tune with AutoTune.
-    private static final double HEADING_KP = 1.0;
+    static final double HEADING_KP = 1.0;
     private static final double FORWARD_TRANSLATIONAL_KP = 0.10;
     private static final double STRAFE_TRANSLATIONAL_KP = 0.10;
+
+    /**
+     * Pedro 3.0 parametricTConstraint is an end tolerance (path ends at t >= 1 - value;
+     * library default 0.025). Source: archive Constants.java
+     * {@code new PathConstraints(0.99, 100, 1, 1)}, Pedro 2.0.4 tValueConstraint 0.99,
+     * the same value as simple-code AutoConstants.PATH_END_T_TOLERANCE.
+     */
+    static final double PATH_END_T_TOLERANCE = 0.01;
 
     /** Creates a new config from stateless settings for each follower. */
     public static ForesightConfig createForesightConfig(Mechanism mechanism) {
@@ -53,6 +61,8 @@ public final class PedroConstants {
             c.maxAchievableStrafeVelocity.set(maxStrafeVelocity);
             c.naturalForwardDeceleration.set(forwardDeceleration);
             c.naturalStrafeDeceleration.set(lateralDeceleration);
+            c.parametricTConstraint.set(PATH_END_T_TOLERANCE);
+            // timeoutConstraint keeps the Pedro default 100 ms, equal to the archive's.
         });
     }
 

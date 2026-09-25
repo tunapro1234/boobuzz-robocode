@@ -49,7 +49,12 @@ public final class Hardware {
             motor.setDirection(config.left() >= 0.0
                     ? DcMotorSimple.Direction.REVERSE
                     : DcMotorSimple.Direction.FORWARD);
-            motor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+            // FLOAT like the archive: Pedro ftc 2.0.4 Mecanum sets FLOAT at construction
+            // and breakFollowing(), and useBrakeModeInTeleOp defaults to false (javap).
+            // simple-code RobotConstants.DRIVE_ZERO_POWER is FLOAT too. The Pedro
+            // decelerations 36.17/85.98 in/s^2 were measured coasting on FLOAT.
+            // Deliberate deviation from spec 02 "existing drive BRAKE unchanged".
+            motor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
             motor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
             foundMotors.put(name, motor);
             addEncoderAlias(foundEncoders, encoderNameForWheel(name), motor);

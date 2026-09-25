@@ -120,7 +120,12 @@ public final class PedroDrive implements boobuzz.core.subsystem.IDrive {
 
     @Override
     public boolean pathDone() {
-        return !follower.isBusy();
+        // Pedro core 3.0.0 (javap): when a path ends with holdEnd=false the Follower
+        // calls stop() and goes IDLE, but Foresight's last calculatePath() already
+        // called reset(), which leaves busy=true. Without the idle() check such a
+        // path would never report done; the archive's Pedro 2.0.4 breakFollowing()
+        // cleared isBusy at the same point.
+        return !follower.isBusy() || follower.idle();
     }
 
     @Override
@@ -178,7 +183,9 @@ public final class PedroDrive implements boobuzz.core.subsystem.IDrive {
             Pose start = localizer.pose();
             if (Math.abs(target.x() - start.x()) < 1e-9
                     && Math.abs(target.y() - start.y()) < 1e-9) {
-                PathRegistry.startHold(follower, target, request.holdEnd());
+                // In-place turn: no hold scaling, like Pedro's own path-end hold(Pose).
+                // holdEnd is not a gain flag and has no meaning for a pure hold.
+                PathRegistry.startHold(follower, target, false);
             } else {
                 follower.holdEnd.set(request.holdEnd());
                 follower.follow(withHeadingAndConstraints(
@@ -211,7 +218,12 @@ public final class PedroDrive implements boobuzz.core.subsystem.IDrive {
         return Paths.path(pieces.toArray(Path[]::new));
     }
 
-    private Path withHeadingAndConstraints(Path path, PathRequest request) {
+    /** Package-private for tests: the follower whose config path modifiers target. */
+    Follower follower() {
+        return follower;
+    }
+
+    Path withHeadingAndConstraints(Path path, PathRequest request) {
         PathRequest.Heading heading = request.heading();
         path = switch (heading.mode()) {
             case TANGENT -> path.tangent();
@@ -229,9 +241,16 @@ public final class PedroDrive implements boobuzz.core.subsystem.IDrive {
             modifiers.add(foresight.config.velocityConstraint.at(request.velocityConstraint()));
         }
         if (request.braking() != null) {
-            modifiers.add(foresight.config.maxBrakingPower.at(request.braking().strength()));
+            // Archive Pedro 2.0.4 (javap ErrorCalculator): brakingStrength scales the
+            // zero-power deceleration used to plan the stop; Pedro 3.0 expresses that
+            // as maxDecelerationScale, the same mapping as simple-code's
+            // AutoPathPlanner.maxDecelerationScale. maxBrakingPower (a cap on reverse
+            // power, default 0.2) stays at the Pedro default.
+            // startMultiplier is deliberately unused: in 2.0.4 it multiplied the
+            // stopping distance (larger = brake earlier), and Pedro 3.0 has no
+            // equivalent; mapping it to maxDecelerationScale reversed its direction.
             modifiers.add(foresight.config.maxDecelerationScale.at(
-                    request.braking().startMultiplier()));
+                    request.braking().strength()));
         }
         return modifiers.isEmpty() ? path : path.with(modifiers.toArray(Modifier[]::new));
     }
