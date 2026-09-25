@@ -8,13 +8,16 @@ import boobuzz.core.hal.Mechanism;
 import com.pedropathing.algorithm.ForesightConfig;
 import com.pedropathing.controllers.Controller;
 import com.pedropathing.controllers.PIDController;
+import com.pedropathing.localization.MotionState;
 import com.pedropathing.math.Pose;
+import com.pedropathing.math.Velocity;
 
 import org.junit.Test;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -70,6 +73,31 @@ public class HalTimeForesightTest {
                     controller instanceof Controller.TimedController
                             || controller instanceof PIDController);
         }
+    }
+
+    @Test
+    public void holdTimeoutReArmsWhenHalTimeGoesBackwards() {
+        AtomicLong now = new AtomicLong(1_000L);
+        HalTimeForesight foresight = new HalTimeForesight(
+                PedroConstants.createForesightConfig(Mechanism.DEFAULT), now::get);
+        HalDrivetrain drivetrain = new HalDrivetrain(PedroDrive.wheelNames(Mechanism.DEFAULT));
+        // Robot at the target point but 0.5 rad off heading: only the timeout ends it.
+        Pose target = new Pose(10.0, 10.0, 0.5);
+        MotionState state = MotionState.ofVelocity(new Pose(10.0, 10.0, 0.0), Velocity.zero());
+
+        foresight.reset();
+        foresight.calculateHold(drivetrain, target, state, false, DT_MS / 1000.0);  // arms at 1000
+        long firstDone = -1L;
+        for (long t = 0L; t <= 400L && firstDone < 0L; t += DT_MS) {
+            now.set(t);   // time base restarted below the armed start
+            foresight.calculateHold(drivetrain, target, state, false, DT_MS / 1000.0);
+            if (!foresight.isBusy()) {
+                firstDone = t;
+            }
+        }
+        // Re-armed at t=0: first tick strictly more than 100 ms later. Without the
+        // guard the hold would stay busy until t > 1100.
+        assertEquals(120L, firstDone);
     }
 
     /** Returns one line per tick; sleeps before the tick at {@code slowTickMs}. */

@@ -78,7 +78,15 @@ final class HalTimeForesight extends Foresight {
 
     @Override
     public boolean timeoutCondition() {
-        return !settleOnly && holdTimerArmed
-                && halTimeMs.getAsLong() - holdTimerStartMs > config.timeoutConstraint.get();
+        if (settleOnly || !holdTimerArmed) {
+            return false;
+        }
+        long now = halTimeMs.getAsLong();
+        if (now < holdTimerStartMs) {
+            // HAL time went backwards (e.g. a new time base): re-arm from now rather
+            // than keep the hold busy until the old start time comes round again.
+            holdTimerStartMs = now;
+        }
+        return now - holdTimerStartMs > config.timeoutConstraint.get();
     }
 }
