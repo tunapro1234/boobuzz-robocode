@@ -26,9 +26,13 @@ import java.util.function.Supplier;
  *   <li>Time is HAL ms. After a reset (enable, tuning change, invalid sensor) the first
  *       closed-loop tick has no derivative and no integral step; the archive used a
  *       stale wall-clock dt and an error of 0 there. A >50 RPM target change resets
- *       only readiness, exactly like the archive.</li>
- *   <li>A missing or non-finite velocity zeroes both outputs and clears the
- *       controller and readiness until the sensor returns.</li>
+ *       only readiness, exactly like the archive (ShooterPidfPowerSubsystem:64-68);
+ *       integral and previous error are otherwise cleared only on disable (:79-86).</li>
+ *   <li>Deliberate non-archive addition: an accepted tuning change clears the
+ *       controller and readiness (the archive's tuning was static).</li>
+ *   <li>Deliberate non-archive addition: a missing or non-finite velocity zeroes both
+ *       outputs and clears the controller and readiness until the sensor returns (the
+ *       archive had no sensor-loss concept).</li>
  *   <li>Spin-down also stops the feeder, so nothing is fed with the flywheel off.</li>
  *   <li>A zero, negative or non-finite target spins down (outputs 0); the archive kept
  *       the loop closed at 0 RPM and accepted negative targets.</li>
@@ -211,6 +215,7 @@ public final class FlywheelShooter implements IShooter {
             stable = false;
             appliedPower = 0.0;
         } else if (!sensorValid) {
+            // Deliberate non-archive addition: the archive had no sensor-loss concept.
             resetController();
             appliedPower = 0.0;
         } else {
@@ -326,7 +331,8 @@ public final class FlywheelShooter implements IShooter {
         tuning = next;
         tuningEventPending = true;
         if (change) {
-            // Documented policy: an accepted change clears integral and readiness.
+            // Deliberate non-archive addition: an accepted change clears integral and
+            // readiness; the archive's tuning was static.
             resetController();
         }
     }
