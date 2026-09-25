@@ -65,7 +65,7 @@ public class RobotLoopSafetyIntegrationTest {
         assertTrue(drive.stopCalls > 0);
         assertTrue(shooter.spinDownCalls > 0);
         assertTrue(intake.stopCalls > 0);
-        assertTrue(turret.holdCalls > 0);
+        assertTrue(turret.disableCalls > 0);
         assertTrue(feedbackStatuses.stream().anyMatch(status -> status.id() == 1
                 && status.state() == RequestStatus.State.REJECTED));
         assertTrue(feedbackStatuses.stream().anyMatch(status -> status.id() == 2
@@ -146,6 +146,7 @@ public class RobotLoopSafetyIntegrationTest {
 
     private static final class RecordingTurret implements ITurret {
         int holdCalls;
+        int disableCalls;
 
         @Override public void observe(RobotState state) {}
         @Override public void update(RobotAction.Builder out) {}
@@ -156,6 +157,6 @@ public class RobotLoopSafetyIntegrationTest {
         @Override public double angleRad() { return 0.0; }
         @Override public AimResult aimRelative(double angleRad) { return AimResult.ACCEPTED; }
         @Override public AimResult aimStatus() { return AimResult.ACCEPTED; }
-        @Override public void disable() {}
+        @Override public void disable() { disableCalls++; }
     }
 }

@@ -3,10 +3,12 @@ package boobuzz.core.logic.direct;
 import boobuzz.core.contract.Request;
 import boobuzz.core.contract.RequestBatch;
 import boobuzz.core.contract.RequestStatus;
+import boobuzz.core.contract.RequestType;
 import boobuzz.core.contract.RobotAction;
 import boobuzz.core.contract.RobotState;
 import boobuzz.core.contract.WorldSnapshot;
 import boobuzz.core.logic.IRobotEngine;
+import boobuzz.core.logic.MechanismProfile;
 import boobuzz.core.subsystem.Subsystems;
 
 import java.util.ArrayList;
@@ -27,8 +29,12 @@ public final class DirectEngine implements IRobotEngine {
     private Integer intakeOwnerId;
 
     public DirectEngine(Subsystems subsystems) {
+        this(subsystems, MechanismProfile.STUB);
+    }
+
+    public DirectEngine(Subsystems subsystems, MechanismProfile profile) {
         this.subsystems = Objects.requireNonNull(subsystems, "subsystems");
-        this.map = new DirectMap(subsystems);
+        this.map = new DirectMap(subsystems, profile);
     }
 
     @Override
@@ -82,6 +88,11 @@ public final class DirectEngine implements IRobotEngine {
                     && driveJob != null) {
                 map.cancel(driveJob, "reset pose", statuses);
                 driveJob = null;
+            }
+            if (request.type() == RequestType.STOP_SHOOTING) {
+                map.stopShooting(shooterJob);
+                statuses.add(RequestStatus.done(request.id()));
+                continue;
             }
             DirectMap.Job job = map.start(request, driveJob != null, shooterJob != null, statuses);
             if (job == null) {
@@ -164,7 +175,7 @@ public final class DirectEngine implements IRobotEngine {
         subsystems.shooter().spinDown();
         subsystems.intake().stop();
         intakeOwnerId = null;
-        subsystems.turret().hold();
+        subsystems.turret().disable();
     }
 
     private static boolean containsCancelAll(int[] cancels) {

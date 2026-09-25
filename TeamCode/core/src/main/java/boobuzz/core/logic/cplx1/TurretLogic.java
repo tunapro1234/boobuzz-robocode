@@ -15,6 +15,7 @@ public final class TurretLogic {
 
     private final ITurret turret;
     private boolean holdingForShot;
+    private boolean enabled = true;
     private TargetMode mode = TargetMode.ALLIANCE_GOAL;
     private double fieldX;
     private double fieldY;
@@ -30,6 +31,29 @@ public final class TurretLogic {
     /** Default: the alliance goal from RobotConstants. */
     public void useAllianceGoal() {
         mode = TargetMode.ALLIANCE_GOAL;
+        enabled = true;
+    }
+
+    /** Zero the turret; update() never re-arms it until a fresh target or enable(). */
+    public void disable() {
+        enabled = false;
+        holdingForShot = false;
+        targetKnown = false;
+        turret.disable();
+    }
+
+    /** Resume aiming at the current target selection after disable(). */
+    public void enable() {
+        enabled = true;
+    }
+
+    public boolean enabled() {
+        return enabled;
+    }
+
+    /** False while the turret mechanism is still calibrating (no aim can be accepted). */
+    public boolean startupDone() {
+        return turret.aimStatus() != ITurret.AimResult.NOT_INITIALIZED;
     }
 
     /** Track a field point; the same setter a future shot solver uses. */
@@ -40,6 +64,7 @@ public final class TurretLogic {
         mode = TargetMode.FIELD_POINT;
         fieldX = x;
         fieldY = y;
+        enabled = true;
     }
 
     /** Fixed preset relative to the robot heading (radians, CCW positive). */
@@ -49,6 +74,11 @@ public final class TurretLogic {
         }
         mode = TargetMode.FIXED_RELATIVE;
         relativeRad = angleRad;
+        enabled = true;
+    }
+
+    public double relativeTargetRad() {
+        return relativeRad;
     }
 
     public TargetMode targetMode() {
@@ -56,6 +86,10 @@ public final class TurretLogic {
     }
 
     public void update(Pose robotPose) {
+        if (!enabled) {
+            targetKnown = false;
+            return;
+        }
         if (holdingForShot) {
             turret.hold();
             return;
@@ -85,13 +119,13 @@ public final class TurretLogic {
     /** On target AND the active aim is reachable (never a clamped "success"). */
     public boolean locked() {
         boolean aimValid = mode == TargetMode.FIXED_RELATIVE || targetKnown;
-        return aimValid && turret.aimStatus() == ITurret.AimResult.ACCEPTED
+        return enabled && aimValid && turret.aimStatus() == ITurret.AimResult.ACCEPTED
                 && turret.onTarget();
     }
 
     public void holdForShot(boolean hold) {
-        holdingForShot = hold;
-        if (hold) {
+        holdingForShot = hold && enabled;
+        if (holdingForShot) {
             turret.hold();
         }
     }

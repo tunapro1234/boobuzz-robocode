@@ -4,7 +4,10 @@ import boobuzz.core.contract.PathRequest;
 import boobuzz.core.contract.Request;
 import boobuzz.core.contract.RequestStatus;
 import boobuzz.core.contract.RequestType;
+import boobuzz.core.hal.RobotConstants;
+import boobuzz.core.logic.MechanismProfile;
 import boobuzz.core.logic.ShooterCalibration;
+import boobuzz.core.logic.shot.ShotPreset;
 import boobuzz.core.subsystem.Subsystems;
 
 import com.pedropathing.math.Pose;
@@ -18,9 +21,24 @@ import java.util.List;
 public final class DirectMap {
 
     private final Subsystems subsystems;
+    private final MechanismProfile profile;
+    private ShotPreset preset = ShotPreset.DEFAULT;
+    private boolean presetExplicit;
 
     public DirectMap(Subsystems subsystems) {
+        this(subsystems, MechanismProfile.STUB);
+    }
+
+    public DirectMap(Subsystems subsystems, MechanismProfile profile) {
         this.subsystems = subsystems;
+        this.profile = profile;
+    }
+
+    /** STOP_SHOOTING: the active shot finishes its current pulse and starts no new ones. */
+    public void stopShooting(Job job) {
+        if (job instanceof ShootJob shoot) {
+            shoot.remaining = 0;
+        }
     }
 
     /** Starts one request and returns a job when it remains active. */
@@ -44,6 +62,7 @@ public final class DirectMap {
             case INTAKE, INTAKE_ON, INTAKE_OFF -> startIntake(request, statuses);
             case TURRET_AIM -> startTurretAim(request, statuses);
             case RESET_POSE -> startResetPose(request, statuses);
+            case SET_SHOT_PRESET -> setPreset(request, statuses);
             default -> {
                 statuses.add(RequestStatus.rejected(request.id(), "unsupported request"));
                 yield null;
@@ -150,8 +169,15 @@ public final class DirectMap {
             return null;
         }
         int count = (int) request.param(0, 0.0);
+        if (count > RobotConstants.SHOT_MAX_COUNT) {
+            statuses.add(RequestStatus.rejected(request.id(),
+                    "SHOOT count must be 1.." + RobotConstants.SHOT_MAX_COUNT));
+            return null;
+        }
+        boolean usePreset = profile == MechanismProfile.REAL || presetExplicit;
         double rpm = request.params().length >= 2
                 ? request.param(1, Double.NaN)
+                : usePreset ? preset.rpm()
                 : ShooterCalibration.calibratedRpm(subsystems.drive().pose());
         if (!Double.isFinite(rpm) || rpm <= 0.0) {
             statuses.add(RequestStatus.rejected(request.id(),
@@ -159,7 +185,25 @@ public final class DirectMap {
             return null;
         }
         subsystems.shooter().spinUp(rpm);
+        if (usePreset) {
+            subsystems.shooter().setHoodAngleDeg(preset.hoodDeg());
+            subsystems.turret().aimRelative(preset.turretRad());
+        }
         return new ShootJob(request.id(), count, rpm);
+    }
+
+    private Job setPreset(Request request, List<RequestStatus> statuses) {
+        double[] p = request.params();
+        String problem = p.length < 3 ? "SET_SHOT_PRESET requires rpm, hoodDeg, turretRad"
+                : ShotPreset.validate(p[0], p[1], p[2]);
+        if (problem != null) {
+            statuses.add(RequestStatus.rejected(request.id(), problem));
+            return null;
+        }
+        preset = new ShotPreset(p[0], p[1], p[2]);
+        presetExplicit = true;
+        statuses.add(RequestStatus.done(request.id()));
+        return null;
     }
 
     private Job startSpin(Request request, List<RequestStatus> statuses) {

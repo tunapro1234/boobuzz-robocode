@@ -22,7 +22,10 @@ public class ShooterLogicTest {
         RecordingShooter shooter = new RecordingShooter();
         RecordingTurret turret = new RecordingTurret();
         ShooterLogic logic = new ShooterLogic(shooter, turretLogic(turret));
-        logic.observe(new Pose(24.0, 48.0, 0.0));
+        // Stationary gate: a full 200 ms window plus the 150 ms hold.
+        for (long t = 0; t <= 360; t += 20) {
+            logic.observe(t, new Pose(24.0, 48.0, 0.0));
+        }
         RequestStatus accepted = logic.requestShot(4, 1);
         assertEquals(RequestStatus.State.ACTIVE, accepted.state());
         assertEquals(RequestStatus.State.REJECTED, logic.requestShot(5, 1).state());

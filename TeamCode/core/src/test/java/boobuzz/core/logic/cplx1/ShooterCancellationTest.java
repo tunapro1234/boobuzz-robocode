@@ -30,7 +30,7 @@ public class ShooterCancellationTest {
     public void cancelActiveShotStopsShooterAndEmitsTerminalStatus() {
         RecordingShooter shooter = new RecordingShooter();
         ShooterLogic logic = new ShooterLogic(shooter, turret());
-        logic.observe(new Pose(24.0, 48.0, 0.0));
+        logic.observe(0L, new Pose(24.0, 48.0, 0.0));
         logic.requestShot(41, 2);
         List<RequestStatus> statuses = new ArrayList<>();
 
