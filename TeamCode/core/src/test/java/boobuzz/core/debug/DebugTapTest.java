@@ -119,15 +119,16 @@ public class DebugTapTest {
 
     @Test
     public void reportsBagOpenFailureAfterConfigurationOnClose() throws Exception {
-        Path path = Files.createTempFile("robot-bag-late-failure", ".jsonl");
+        // The bag path is unopenable before configureBag: configureBag does no I/O,
+        // so the open fails later on the dispatcher whenever it first runs. Turning
+        // a regular file into a directory after configureBag raced the dispatcher:
+        // if it opened the file first, the open succeeded and no error existed.
+        Path path = Files.createTempDirectory("robot-bag-late-failure");
         try (DebugTap tap = new DebugTap(0)) {
             tap.configureBag(path.toFile(), "cplx1", "test", "abc", Pose.zero());
-            Files.delete(path);
-            Files.createDirectory(path);
             tap.offer(frame(20));
-            for (int i = 0; i < 100 && tap.bagError() == null; i++) {
-                Thread.sleep(5);
-            }
+            // Every dispatcher exit path resolves the configured bag, so close()
+            // alone must surface the failure; no waiting for the dispatcher.
             tap.close();
             assertTrue("late bag open failure must be retained", tap.bagError() != null);
         } finally {
