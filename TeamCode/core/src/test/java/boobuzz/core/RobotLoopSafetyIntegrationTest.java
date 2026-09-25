@@ -130,6 +130,8 @@ public class RobotLoopSafetyIntegrationTest {
         @Override public boolean isReady() { return false; }
         @Override public void feed() {}
         @Override public boolean isFeeding() { return false; }
+        @Override public void setHoodAngleDeg(double angleDeg) {}
+        @Override public boolean hoodSettled() { return false; }
     }
 
     private static final class RecordingIntake implements IIntake {

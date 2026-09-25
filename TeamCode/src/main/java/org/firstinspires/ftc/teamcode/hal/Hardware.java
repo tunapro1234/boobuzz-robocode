@@ -89,7 +89,8 @@ public final class Hardware {
             }
             Servo servo = hardwareMap.get(Servo.class, device.name());
             servo.setDirection(Servo.Direction.valueOf(device.direction()));
-            servo.setPosition(device.initialPos());
+            // Like the archive HoodSubsystem, do not move a positional servo during init;
+            // the first explicit command positions it.
             foundServos.put(device.name(), servo);
         }
         // Keep legacy test-only mechanisms usable while proto2 profiles use typed declarations.

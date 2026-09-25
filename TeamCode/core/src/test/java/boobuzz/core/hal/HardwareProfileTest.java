@@ -40,7 +40,8 @@ public class HardwareProfileTest {
         assertEquals("BRAKE", mechanism.dcDevice("intake").zeroPower());
         assertEquals("FORWARD", mechanism.dcDevice("feeder").direction());
         assertEquals("BRAKE", mechanism.dcDevice("feeder").zeroPower());
-        assertEquals("REVERSE", mechanism.positionalServo("hood_left").direction());
+        // Archive never reversed a hood servo; the left inversion is only the 1-u mapping.
+        assertEquals("FORWARD", mechanism.positionalServo("hood_left").direction());
         assertEquals("FORWARD", mechanism.positionalServo("hood_right").direction());
         assertEquals(1.0, mechanism.positionalServo("hood_left").initialPos(), 1e-9);
         assertEquals(0.0, mechanism.positionalServo("hood_right").initialPos(), 1e-9);

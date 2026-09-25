@@ -59,6 +59,8 @@ public class ShooterLogicTest {
         @Override public boolean isReady() { return ready; }
         @Override public void feed() { feedCalls++; feeding = true; }
         @Override public boolean isFeeding() { return feeding; }
+        @Override public void setHoodAngleDeg(double angleDeg) {}
+        @Override public boolean hoodSettled() { return false; }
     }
 
     private static final class RecordingTurret implements ITurret {

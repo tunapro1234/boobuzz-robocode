@@ -135,7 +135,7 @@ public class MechanismTest {
         assertEquals("FORWARD", m.dcDevice("shooterLeft").direction());
         assertEquals("shooterRight", RobotConstants.SHOOTER_FEEDBACK_ENCODER_NAME);
         assertEquals("shooterLeft", RobotConstants.TURRET_ENCODER_NAME);
-        assertEquals("REVERSE", m.positionalServo("hood_left").direction());
+        assertEquals("FORWARD", m.positionalServo("hood_left").direction());
         assertEquals(1.0, m.positionalServo("hood_left").initialPos(), 1e-9);
     }
 }

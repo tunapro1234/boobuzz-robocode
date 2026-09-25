@@ -4,11 +4,17 @@ import boobuzz.core.contract.RobotAction;
 import boobuzz.core.contract.RobotState;
 import boobuzz.core.hal.RobotConstants;
 import boobuzz.core.subsystem.IShooter;
+import boobuzz.core.subsystem.hood.PairedHood;
 
 import java.util.Map;
 
-/** Timing-only shooter used until the real shooter mechanism is integrated. */
+/**
+ * Timing-only shooter used until the real shooter mechanism is integrated. The composed
+ * hood is the real paired-servo mapping; its settle status is an estimate, not feedback.
+ */
 public final class StubShooter implements IShooter {
+
+    private final PairedHood hood = new PairedHood();
 
     private double targetRpm;
     private long spinUpStartedMs;
@@ -22,6 +28,7 @@ public final class StubShooter implements IShooter {
     @Override
     public void observe(RobotState state) {
         nowMs = state.t();
+        hood.observe(state);
         finishFeedIfDue();
     }
 
@@ -70,7 +77,18 @@ public final class StubShooter implements IShooter {
     }
 
     @Override
+    public void setHoodAngleDeg(double angleDeg) {
+        hood.setAngleDeg(angleDeg);
+    }
+
+    @Override
+    public boolean hoodSettled() {
+        return hood.settled();
+    }
+
+    @Override
     public void update(RobotAction.Builder out) {
+        hood.update(out);
         if (feedStartPending) {
             out.event("shooter.feed.start", nowMs, java.util.Collections.emptyMap());
             feedStartPending = false;

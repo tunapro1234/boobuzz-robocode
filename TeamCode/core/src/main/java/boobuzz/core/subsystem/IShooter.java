@@ -12,4 +12,10 @@ public interface IShooter extends ISubsystem {
     void feed();
 
     boolean isFeeding();
+
+    /** Command the one hood angle (degrees, clipped to the mechanism range). */
+    void setHoodAngleDeg(double angleDeg);
+
+    /** Estimated only: no hood angle sensor exists. */
+    boolean hoodSettled();
 }

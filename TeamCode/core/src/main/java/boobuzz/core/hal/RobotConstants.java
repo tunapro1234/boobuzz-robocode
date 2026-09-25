@@ -62,6 +62,19 @@ public final class RobotConstants {
     public static final double SHOOTER_HOOD_BASE = 0.0;
     public static final double SHOOTER_HOOD_PER_IN = 0.0;
 
+    // Archive HardwareConstants.Hood: 25..50 deg hood maps to 0..215 deg of 300-deg servo travel.
+    public static final double HOOD_MIN_DEG = 25.0;
+    public static final double HOOD_MAX_DEG = 50.0;
+    public static final double HOOD_SERVO_TRAVEL_DEG = 215.0;
+    public static final double HOOD_SERVO_RANGE_DEG = 300.0;
+    public static final double HOOD_DEFAULT_DEG = 44.0;
+    public static final double HOOD_STOW_DEG = 25.0;
+    // Archive lvbelc5 RecoveryController.DEFAULT_HOOD_ANGLE.
+    public static final double HOOD_RECOVERY_DEG = 45.0;
+    // B06 simulator fixture, not hardware data: hood rate and settling margin.
+    public static final double HOOD_FIXTURE_RATE_DEG_S = 90.0;
+    public static final long HOOD_SETTLE_MARGIN_MS = 100;
+
     // TeleOp BACK reset pose: the fixed blue-side field pose used last season.
     public static final double TELEOP_RESET_POSE_X = 24.0;
     public static final double TELEOP_RESET_POSE_Y = 96.0;
@@ -110,7 +123,9 @@ public final class RobotConstants {
     public static final CrServo TURRET_PRIMARY = new CrServo(TURRET_PRIMARY_SERVO_NAME, "FORWARD");
     public static final CrServo TURRET_SECONDARY = new CrServo(TURRET_SECONDARY_SERVO_NAME, "FORWARD");
     public static final CrServo[] CR_SERVOS = {TURRET_PRIMARY, TURRET_SECONDARY};
-    public static final PosServo HOOD_LEFT = new PosServo(HOOD_LEFT_SERVO_NAME, "REVERSE", 1.0);
+    // Archive HoodSubsystem never set a servo direction: the left inversion is already the
+    // complementary 1-u command (rightInverse=false). A HAL REVERSE here would invert twice.
+    public static final PosServo HOOD_LEFT = new PosServo(HOOD_LEFT_SERVO_NAME, "FORWARD", 1.0);
     public static final PosServo HOOD_RIGHT = new PosServo(HOOD_RIGHT_SERVO_NAME, "FORWARD", 0.0);
     public static final PosServo[] SERVOS = {HOOD_LEFT, HOOD_RIGHT};
     public static final String[] ENCODERS = {"leftFront", "rightFront", "leftBack", "rightBack", "intake", "feeder", "shooterRight", "shooterLeft"};

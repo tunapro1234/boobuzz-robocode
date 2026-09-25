@@ -112,6 +112,11 @@ public final class SubsystemTrace {
             delegate.feed();
         }
         @Override public boolean isFeeding() { return delegate.isFeeding(); }
+        @Override public void setHoodAngleDeg(double angleDeg) {
+            trace.call("shooter", "setHoodAngleDeg", angleDeg);
+            delegate.setHoodAngleDeg(angleDeg);
+        }
+        @Override public boolean hoodSettled() { return delegate.hoodSettled(); }
     }
 
     private static final class RecordingIntake
