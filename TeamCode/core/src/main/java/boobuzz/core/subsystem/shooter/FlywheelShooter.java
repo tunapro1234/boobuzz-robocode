@@ -30,6 +30,11 @@ import java.util.function.Supplier;
  *   <li>A missing or non-finite velocity zeroes both outputs and clears the
  *       controller and readiness until the sensor returns.</li>
  *   <li>Spin-down also stops the feeder, so nothing is fed with the flywheel off.</li>
+ *   <li>A zero, negative or non-finite target spins down (outputs 0); the archive kept
+ *       the loop closed at 0 RPM and accepted negative targets.</li>
+ *   <li>Readiness also requires the CURRENT observation to be valid and within
+ *       tolerance. Logic calls {@link #feed()} after observe but before update, so the
+ *       dwell flag alone would be one tick stale; the archive ran periodic() first.</li>
  * </ul>
  * Anti-windup is the archive's only: integral zone reset plus accumulator clamp; the
  * output clip does not stop integration.
@@ -121,7 +126,8 @@ public final class FlywheelShooter implements IShooter {
 
     @Override
     public boolean isReady() {
-        return enabled && stable;
+        return enabled && stable && sensorValid
+                && Math.abs(targetRpm - measuredRpm) <= activeTuning().toleranceRpm();
     }
 
     /** One archive pulse, only when ready and the feeder is idle; never queued. */
@@ -237,6 +243,10 @@ public final class FlywheelShooter implements IShooter {
         fresh = true;
         stable = false;
         previouslyWithinTolerance = false;
+    }
+
+    private ShooterTuning activeTuning() {
+        return tuning != null ? tuning : ShooterTuning.DEFAULTS;
     }
 
     private void readTuning() {

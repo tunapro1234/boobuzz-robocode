@@ -346,6 +346,62 @@ public class FlywheelShooterTest {
         assertEquals(tick(a, 0, rpm(3900.0)).motor(RIGHT), tick(b, 0, withTurret).motor(RIGHT), 0.0);
     }
 
+    @Test
+    public void feedUsesCurrentObservationNotLastTickReadiness() {
+        FlywheelShooter shooter = new FlywheelShooter();
+        shooter.spinUp(4000.0);
+        tick(shooter, 0, rpm(4000.0));
+        tick(shooter, 160, rpm(4000.0));
+        assertTrue(shooter.isReady());
+
+        // Logic runs between observe and update: a dip seen this tick must block feed.
+        observe(shooter, 180, rpm(3850.0));
+        assertFalse(shooter.isReady());
+        shooter.feed();
+        assertFalse(shooter.isFeeding());
+
+        observe(shooter, 200, Map.of());
+        assertFalse("missing sensor is never ready", shooter.isReady());
+        shooter.feed();
+        assertFalse(shooter.isFeeding());
+    }
+
+    @Test
+    public void facadeDrivesHoodOnSameClock() {
+        FlywheelShooter shooter = new FlywheelShooter();
+        RobotAction idle = tick(shooter, 0, rpm(0.0));
+        assertTrue("no hood write before a command", idle.servos().isEmpty());
+        shooter.setHoodAngleDeg(44.0);
+        RobotAction first = tick(shooter, 1000, rpm(0.0));
+        assertEquals(0.4553333333, first.servo(RobotConstants.HOOD_LEFT_SERVO_NAME), 1e-9);
+        assertEquals(0.5446666667, first.servo(RobotConstants.HOOD_RIGHT_SERVO_NAME), 1e-9);
+        // Unknown start: 278 ms worst-case travel + 100 ms margin from t=1000.
+        tick(shooter, 1360, rpm(0.0));
+        assertFalse(shooter.hoodSettled());
+        tick(shooter, 1380, rpm(0.0));
+        assertTrue(shooter.hoodSettled());
+    }
+
+    @Test
+    public void repeatedTimestampUsesMinimumDt() {
+        FlywheelShooter shooter = new FlywheelShooter();
+        shooter.spinUp(4000.0);
+        tick(shooter, 0, rpm(3900.0));
+        RobotAction same = tick(shooter, 0, rpm(3900.0));
+        assertTrue(Double.isFinite(same.motor(RIGHT)));
+        // Integral step uses the 1 ms floor: 100 RPM * 0.001 s.
+        assertEquals(0.1, shooter.integralAccum(), 1e-9);
+    }
+
+    @Test
+    public void integralZoneBoundaryIsInclusive() {
+        FlywheelShooter shooter = new FlywheelShooter();
+        shooter.spinUp(4000.0);
+        tick(shooter, 0, rpm(3750.0));
+        tick(shooter, 100, rpm(3750.0));
+        assertEquals(250.0 * 0.1, shooter.integralAccum(), 1e-6);
+    }
+
     private static List<Double> scriptedRun() {
         List<Double> out = new ArrayList<>();
         AtomicReference<ShooterTuning> live = new AtomicReference<>(ShooterTuning.DEFAULTS);
@@ -385,6 +441,10 @@ public class FlywheelShooterTest {
 
     private static Map<String, Double> rpm(double wheelRpm) {
         return Map.of(RIGHT, wheelRpm * TICKS_AT_4000 / 4000.0);
+    }
+
+    private static void observe(FlywheelShooter shooter, long t, Map<String, Double> vel) {
+        shooter.observe(new RobotState(t, Map.of(), vel, 0.0, new Pose(0.0, 0.0, 0.0), 12.0));
     }
 
     private static RobotAction tick(FlywheelShooter shooter, long t, Map<String, Double> vel) {
