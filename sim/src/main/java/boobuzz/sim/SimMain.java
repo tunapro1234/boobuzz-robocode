@@ -79,9 +79,13 @@ public final class SimMain {
             if (replayController != null) {
                 System.out.printf("controller: replay (%d ticks)%n", replayController.tickCount());
             } else if ("socket".equals(a.controller)) {
-                socketController = new SocketController(a.controlPort, a.controlTimeoutMs);
+                // --control-port 0 asks the OS for a free port; the line below reports
+                // it so a launcher never has to probe a port and hope it stays free.
+                socketController = a.controlPort == 0
+                        ? SocketController.onFreePort(a.controlTimeoutMs)
+                        : new SocketController(a.controlPort, a.controlTimeoutMs);
                 System.out.printf("controller: socket (port %d, timeout %d ms)%n",
-                        a.controlPort, a.controlTimeoutMs);
+                        socketController.port(), a.controlTimeoutMs);
             } else if (autoController != null) {
                 System.out.printf("controller: auto (%s)%n", a.auto);
             } else if (a.pathId != null) {

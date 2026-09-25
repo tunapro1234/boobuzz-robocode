@@ -177,6 +177,20 @@ public class SocketControllerTest {
     }
 
     @Test
+    public void freePortFormReportsTheBoundPortWhilePortZeroStaysDisabled() throws Exception {
+        try (SocketController disabled = new SocketController(0, 250)) {
+            assertEquals(0, disabled.port());
+            assertTrue(!disabled.enabled());
+        }
+        try (SocketController controller = SocketController.onFreePort(250);
+             Socket client = new Socket("127.0.0.1", controller.port())) {
+            assertTrue(controller.port() > 0);
+            assertTrue(controller.enabled());
+            waitForClient(controller);
+        }
+    }
+
+    @Test
     public void closeJoinsSocketThreadsWithinBound() throws Exception {
         int port;
         try (ServerSocket probe = new ServerSocket(0)) {

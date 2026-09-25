@@ -16,9 +16,6 @@ import org.junit.Test;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.InetSocketAddress;
-import java.net.ServerSocket;
-import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -42,9 +39,9 @@ public class ReplayIntegrationTest {
         }
 
         File bag = File.createTempFile("robot-replay", ".jsonl");
-        int recordPort = freePort(5580);
-        int replayPort = freePort(recordPort + 1);
-        Process recordServer = startServer(simulator, python, mechanism, recordPort);
+        // Each server binds port 0 and reports its port; nothing is probed first.
+        ChildProcess recordServer = ChildProcess.startSimServer(simulator, python, mechanism);
+        int recordPort = recordServer.awaitPort(0L);
         List<PoseBits> recordedTruth = new ArrayList<>();
         try {
             Pose start = new Pose(72.0, 72.0, 0.0);
@@ -59,12 +56,13 @@ public class ReplayIntegrationTest {
                 }
             }
         } finally {
-            stopServer(recordServer);
+            recordServer.close();
         }
 
         assertTruncatedBagRejected();
 
-        Process replayServer = startServer(simulator, python, mechanism, replayPort);
+        ChildProcess replayServer = ChildProcess.startSimServer(simulator, python, mechanism);
+        int replayPort = replayServer.awaitPort(0L);
         try {
             ReplayController replay = new ReplayController(bag);
             assertEquals(RECORD_TICKS, replay.tickCount());
@@ -75,7 +73,7 @@ public class ReplayIntegrationTest {
                 assertEquals("truth tick " + i, recordedTruth.get(i), replayedTruth.get(i));
             }
         } finally {
-            stopServer(replayServer);
+            replayServer.close();
             if (!bag.delete()) bag.deleteOnExit();
         }
     }
@@ -167,55 +165,6 @@ public class ReplayIntegrationTest {
         return new SimHal(mechanism, "127.0.0.1", port, 20, 42L, pose, 5000);
     }
 
-    private static int freePort(int minimum) throws IOException {
-        for (int port = minimum; port < 65535; port++) {
-            try (ServerSocket probe = new ServerSocket()) {
-                probe.setReuseAddress(true);
-                probe.bind(new InetSocketAddress("127.0.0.1", port));
-                return port;
-            } catch (IOException ignored) {
-                // Try the next port in the requested range.
-            }
-        }
-        throw new IOException("no free simulator port");
-    }
-
-    private static Process startServer(File simulator, File python, File mechanism, int port)
-            throws Exception {
-        Process process = new ProcessBuilder(
-                python.getAbsolutePath(), "-m", "sim.server",
-                "--mechanism", mechanism.getAbsolutePath(),
-                "--physics", "pymunk", "--headless", "--port", Integer.toString(port))
-                .directory(simulator)
-                .redirectErrorStream(true)
-                .start();
-        Thread output = new Thread(() -> {
-            try {
-                while (process.getInputStream().read() >= 0) {
-                    // Drain server diagnostics so a long integration cannot block it.
-                }
-            } catch (IOException ignored) {
-                // Process teardown closes the stream.
-            }
-        }, "replay-test-server-output-" + port);
-        output.setDaemon(true);
-        output.start();
-        long deadline = System.nanoTime() + 10_000_000_000L;
-        while (System.nanoTime() < deadline) {
-            if (!process.isAlive()) {
-                throw new IOException("simulator exited before listening on " + port);
-            }
-            try (Socket socket = new Socket()) {
-                socket.connect(new InetSocketAddress("127.0.0.1", port), 100);
-                return process;
-            } catch (IOException ignored) {
-                Thread.sleep(25);
-            }
-        }
-        stopServer(process);
-        throw new IOException("simulator did not listen on " + port);
-    }
-
     private static final class TestLineController implements IController {
         private boolean sent;
 
@@ -224,15 +173,6 @@ public class ReplayIntegrationTest {
             if (sent) return RequestBatch.idle();
             sent = true;
             return RequestBatch.of(Request.path(1, PathRequest.named("test-line")));
-        }
-    }
-
-    private static void stopServer(Process process) throws InterruptedException {
-        if (process == null) return;
-        process.destroy();
-        if (!process.waitFor(2, java.util.concurrent.TimeUnit.SECONDS)) {
-            process.destroyForcibly();
-            process.waitFor(2, java.util.concurrent.TimeUnit.SECONDS);
         }
     }
 

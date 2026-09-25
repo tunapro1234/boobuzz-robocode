@@ -69,24 +69,39 @@ public final class SocketController implements boobuzz.core.controller.IControll
         this(port, boobuzz.core.hal.RobotConstants.CONTROL_SOCKET_TIMEOUT_MS);
     }
 
+    /** Port zero leaves the controller disabled (it never receives a batch). */
     public SocketController(int port, int timeoutMs) throws IOException {
+        this(port, timeoutMs, false);
+    }
+
+    /**
+     * Listens like the fixed-port form but on a port the OS assigns at bind time,
+     * so a free port is never probed first and then lost to another process.
+     * {@link #port()} reports the bound port.
+     */
+    public static SocketController onFreePort(int timeoutMs) throws IOException {
+        return new SocketController(0, timeoutMs, true);
+    }
+
+    private SocketController(int port, int timeoutMs, boolean anyFreePort) throws IOException {
         if (port < 0 || port > 65535) {
             throw new IllegalArgumentException("control socket port out of range: " + port);
         }
         if (timeoutMs < 0) {
             throw new IllegalArgumentException("control socket timeout must be non-negative");
         }
-        this.port = port;
         timeoutNanos = TimeUnit.MILLISECONDS.toNanos(timeoutMs);
-        if (port == 0) {
+        if (port == 0 && !anyFreePort) {
+            this.port = 0;
             server = null;
             acceptThread = null;
         } else {
             ServerSocket opened = new ServerSocket();
             opened.setReuseAddress(true);
             opened.bind(new java.net.InetSocketAddress(port));
+            this.port = opened.getLocalPort();
             server = opened;
-            acceptThread = new Thread(this::acceptLoop, "control-socket-accept-" + port);
+            acceptThread = new Thread(this::acceptLoop, "control-socket-accept-" + this.port);
             acceptThread.setDaemon(true);
             acceptThread.start();
         }

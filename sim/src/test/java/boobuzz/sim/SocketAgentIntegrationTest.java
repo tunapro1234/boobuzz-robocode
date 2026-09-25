@@ -4,11 +4,7 @@ import org.junit.Test;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.InetSocketAddress;
-import java.net.ServerSocket;
-import java.net.Socket;
-import java.nio.charset.StandardCharsets;
-import java.util.concurrent.TimeUnit;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -32,51 +28,39 @@ public class SocketAgentIntegrationTest {
         assertTrue("RobotConstants.java is missing", mechanism.isFile());
         assertTrue("tools/agent_example.py is missing", agent.isFile());
 
-        int simPort = freePort(5580);
-        int controlPort = freePort(5601);
-        Process server = startServer(simulator, python, mechanism, simPort);
-        Process sim = null;
-        Process agentProcess = null;
-        try {
+        try (ChildProcess server = ChildProcess.startSimServer(simulator, python, mechanism)) {
+            int simPort = server.awaitPort(0L);
             String java = new File(System.getProperty("java.home"), "bin/java")
                     .getAbsolutePath();
-            sim = new ProcessBuilder(
+            // --control-port 0: SimMain binds a free port and prints it.
+            try (ChildProcess sim = ChildProcess.start(List.of(
                     java, "-cp", System.getProperty("java.class.path"),
                     "boobuzz.sim.SimMain",
                     "--host", "127.0.0.1", "--port", Integer.toString(simPort),
-                    "--controller", "socket", "--control-port", Integer.toString(controlPort),
+                    "--controller", "socket", "--control-port", "0",
                     "--control-timeout", "1000", "--engine", "cplx1",
                     "--steps", "10000", "--dt", "20", "--seed", "42",
-                    "--tap-port", "0")
-                    .directory(root)
-                    .redirectErrorStream(true)
-                    .start();
-            waitForPort(controlPort, sim, 10_000L);
+                    "--tap-port", "0"),
+                    root, ChildProcess.SIM_MAIN_CONTROL_PORT, "sim-main")) {
+                int controlPort = sim.awaitPort(10_000L);
 
-            agentProcess = new ProcessBuilder(
-                    python.getAbsolutePath(), agent.getAbsolutePath(),
-                    "--host", "127.0.0.1", "--port", Integer.toString(controlPort),
-                    "--timeout", "30")
-                    .directory(root)
-                    .redirectErrorStream(true)
-                    .start();
-            assertTrue("agent timed out", agentProcess.waitFor(30, TimeUnit.SECONDS));
-            String agentOutput = new String(agentProcess.getInputStream().readAllBytes(),
-                    StandardCharsets.UTF_8);
-            assertEquals("agent output: " + agentOutput, 0, agentProcess.exitValue());
+                try (ChildProcess agentProcess = ChildProcess.start(List.of(
+                        python.getAbsolutePath(), agent.getAbsolutePath(),
+                        "--host", "127.0.0.1", "--port", Integer.toString(controlPort),
+                        "--timeout", "30"),
+                        root, null, "agent")) {
+                    String agentOutput = agentProcess.awaitExitOutput(30_000L);
+                    assertEquals("agent output: " + agentOutput, 0,
+                            agentProcess.process().exitValue());
+                }
 
-            assertTrue("SimMain timed out", sim.waitFor(30, TimeUnit.SECONDS));
-            String simOutput = new String(sim.getInputStream().readAllBytes(),
-                    StandardCharsets.UTF_8);
-            assertEquals("SimMain output: " + simOutput, 0, sim.exitValue());
-            Matcher pose = FINAL_POSE.matcher(simOutput);
-            assertTrue("missing final pose in SimMain output:\n" + simOutput, pose.find());
-            assertEquals(120.0, Double.parseDouble(pose.group(1)), 1.5);
-            assertEquals(72.0, Double.parseDouble(pose.group(2)), 1.5);
-        } finally {
-            stopProcess(agentProcess);
-            stopProcess(sim);
-            stopProcess(server);
+                String simOutput = sim.awaitExitOutput(30_000L);
+                assertEquals("SimMain output: " + simOutput, 0, sim.process().exitValue());
+                Matcher pose = FINAL_POSE.matcher(simOutput);
+                assertTrue("missing final pose in SimMain output:\n" + simOutput, pose.find());
+                assertEquals(120.0, Double.parseDouble(pose.group(1)), 1.5);
+                assertEquals(72.0, Double.parseDouble(pose.group(2)), 1.5);
+            }
         }
     }
 
@@ -115,58 +99,5 @@ public class SocketAgentIntegrationTest {
                     + "; set PYTHON or -Dftc.sim.python");
         }
         return python;
-    }
-
-    private static int freePort(int minimum) throws IOException {
-        for (int port = minimum; port < 65535; port++) {
-            try (ServerSocket probe = new ServerSocket()) {
-                probe.setReuseAddress(true);
-                probe.bind(new InetSocketAddress("127.0.0.1", port));
-                return port;
-            } catch (IOException ignored) {
-                // Try the next port in the requested range.
-            }
-        }
-        throw new IOException("no free port");
-    }
-
-    private static Process startServer(File simulator, File python, File mechanism, int port)
-            throws Exception {
-        Process process = new ProcessBuilder(
-                python.getAbsolutePath(), "-m", "sim.server",
-                "--mechanism", mechanism.getAbsolutePath(),
-                "--physics", "pymunk", "--headless", "--port", Integer.toString(port))
-                .directory(simulator)
-                .redirectErrorStream(true)
-                .start();
-        waitForPort(port, process, 10_000L);
-        return process;
-    }
-
-    private static void waitForPort(int port, Process process, long timeoutMs)
-            throws Exception {
-        long deadline = System.nanoTime() + timeoutMs * 1_000_000L;
-        while (System.nanoTime() < deadline) {
-            if (!process.isAlive()) {
-                throw new IOException("process exited before listening on " + port);
-            }
-            try (Socket socket = new Socket()) {
-                socket.connect(new InetSocketAddress("127.0.0.1", port), 100);
-                return;
-            } catch (IOException ignored) {
-                Thread.sleep(25);
-            }
-        }
-        throw new IOException("process did not listen on " + port);
-    }
-
-    private static void stopProcess(Process process) throws InterruptedException {
-        if (process == null) return;
-        if (!process.isAlive()) return;
-        process.destroy();
-        if (!process.waitFor(2, TimeUnit.SECONDS)) {
-            process.destroyForcibly();
-            process.waitFor(2, TimeUnit.SECONDS);
-        }
     }
 }
