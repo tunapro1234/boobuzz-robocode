@@ -39,9 +39,26 @@ public final class PathRegistry {
         }
         Pose holdTarget = holdTargets.get(id);
         if (holdTarget != null) {
-            follower.hold(holdTarget);
+            startHold(follower, holdTarget, false);
             return;
         }
         throw new IllegalArgumentException("unknown Pedro path: " + id);
+    }
+
+    /**
+     * Starts an in-place hold that reports busy until it settles or times out.
+     *
+     * <p>Pedro core 3.0.0 (javap): {@code Follower.follow} calls
+     * {@code algorithm.reset()}, which sets Foresight {@code busy = true}, but
+     * {@code Follower.hold} only clears follower state and never touches the
+     * algorithm. On a fresh follower (busy starts false) or after a finished path
+     * (busy already cleared), a bare hold would report done on its first tick,
+     * before any turning. Resetting first gives the hold the same end conditions
+     * as a path end: heading, translational and velocity constraints, or the hold
+     * timeout. The archive ran a turn as a busy {@code followPath}, not a hold.
+     */
+    static void startHold(Follower follower, Pose target, boolean useHoldScaling) {
+        follower.algorithm().reset();
+        follower.hold(target, useHoldScaling);
     }
 }

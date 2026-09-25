@@ -15,7 +15,9 @@ public final class PedroConstants {
 
     private PedroConstants() {}
 
-    // Conservative starting controllers for Pedro 3.0; tune with AutoTune.
+    // Source: the archive ran Pedro 2.0.4 FollowerConstants defaults (javap):
+    // coefficientsHeadingPIDF P=1.0 (F=0.01), coefficientsTranslationalPIDF P=0.1
+    // (F=0.015). Pedro 3.0 keeps only the P terms here; tune with AutoTune.
     private static final double HEADING_KP = 1.0;
     private static final double FORWARD_TRANSLATIONAL_KP = 0.10;
     private static final double STRAFE_TRANSLATIONAL_KP = 0.10;

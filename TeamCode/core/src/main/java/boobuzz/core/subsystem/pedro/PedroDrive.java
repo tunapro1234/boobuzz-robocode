@@ -178,7 +178,7 @@ public final class PedroDrive implements boobuzz.core.subsystem.IDrive {
             Pose start = localizer.pose();
             if (Math.abs(target.x() - start.x()) < 1e-9
                     && Math.abs(target.y() - start.y()) < 1e-9) {
-                follower.hold(target, request.holdEnd());
+                PathRegistry.startHold(follower, target, request.holdEnd());
             } else {
                 follower.holdEnd.set(request.holdEnd());
                 follower.follow(withHeadingAndConstraints(
