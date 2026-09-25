@@ -6,6 +6,7 @@ import boobuzz.core.logic.MechanismProfile;
 import boobuzz.core.logic.ShooterCalibration;
 import boobuzz.core.logic.shot.ShotPreset;
 import boobuzz.core.subsystem.IShooter;
+import boobuzz.core.subsystem.ITurret;
 
 import com.pedropathing.math.Pose;
 
@@ -323,7 +324,8 @@ public final class ShooterLogic {
             return "hood settling";
         }
         if (!turret.locked()) {
-            return "aiming";
+            ITurret.AimResult aim = turret.aimStatus();
+            return aim == ITurret.AimResult.ACCEPTED ? "aiming" : "aiming: " + aim;
         }
         if (!motion.stationary(nowMs)) {
             return "chassis moving";

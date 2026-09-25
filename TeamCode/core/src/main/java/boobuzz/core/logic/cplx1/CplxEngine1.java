@@ -56,6 +56,7 @@ public final class CplxEngine1 implements IRobotEngine {
         subsystems.observe(state);
         latestWorld = new WorldSnapshot(
                 state.t(), subsystems.drive().pose(), state.yaw(), state.voltage());
+        subsystems.turret().setRobotPose(latestWorld.pose());
         turret.update(latestWorld.pose());
         shooter.observe(state.t(), latestWorld.pose());
         return latestWorld;

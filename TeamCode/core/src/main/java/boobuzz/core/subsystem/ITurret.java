@@ -1,5 +1,7 @@
 package boobuzz.core.subsystem;
 
+import com.pedropathing.math.Pose;
+
 /** Narrow turret mechanism API; aiming is owned by the complex logic layer. */
 public interface ITurret extends ISubsystem {
 
@@ -10,6 +12,13 @@ public interface ITurret extends ISubsystem {
         INVALID_INPUT,
         NOT_INITIALIZED
     }
+
+    /**
+     * The localized robot pose used for field aiming (drive pose, including any
+     * RESET_POSE offset); engines supply it every tick after observe. Null or non-finite
+     * makes a field aim INVALID_INPUT.
+     */
+    void setRobotPose(Pose pose);
 
     /** Track a field point; reachability is re-evaluated every tick, see {@link #aimStatus()}. */
     void aimAt(double fieldX, double fieldY);

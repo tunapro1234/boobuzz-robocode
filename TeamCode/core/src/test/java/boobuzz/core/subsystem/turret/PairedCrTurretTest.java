@@ -196,7 +196,9 @@ public class PairedCrTurretTest {
         plant.run(turret, 2020, 2100);
         turret.hold();
         double frozen = turret.targetDeg();
-        assertEquals(40.0, frozen, 1e-9);
+        assertEquals("hold freezes the current angle, not the in-flight target",
+                turret.angleDeg(), frozen, 1e-9);
+        assertTrue(frozen < 39.0);
         plant.run(turret, 2120, 2400);
         turret.hold();
         assertEquals("repeated hold keeps the same target", frozen, turret.targetDeg(), 0.0);
@@ -232,6 +234,7 @@ public class PairedCrTurretTest {
         assertEquals(0.0, lost.motor(B), 0.0);
         assertEquals(1, count(lost, "turret.fault"));
         assertFalse(turret.isInitialized());
+        assertEquals(AimResult.NOT_INITIALIZED, turret.aimStatus());
 
         plant.encoderMissing = false;
         plant.step(turret, 2240);
@@ -270,6 +273,159 @@ public class PairedCrTurretTest {
         assertTrue(turret.isInitialized());
     }
 
+    @Test
+    public void newTargetNeverInheritsTheOldLock() {
+        Plant plant = new Plant(0.0);
+        PairedCrTurret turret = readyTurret(plant);
+        turret.aimRelative(0.0);
+        plant.run(turret, 2020, 2400);
+        assertTrue(turret.onTarget());
+        assertEquals(AimResult.ACCEPTED, turret.aimRelative(Math.toRadians(45.0)));
+        assertFalse("same-tick retarget must not report the 0 deg lock", turret.onTarget());
+    }
+
+    @Test
+    public void rangeReentryOnTheOtherSideMustSettleAgain() {
+        Plant plant = new Plant(80.0);
+        PairedCrTurret turret = readyTurret(plant);
+        turret.aimRelative(Math.toRadians(88.0));
+        plant.run(turret, 2020, 4000);
+        assertTrue(turret.onTarget());
+        assertEquals(AimResult.OUT_OF_RANGE, turret.aimRelative(Math.toRadians(95.0)));
+        assertFalse(turret.onTarget());
+        plant.run(turret, 4020, 4400);
+        assertFalse("still settled on the stale target but the aim is rejected",
+                turret.onTarget());
+        assertEquals(AimResult.ACCEPTED, turret.aimRelative(Math.toRadians(-88.0)));
+        assertFalse(turret.onTarget());
+        RobotAction action = plant.step(turret, 4420);
+        assertEquals(0, count(action, "turret.locked"));
+        assertFalse(turret.onTarget());
+    }
+
+    @Test
+    public void fieldAimUsesTheLocalizedPoseNotRawPinpoint() {
+        Plant plant = new Plant(0.0);
+        PairedCrTurret turret = readyTurret(plant);
+        // Raw Pinpoint heading stays 0; the localized pose (e.g. after RESET_POSE) is 90 deg.
+        plant.robotPose = new Pose(0.0, 0.0, Math.PI / 2);
+        plant.step(turret, 2020);
+        turret.aimAt(10.0, 10.0);
+        assertEquals(AimResult.ACCEPTED, turret.aimStatus());
+        assertEquals(-45.0, turret.targetDeg(), 1e-9);
+
+        turret.setRobotPose(null);
+        turret.aimAt(10.0, 10.0);
+        assertEquals(AimResult.INVALID_INPUT, turret.aimStatus());
+        assertFalse(turret.onTarget());
+    }
+
+    @Test
+    public void holdWhileMovingStaysAtTheHoldAngle() {
+        Plant plant = new Plant(0.0);
+        PairedCrTurret turret = readyTurret(plant);
+        turret.aimRelative(Math.toRadians(60.0));
+        long t = 2020;
+        while (plant.angleDeg < 8.0) {
+            plant.step(turret, t);
+            t += 20;
+        }
+        turret.hold();
+        double held = turret.targetDeg();
+        int locked = 0;
+        for (long end = t + 1500; t <= end; t += 20) {
+            locked += count(plant.step(turret, t), "turret.locked");
+            turret.hold();
+        }
+        assertEquals(held, turret.targetDeg(), 0.0);
+        assertTrue("never drove on to the old 60 deg target: " + plant.angleDeg,
+                plant.angleDeg < held + 10.0);
+        assertEquals(held, turret.angleDeg(), RobotConstants.TURRET_SETTLE_TOL_DEG);
+        assertEquals(1, locked);
+    }
+
+    @Test
+    public void softLimitIsAppliedInTheClosedLoop() {
+        Plant plant = new Plant(88.0);
+        PairedCrTurret turret = readyTurret(plant);
+        turret.aimRelative(Math.toRadians(90.0));
+        RobotAction action = plant.step(turret, 2020);
+        double estimate = turret.angleDeg();
+        double error = 90.0 - estimate;
+        // First loop after the aim: FTCLib P term only (zero period), then the soft fade.
+        double expected = RobotConstants.TURRET_KP * error
+                * (RobotConstants.TURRET_MAX_DEG - estimate) / RobotConstants.TURRET_SOFT_MARGIN_DEG;
+        assertTrue(error > 0.5);
+        assertEquals(expected, action.motor(A), 1e-12);
+    }
+
+    @Test
+    public void archivePidMatchesHandWorkedFtcLibValues() {
+        PairedCrTurret.ArchivePid pid = new PairedCrTurret.ArchivePid();
+        // Zero period: no derivative, no integral.
+        assertEquals(0.0171 * 10.0, pid.calculate(10.0, 0.0, 0.0), 1e-12);
+        // 20 ms later: error 8, measurement moved 0 -> 2 deg.
+        // I: 0.02 * 8 = 0.16; D on measurement: -(2 - 0) / 0.02 = -100.
+        double expected = 0.0171 * 8.0 + 0.0401 * 0.16 + 0.002 * -100.0;
+        assertEquals(expected, pid.calculate(8.0, 2.0, 0.02), 1e-12);
+        assertEquals(0.16, pid.totalError(), 1e-12);
+        // Integral clamps at +-1.
+        for (int i = 0; i < 1000; i++) {
+            pid.calculate(100.0, 2.0, 0.02);
+        }
+        assertEquals(RobotConstants.TURRET_INTEGRAL_MAX, pid.totalError(), 0.0);
+    }
+
+    @Test
+    public void calibrationFilterMatchesArchiveKalmanWithNoisyAnalog() {
+        Plant plant = new Plant(0.0);
+        PairedCrTurret turret = new PairedCrTurret();
+        double x = Double.NaN;
+        double p = 0.0;
+        double lpf = 0.0;
+        for (long t = 0; t <= 2000; t += 20) {
+            double analogDeg = 10.0 + 6.0 * Math.sin(t / 37.0) + (t > 900 ? 4.0 : 0.0);
+            plant.analogOverride = volts(analogDeg);
+            plant.step(turret, t);
+            double measured = PairedCrTurret.analogAngleDeg(volts(analogDeg));
+            if (t == 0) {
+                x = measured;
+                p = RobotConstants.TURRET_KALMAN_R;
+                lpf = measured;
+            } else {
+                double predictedP = p + RobotConstants.TURRET_KALMAN_Q;
+                if (t >= 2000) {
+                    p = Math.min(predictedP, 1.0);
+                } else {
+                    lpf = lpf + RobotConstants.TURRET_ANALOG_LPF_ALPHA * (measured - lpf);
+                    double elapsed = t / 1000.0;
+                    double trust = elapsed < RobotConstants.TURRET_FULL_TRUST_S ? 1.0
+                            : 1.0 - Math.min(1.0, (elapsed - RobotConstants.TURRET_FULL_TRUST_S)
+                                    / RobotConstants.TURRET_FADE_OUT_S);
+                    double gain = predictedP / (predictedP + RobotConstants.TURRET_KALMAN_R) * trust;
+                    x = x + gain * (lpf - x);
+                    p = (1.0 - gain) * predictedP;
+                }
+            }
+            assertEquals("t=" + t, x, turret.angleDeg(), 1e-9);
+        }
+        assertTrue(turret.isInitialized());
+    }
+
+    @Test
+    public void fastOscillationInsideToleranceNeverLocks() {
+        Plant plant = new Plant(0.0);
+        PairedCrTurret turret = readyTurret(plant);
+        turret.aimRelative(0.0);
+        plant.scripted = true;
+        for (long t = 2020; t <= 4000; t += 20) {
+            // Inside the 2 deg error band but moving ~38 deg/s across the settle window.
+            plant.angleDeg = (t / 100) % 2 == 0 ? 1.9 : -1.9;
+            plant.step(turret, t);
+            assertFalse("t=" + t, turret.onTarget());
+        }
+    }
+
     private static PairedCrTurret readyTurret(Plant plant) {
         PairedCrTurret turret = new PairedCrTurret();
         plant.run(turret, 0, 2000);
@@ -302,6 +458,10 @@ public class PairedCrTurretTest {
         boolean encoderMissing;
         Double analogOverride;
         int encoderOffset;
+        /** Localized pose handed to the turret; defaults to (0, 0, heading). */
+        Pose robotPose;
+        /** When true the test sets angleDeg directly and the power is ignored. */
+        boolean scripted;
         private long lastT = -1;
         private double lastPower;
 
@@ -310,7 +470,7 @@ public class PairedCrTurretTest {
         }
 
         RobotAction step(PairedCrTurret turret, long t) {
-            if (lastT >= 0) {
+            if (lastT >= 0 && !scripted) {
                 angleDeg += lastPower * 300.0 * (t - lastT) / 1000.0;
                 angleDeg = Math.max(-90.0, Math.min(90.0, angleDeg));
             }
@@ -326,6 +486,7 @@ public class PairedCrTurretTest {
             }
             turret.observe(new RobotState(t, enc, Map.of(), heading,
                     new Pose(0.0, 0.0, heading), 12.0, analog));
+            turret.setRobotPose(robotPose != null ? robotPose : new Pose(0.0, 0.0, heading));
             RobotAction.Builder out = new RobotAction.Builder();
             turret.update(out);
             RobotAction action = out.build();

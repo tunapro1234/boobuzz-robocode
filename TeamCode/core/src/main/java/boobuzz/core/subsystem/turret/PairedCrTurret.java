@@ -29,9 +29,13 @@ import java.util.Map;
  *       range, keeps the turret uninitialized (outputs 0, aims NOT_INITIALIZED) until a
  *       valid reading arrives; the archive assumed the reading was valid.</li>
  *   <li>A missing encoder, or a jump larger than the whole hard range in one tick,
- *       zeroes both outputs and restarts calibration from the analog.</li>
+ *       zeroes both outputs and restarts calibration from the analog. KNOWN GAP: a
+ *       mid-match encoder reset after init jumps by less than the travel since init and
+ *       is not detected; the detection rule is an open spec decision (B07 review M1).</li>
  *   <li>Out-of-range aims are rejected and the previous target is kept; the archive
  *       clamped them to the limit and reported nothing.</li>
+ *   <li>Field aims use the localized pose from {@link #setRobotPose}, not the raw
+ *       Pinpoint reading, so RESET_POSE offsets are respected.</li>
  *   <li>Within {@link RobotConstants#TURRET_SOFT_MARGIN_DEG} of a hard stop, power
  *       toward that stop fades linearly to 0 at the stop (spec fixture soft margin).</li>
  * </ul>
@@ -94,7 +98,6 @@ public final class PairedCrTurret implements ITurret {
     @Override
     public void observe(RobotState state) {
         nowMs = state.t();
-        pose = state.pinpoint();
         encoderTicks = state.enc().get(RobotConstants.TURRET_ENCODER_NAME);
         analogVolts = state.analogVolts().get(RobotConstants.TURRET_ANALOG_NAME);
         updateEstimate();
@@ -261,10 +264,17 @@ public final class PairedCrTurret implements ITurret {
 
     // ---- commands --------------------------------------------------------------------
 
+    /** Localized pose for field aiming; never the raw Pinpoint (RESET_POSE is an offset). */
+    @Override
+    public void setRobotPose(Pose robotPose) {
+        pose = robotPose;
+    }
+
     @Override
     public void aimAt(double fieldX, double fieldY) {
         if (!Double.isFinite(fieldX) || !Double.isFinite(fieldY)) {
             aimStatus = AimResult.INVALID_INPUT;
+            withinSettle = false;
             return;
         }
         if (!initialized) {
@@ -281,6 +291,7 @@ public final class PairedCrTurret implements ITurret {
     public AimResult aimRelative(double angleRad) {
         if (!Double.isFinite(angleRad)) {
             aimStatus = AimResult.INVALID_INPUT;
+            withinSettle = false;
             return aimStatus;
         }
         if (!initialized) {
@@ -290,6 +301,7 @@ public final class PairedCrTurret implements ITurret {
         double deg = Math.toDegrees(angleRad);
         if (!inRange(deg)) {
             aimStatus = AimResult.OUT_OF_RANGE;
+            withinSettle = false;
             return aimStatus;
         }
         enterAimMode(Mode.RELATIVE);
@@ -310,8 +322,9 @@ public final class PairedCrTurret implements ITurret {
     }
 
     /**
-     * Freeze ownership: field tracking stops and the turret holds its current target, or
-     * its current angle when it had none. Repeated calls keep the same hold target.
+     * Freeze ownership at the current angle: aim/scan stop and the in-flight target is
+     * dropped (spec B07: hold keeps the valid current angle). Repeated calls keep the same
+     * hold target. Before initialization the calibrated angle is held once it exists.
      */
     @Override
     public void hold() {
@@ -323,12 +336,12 @@ public final class PairedCrTurret implements ITurret {
             resetPid();
         }
         mode = Mode.HOLD;
-        if (!hasTarget && initialized) {
-            setTarget(clamp(kalmanX, RobotConstants.TURRET_MIN_DEG, RobotConstants.TURRET_MAX_DEG));
+        if (!initialized) {
+            hasTarget = false;
+            return;
         }
-        if (initialized) {
-            aimStatus = AimResult.ACCEPTED;
-        }
+        setTarget(clamp(kalmanX, RobotConstants.TURRET_MIN_DEG, RobotConstants.TURRET_MAX_DEG));
+        aimStatus = AimResult.ACCEPTED;
     }
 
     @Override
@@ -350,11 +363,13 @@ public final class PairedCrTurret implements ITurret {
         if (pose == null || !Double.isFinite(pose.x()) || !Double.isFinite(pose.y())
                 || !Double.isFinite(pose.heading())) {
             aimStatus = AimResult.INVALID_INPUT;
+            withinSettle = false;
             return;
         }
         double relDeg = relativeBearingDeg(pose, fieldX, fieldY);
         if (!inRange(relDeg)) {
             aimStatus = AimResult.OUT_OF_RANGE;
+            withinSettle = false;
             return;
         }
         setTarget(relDeg);
@@ -368,8 +383,11 @@ public final class PairedCrTurret implements ITurret {
     }
 
     private void setTarget(double deg) {
-        // Settling is judged on error and rate only, so a slowly moving field target
-        // (robot driving) can still lock.
+        // A slowly moving field target (robot driving) keeps its settle timer; a jump
+        // beyond the settle tolerance must settle again before it can lock.
+        if (!hasTarget || Math.abs(deg - targetDeg) > RobotConstants.TURRET_SETTLE_TOL_DEG) {
+            withinSettle = false;
+        }
         targetDeg = deg;
         hasTarget = true;
     }
@@ -440,8 +458,11 @@ public final class PairedCrTurret implements ITurret {
 
     @Override
     public boolean onTarget() {
+        // The error is rechecked here: a target set after this tick's update must not
+        // inherit the previous target's lock.
         return initialized && mode != Mode.DISABLED && hasTarget
                 && aimStatus == AimResult.ACCEPTED && withinSettle
+                && Math.abs(targetDeg - kalmanX) <= RobotConstants.TURRET_SETTLE_TOL_DEG
                 && nowMs - withinSinceMs >= RobotConstants.TURRET_SETTLE_MS;
     }
 

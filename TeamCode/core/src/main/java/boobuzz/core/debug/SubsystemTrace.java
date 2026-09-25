@@ -140,6 +140,11 @@ public final class SubsystemTrace {
             extends RecordingSubsystem<ITurret> implements ITurret {
         RecordingTurret(ITurret delegate, SubsystemTrace trace) { super(delegate, trace); }
 
+        // A per-tick observation like observe(); forwarded untraced.
+        @Override public void setRobotPose(com.pedropathing.math.Pose pose) {
+            delegate.setRobotPose(pose);
+        }
+
         @Override public void aimAt(double fieldX, double fieldY) {
             trace.call("turret", "aimAt", fieldX, fieldY);
             delegate.aimAt(fieldX, fieldY);

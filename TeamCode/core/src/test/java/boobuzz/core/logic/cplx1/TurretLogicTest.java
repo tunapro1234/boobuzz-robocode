@@ -32,6 +32,20 @@ public class TurretLogicTest {
     }
 
     @Test
+    public void retargetIsNotLockedUntilIssued() {
+        RecordingTurret turret = new RecordingTurret();
+        TurretLogic logic = new TurretLogic(turret);
+        logic.update(new Pose(24.0, 48.0, 0.0));
+        assertTrue(logic.locked());
+        logic.setRelativeTarget(Math.toRadians(30.0));
+        assertFalse("the turret still reports the goal lock", logic.locked());
+        logic.update(new Pose(24.0, 48.0, 0.0));
+        assertTrue(logic.locked());
+        logic.setFieldTarget(30.0, 100.0);
+        assertFalse(logic.locked());
+    }
+
+    @Test
     public void explicitFieldTargetSurvivesUpdates() {
         RecordingTurret turret = new RecordingTurret();
         TurretLogic logic = new TurretLogic(turret);
@@ -102,6 +116,7 @@ public class TurretLogicTest {
 
         @Override public void observe(RobotState state) {}
         @Override public void update(RobotAction.Builder out) {}
+        @Override public void setRobotPose(com.pedropathing.math.Pose pose) {}
         @Override public void aimAt(double fieldX, double fieldY) { x = fieldX; y = fieldY; aimAtCalls++; }
         @Override public void scan() { scanned = true; }
         @Override public void hold() { held = true; }

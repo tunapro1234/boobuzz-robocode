@@ -29,6 +29,11 @@ public final class StubTurret implements ITurret {
         }
     }
 
+    /** The timing stub aims from the field origin; the pose is not used. */
+    @Override
+    public void setRobotPose(com.pedropathing.math.Pose pose) {
+    }
+
     @Override
     public void aimAt(double fieldX, double fieldY) {
         if (!Double.isFinite(fieldX) || !Double.isFinite(fieldY)) {

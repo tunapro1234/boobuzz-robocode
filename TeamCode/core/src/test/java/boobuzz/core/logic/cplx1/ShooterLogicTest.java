@@ -71,6 +71,7 @@ public class ShooterLogicTest {
 
         @Override public void observe(RobotState state) {}
         @Override public void update(RobotAction.Builder out) {}
+        @Override public void setRobotPose(com.pedropathing.math.Pose pose) {}
         @Override public void aimAt(double fieldX, double fieldY) {}
         @Override public void scan() {}
         @Override public void hold() { holdCalls++; }

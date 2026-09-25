@@ -21,6 +21,9 @@ public final class TurretLogic {
     private double fieldY;
     private double relativeRad;
     private boolean targetKnown;
+    // False from a target change until update() has issued it to the turret, so a lock
+    // on the previous target is never reported for the new one.
+    private boolean aimIssued;
     private double targetX;
     private double targetY;
 
@@ -32,6 +35,7 @@ public final class TurretLogic {
     public void useAllianceGoal() {
         mode = TargetMode.ALLIANCE_GOAL;
         enabled = true;
+        aimIssued = false;
     }
 
     /** Zero the turret; update() never re-arms it until a fresh target or enable(). */
@@ -39,6 +43,7 @@ public final class TurretLogic {
         enabled = false;
         holdingForShot = false;
         targetKnown = false;
+        aimIssued = false;
         turret.disable();
     }
 
@@ -65,6 +70,7 @@ public final class TurretLogic {
         fieldX = x;
         fieldY = y;
         enabled = true;
+        aimIssued = false;
     }
 
     /** Fixed preset relative to the robot heading (radians, CCW positive). */
@@ -75,6 +81,7 @@ public final class TurretLogic {
         mode = TargetMode.FIXED_RELATIVE;
         relativeRad = angleRad;
         enabled = true;
+        aimIssued = false;
     }
 
     public double relativeTargetRad() {
@@ -94,6 +101,7 @@ public final class TurretLogic {
             turret.hold();
             return;
         }
+        aimIssued = true;
         if (mode == TargetMode.FIXED_RELATIVE) {
             targetKnown = false;
             turret.aimRelative(relativeRad);
@@ -119,8 +127,13 @@ public final class TurretLogic {
     /** On target AND the active aim is reachable (never a clamped "success"). */
     public boolean locked() {
         boolean aimValid = mode == TargetMode.FIXED_RELATIVE || targetKnown;
-        return enabled && aimValid && turret.aimStatus() == ITurret.AimResult.ACCEPTED
-                && turret.onTarget();
+        return enabled && aimIssued && aimValid
+                && turret.aimStatus() == ITurret.AimResult.ACCEPTED && turret.onTarget();
+    }
+
+    /** Latest turret aim status, for blocked-shot diagnostics. */
+    public ITurret.AimResult aimStatus() {
+        return turret.aimStatus();
     }
 
     public void holdForShot(boolean hold) {

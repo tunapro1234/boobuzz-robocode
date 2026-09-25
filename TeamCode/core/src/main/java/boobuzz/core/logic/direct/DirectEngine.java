@@ -45,6 +45,7 @@ public final class DirectEngine implements IRobotEngine {
     @Override
     public WorldSnapshot sense(RobotState state) {
         subsystems.observe(state);
+        subsystems.turret().setRobotPose(subsystems.drive().pose());
         return new WorldSnapshot(
                 state.t(), subsystems.drive().pose(), state.yaw(), state.voltage());
     }
