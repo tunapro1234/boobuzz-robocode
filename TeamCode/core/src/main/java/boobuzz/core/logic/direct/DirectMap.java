@@ -54,6 +54,7 @@ public final class DirectMap {
      */
     public boolean stopShooting(Job job, List<RequestStatus> statuses) {
         if (job instanceof ShootJob shoot) {
+            shoot.stopped = shoot.remaining > 0;
             shoot.remaining = 0;
             shoot.stopping = true;
             return false;
@@ -210,19 +211,23 @@ public final class DirectMap {
                     "SHOOT requires a positive finite rpm"));
             return null;
         }
-        ShootJob job = new ShootJob(request.id(), count, rpm, usePreset, preset.turretRad());
+        ShootJob job = new ShootJob(request.id(), count, rpm, usePreset,
+                request.params().length >= 2, nowMs);
         if (usePreset) {
             // Review B08 major 2: a preset shot never feeds past a rejected turret aim.
-            ITurret.AimResult aim = subsystems.turret().aimRelative(preset.turretRad());
-            if (aim != ITurret.AimResult.ACCEPTED && aim != ITurret.AimResult.NOT_INITIALIZED) {
-                statuses.add(RequestStatus.rejected(request.id(), "turret: " + aim));
+            String rejected = latch(job);
+            if (rejected != null) {
+                statuses.add(RequestStatus.rejected(request.id(), rejected));
                 return null;
             }
-            job.aimSinceMs = aim == ITurret.AimResult.ACCEPTED ? -1 : nowMs;
-            subsystems.shooter().setHoodAngleDeg(preset.hoodDeg());
         }
-        subsystems.shooter().spinUp(rpm);
+        subsystems.shooter().spinUp(job.rpm);
         return job;
+    }
+
+    /** A preset shot owns the turret target: a TURRET_AIM retargets it away. */
+    public boolean ownsTurretTarget(Job job) {
+        return job instanceof ShootJob shoot && shoot.gated;
     }
 
     private Job setPreset(Request request, List<RequestStatus> statuses) {
@@ -290,73 +295,112 @@ public final class DirectMap {
 
     private boolean advanceShoot(ShootJob shoot, List<RequestStatus> statuses) {
         var shooter = subsystems.shooter();
-        if (!shoot.stopping) {
-            shooter.spinUp(shoot.rpm);
-        }
-        String aimProblem = shoot.gated && !shooter.isFeeding() && shoot.remaining > 0
-                ? reaim(shoot) : null;
-        if (aimProblem != null && !aimProblem.isEmpty()) {
-            shooter.spinDown();
-            statuses.add(new RequestStatus(shoot.id(), RequestStatus.State.FAILED, 0.0,
-                    aimProblem));
-            return true;
-        }
         if (shooter.isFeeding()) {
-            statuses.add(active(shoot.id(), 0.5, "feeding"));
-        } else if (shoot.remaining > 0 && aimProblem != null) {
-            statuses.add(active(shoot.id(), 0.0, "turret starting"));
-        } else if (shoot.remaining > 0 && !shooter.isReady()) {
-            statuses.add(active(shoot.id(), 0.0, "spinning up"));
-        } else if (shoot.remaining > 0 && shoot.gated && !shooter.hoodSettled()) {
-            statuses.add(active(shoot.id(), 0.0, "hood settling"));
-        } else if (shoot.remaining > 0 && shoot.gated && !subsystems.turret().onTarget()) {
-            statuses.add(active(shoot.id(), 0.0, "aiming"));
-        } else if (shoot.remaining > 0 && feedHeld) {
-            statuses.add(active(shoot.id(), 0.0, "mechanism recovery"));
-        } else if (shoot.remaining > 0) {
-            shooter.feed();
-            if (shooter.isFeeding()) {
-                shoot.remaining--;
-                statuses.add(active(shoot.id(), 0.5, "feeding"));
-            } else {
-                statuses.add(active(shoot.id(), 0.0, "feed not accepted"));
+            if (!shoot.stopping) {
+                shooter.spinUp(shoot.rpm);
             }
-        } else {
+            statuses.add(active(shoot.id(), shoot.progress(), "feeding"));
+            return false;
+        }
+        if (shoot.remaining <= 0) {
             if (shoot.stopping) {
+                // Archive: releasing RT (FINISHING_PULSE -> IDLE) disables the shooter.
                 shooter.spinDown();
             }
-            statuses.add(RequestStatus.done(shoot.id()));
+            statuses.add(shoot.stopped
+                    ? new RequestStatus(shoot.id(), RequestStatus.State.DONE, shoot.progress(),
+                    "stopped")
+                    : RequestStatus.done(shoot.id()));
             return true;
+        }
+        if (shoot.gated && !preset.equals(shoot.latched)) {
+            // Like cplx1: a SET_SHOT_PRESET during a shot applies from the next pulse.
+            String rejected = latch(shoot);
+            if (rejected != null) {
+                return fail(shoot, rejected, statuses);
+            }
+        }
+        shooter.spinUp(shoot.rpm);
+        if (feedHeld) {
+            shoot.prepareSinceMs = -1;
+            statuses.add(active(shoot.id(), shoot.progress(), "mechanism recovery"));
+            return false;
+        }
+        String blocked = shoot.gated ? gatedBlockReason(shoot)
+                : shooter.isReady() ? null : "spinning up";
+        if (blocked != null && blocked.startsWith("turret: ")) {
+            return fail(shoot, blocked, statuses);
+        }
+        if (blocked != null) {
+            if (shoot.gated) {
+                // Same bound as cplx1: the prepare timeout starts once the turret is up, or
+                // after one archive calibration window at the latest.
+                if (shoot.prepareSinceMs < 0 && (subsystems.turret().aimStatus()
+                        != ITurret.AimResult.NOT_INITIALIZED
+                        || nowMs - shoot.beganMs >= RobotConstants.SHOT_TURRET_STARTUP_BOUND_MS)) {
+                    shoot.prepareSinceMs = nowMs;
+                }
+                if (shoot.prepareSinceMs >= 0
+                        && nowMs - shoot.prepareSinceMs > RobotConstants.SHOT_PREPARE_TIMEOUT_MS) {
+                    return fail(shoot, "prepare timeout: " + blocked, statuses);
+                }
+            }
+            statuses.add(active(shoot.id(), shoot.progress(), blocked));
+            return false;
+        }
+        shooter.feed();
+        if (shooter.isFeeding()) {
+            shoot.remaining--;
+            shoot.fired++;
+            shoot.prepareSinceMs = -1;
+            statuses.add(active(shoot.id(), shoot.progress(), "feeding"));
+        } else {
+            statuses.add(active(shoot.id(), shoot.progress(), "feed not accepted"));
         }
         return false;
     }
 
-    /**
-     * Keeps a gated shot's turret aim alive: null while the aim is accepted, "" while the
-     * turret is still starting (re-aimed every tick), a failure note when the aim is
-     * rejected or startup outlasts one archive calibration window.
-     */
-    private String reaim(ShootJob shoot) {
+    /** Null when a preset shot may feed, otherwise the first blocking reason. */
+    private String gatedBlockReason(ShootJob shoot) {
         ITurret turret = subsystems.turret();
-        if (turret.aimStatus() == ITurret.AimResult.ACCEPTED) {
-            shoot.aimSinceMs = -1;
-            return null;
+        if (turret.aimStatus() != ITurret.AimResult.ACCEPTED) {
+            // Re-aim every tick: a turret still starting (or recalibrating) takes the
+            // latched preset angle as soon as it can.
+            ITurret.AimResult aim = turret.aimRelative(shoot.latched.turretRad());
+            if (aim != ITurret.AimResult.ACCEPTED && aim != ITurret.AimResult.NOT_INITIALIZED) {
+                return "turret: " + aim;
+            }
         }
-        ITurret.AimResult aim = turret.aimRelative(shoot.turretRad);
-        if (aim == ITurret.AimResult.ACCEPTED) {
-            shoot.aimSinceMs = -1;
-            return null;
+        if (!subsystems.shooter().isReady()) {
+            return "spinning up";
         }
-        if (aim != ITurret.AimResult.NOT_INITIALIZED) {
-            return "turret: " + aim;
+        if (!subsystems.shooter().hoodSettled()) {
+            return "hood settling";
         }
-        if (shoot.aimSinceMs < 0) {
-            shoot.aimSinceMs = nowMs;
+        if (!turret.onTarget()) {
+            ITurret.AimResult aim = turret.aimStatus();
+            return aim == ITurret.AimResult.ACCEPTED ? "aiming" : "aiming: " + aim;
         }
-        if (nowMs - shoot.aimSinceMs >= RobotConstants.SHOT_TURRET_STARTUP_BOUND_MS) {
-            return "turret startup timeout: " + aim;
+        return null;
+    }
+
+    /** Latches the current preset into a gated shot; a rejection note when the aim fails. */
+    private String latch(ShootJob shoot) {
+        shoot.latched = preset;
+        if (!shoot.explicitRpm) {
+            shoot.rpm = preset.rpm();
         }
-        return "";
+        subsystems.shooter().setHoodAngleDeg(preset.hoodDeg());
+        ITurret.AimResult aim = subsystems.turret().aimRelative(preset.turretRad());
+        return aim == ITurret.AimResult.ACCEPTED || aim == ITurret.AimResult.NOT_INITIALIZED
+                ? null : "turret: " + aim;
+    }
+
+    private boolean fail(ShootJob shoot, String note, List<RequestStatus> statuses) {
+        subsystems.shooter().spinDown();
+        statuses.add(new RequestStatus(shoot.id(), RequestStatus.State.FAILED,
+                shoot.progress(), note));
+        return true;
     }
 
     private static RequestStatus active(int id, double progress, String note) {
@@ -376,21 +420,34 @@ public final class DirectMap {
     }
 
     private static final class ShootJob extends Job {
-        private final double rpm;
+        private final int count;
         /** Preset shots wait for hood and turret like the cplx1 feed gates. */
         private final boolean gated;
-        private final double turretRad;
+        /** The request named its rpm; a preset change keeps it. */
+        private final boolean explicitRpm;
+        private final long beganMs;
+        private double rpm;
+        private ShotPreset latched;
         private int remaining;
+        private int fired;
         private boolean stopping;
-        /** Start of the current NOT_INITIALIZED wait, -1 while the aim is accepted. */
-        private long aimSinceMs = -1;
+        private boolean stopped;
+        /** Start of the current prepare wait, -1 while not waiting (cplx1 semantics). */
+        private long prepareSinceMs = -1;
 
-        private ShootJob(int id, int remaining, double rpm, boolean gated, double turretRad) {
+        private ShootJob(int id, int count, double rpm, boolean gated, boolean explicitRpm,
+                         long beganMs) {
             super(id);
-            this.remaining = remaining;
+            this.count = count;
+            this.remaining = count;
             this.rpm = rpm;
             this.gated = gated;
-            this.turretRad = turretRad;
+            this.explicitRpm = explicitRpm;
+            this.beganMs = beganMs;
+        }
+
+        private double progress() {
+            return fired / (double) count;
         }
     }
 

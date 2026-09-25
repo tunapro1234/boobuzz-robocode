@@ -84,7 +84,9 @@ public class FixedShotCoordinatorTest {
         }
         for (int i = 1; i < pulses.size(); i++) {
             long gap = pulses.get(i)[0] - pulses.get(i - 1)[1];
-            assertTrue("gap " + gap + " ms", gap >= RobotConstants.FEEDER_POST_PULSE_DELAY_MS);
+            // Archive requestPulseAndDelay: the motor restarts at the first 20 ms tick at or
+            // after the delay, counted from the tick that stopped it.
+            assertEquals("gap", RobotConstants.FEEDER_POST_PULSE_DELAY_MS, gap);
         }
     }
 
@@ -275,6 +277,17 @@ public class FixedShotCoordinatorTest {
         assertEquals(RequestStatus.State.DONE, stopped.state());
         assertEquals("stopped", stopped.note());
         assertEquals(0.0, rig.last.motor(FLYWHEEL), 0.0);
+    }
+
+    @Test
+    public void stopShootingDuringAJamClearLeavesTheRecoveryInCharge() {
+        Rig rig = new Rig();
+        rig.run(RequestBatch.of(Request.mechanismRecovery(2, 2)));
+        rig.run(RequestBatch.of(Request.stopShooting(3)));
+        assertEquals(RequestStatus.State.DONE, rig.status(3).state());
+        assertEquals(RequestStatus.State.ACTIVE, rig.status(2).state());
+        assertEquals("jam clear keeps driving the flywheel", 1.0,
+                rig.last.motor(FLYWHEEL), 0.0);
     }
 
     @Test

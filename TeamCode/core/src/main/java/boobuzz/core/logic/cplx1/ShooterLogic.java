@@ -32,6 +32,8 @@ public final class ShooterLogic {
     private boolean presetPending;
     private State state = State.IDLE;
     private long nowMs;
+    /** Time of the previous tick: the feeder output of that tick ended a pulse. */
+    private long previousMs;
     private Pose lastPose;
     private int requestId = -1;
     private int count;
@@ -62,6 +64,7 @@ public final class ShooterLogic {
 
     /** One Pinpoint sample per tick; drives the stationary gate. */
     public void observe(long tMs, Pose pose) {
+        previousMs = nowMs;
         nowMs = tMs;
         lastPose = pose;
         motion.observe(tMs, pose);
@@ -305,7 +308,8 @@ public final class ShooterLogic {
         }
         if (remaining == 0) {
             // Archive: RT held keeps AUTO_SHOOT spinning between pulses; the flywheel
-            // stays warm for the next one-at-a-time SHOOT until STOP_SHOOTING or a cancel.
+            // stays warm for the next one-at-a-time SHOOT until STOP_SHOOTING, CANCEL_ALL or
+            // a mode-2 jam clear (a per-id cancel of the finished shot changes nothing).
             finish(statuses, RequestStatus.done(requestId));
             warm = true;
             return;
@@ -359,7 +363,9 @@ public final class ShooterLogic {
         turret.holdForShot(false);
         state = State.RECOVER;
         prepareSinceMs = -1;
-        pulseEndedMs = nowMs;
+        // The pulse ended in the previous tick's feeder update (logic runs before it), so
+        // the archive's requestPulseAndDelay gap counts from that tick (review B08 minor 2).
+        pulseEndedMs = previousMs;
         if (presetPending) {
             presetPending = false;
             latchTargets();

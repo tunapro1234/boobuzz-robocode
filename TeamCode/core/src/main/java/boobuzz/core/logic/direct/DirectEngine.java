@@ -101,6 +101,11 @@ public final class DirectEngine implements IRobotEngine {
                 map.cancel(driveJob, "reset pose", statuses);
                 driveJob = null;
             }
+            if (request.type() == RequestType.TURRET_AIM && map.ownsTurretTarget(shooterJob)) {
+                // Like cplx1: a field aim takes the turret away from a preset shot.
+                map.cancel(shooterJob, "turret retargeted", statuses);
+                shooterJob = null;
+            }
             if (request.type() == RequestType.STOP_SHOOTING) {
                 if (shooterJob != null || !recovery.blocksShooter()) {
                     if (map.stopShooting(shooterJob, statuses)) {
