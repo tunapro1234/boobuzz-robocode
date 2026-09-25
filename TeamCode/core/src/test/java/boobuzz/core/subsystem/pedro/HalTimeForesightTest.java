@@ -7,13 +7,14 @@ import boobuzz.core.hal.Mechanism;
 
 import com.pedropathing.algorithm.ForesightConfig;
 import com.pedropathing.controllers.Controller;
-import com.pedropathing.controllers.PIDController;
 import com.pedropathing.localization.MotionState;
 import com.pedropathing.math.Pose;
 import com.pedropathing.math.Velocity;
 
 import org.junit.Test;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -21,6 +22,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 /** Pedro's end-of-path hold timeout must follow HAL time, never the wall clock. */
 public class HalTimeForesightTest {
@@ -68,11 +70,57 @@ public class HalTimeForesightTest {
                 config.forwardTranslational.get(), config.strafeTranslational.get(),
                 config.brake.get(), config.coast.get());
         for (Controller controller : controllers) {
-            // Both classes measure dt with System.nanoTime (javap, Pedro core 3.0.0).
-            assertFalse("wall-clock controller: " + controller,
-                    controller instanceof Controller.TimedController
-                            || controller instanceof PIDController);
+            assertTrue("not a stateless leaf controller: " + controller.getClass().getName(),
+                    isStatelessLeaf(controller));
         }
+    }
+
+    @Test
+    public void wallClockControllersAndWrappersAreRejected() {
+        // Wrappers can hide a timed controller from a top-level instanceof check, so
+        // the allowlist rejects every wrapper, even around a stateless leaf.
+        Controller leaf = Controller.proportional(1.0);
+        assertTrue(isStatelessLeaf(leaf));
+        assertTrue(isStatelessLeaf(Controller.proportionalFeedforward(1.0)));
+        assertTrue(isStatelessLeaf(Controller.staticFeedforward(0.0)));
+        List<Controller> rejected = List.of(
+                Controller.pid(1.0, 0.0, 0.0),
+                Controller.integral(() -> 1.0),
+                Controller.derivative(() -> 1.0),
+                Controller.sum(leaf, Controller.derivative(() -> 1.0)),
+                Controller.piecewise(Controller.pid(1.0, 0.0, 0.0)),
+                leaf.plus(Controller.integral(() -> 1.0)),
+                leaf.minus(leaf),
+                leaf.times(2.0),
+                Controller.proportional(() -> 1.0));
+        for (Controller controller : rejected) {
+            assertFalse("allowlist accepted " + controller.getClass().getName(),
+                    isStatelessLeaf(controller));
+        }
+    }
+
+    /**
+     * Allowlist: a lambda from one of Pedro's {@code Controller} static factories
+     * that captures only {@code double} gains. Pedro core 3.0.0 (javap):
+     * {@code proportional(double)}, {@code proportionalFeedforward(double)} and
+     * {@code staticFeedforward(double)} (the {@code headingStaticFF} default) are
+     * such lambdas. {@code pid}, {@code integral} and {@code derivative} are
+     * {@code PIDController} / {@code TimedController} subclasses that measure dt with
+     * {@code System.nanoTime}; {@code sum}, {@code piecewise}, {@code plus},
+     * {@code minus} and {@code times} are named classes that capture controllers; the
+     * {@code Supplier} overloads capture code that could read any clock.
+     */
+    private static boolean isStatelessLeaf(Controller controller) {
+        Class<?> type = controller.getClass();
+        if (!type.getName().startsWith(Controller.class.getName() + "$$Lambda")) {
+            return false;
+        }
+        for (Field field : type.getDeclaredFields()) {
+            if (!Modifier.isStatic(field.getModifiers()) && field.getType() != double.class) {
+                return false;
+            }
+        }
+        return true;
     }
 
     @Test
