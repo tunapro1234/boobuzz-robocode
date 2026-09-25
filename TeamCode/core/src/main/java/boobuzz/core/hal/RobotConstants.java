@@ -48,6 +48,26 @@ public final class RobotConstants {
     // Archive lvbelc5 ShootingController.FEEDER_DELAY_MS (post-pulse delay, not pulse length).
     public static final long FEEDER_POST_PULSE_DELAY_MS = 100;
 
+    // Archive HardwareConstants.ShooterPIDF (NiMh 09-12-25): boot defaults of the
+    // dashboard-tunable ShooterPidfPowerStorage. Gains are power per RPM units.
+    public static final double SHOOTER_KS = 0.18766200;
+    public static final double SHOOTER_KV = 0.00013514;
+    public static final double SHOOTER_KP = 0.00030984;
+    public static final double SHOOTER_KI = 0.00189683;
+    public static final double SHOOTER_KD = 1.26816e-05;
+    public static final double SHOOTER_INTEGRAL_ZONE_RPM = 250.0;
+    public static final double SHOOTER_INTEGRAL_MAX_ACCUM = 3000.0;
+    public static final double SHOOTER_TOLERANCE_RPM = 100.0;
+    public static final long SHOOTER_STABILITY_MS = 150;
+    // Archive ShooterPidfPowerSubsystem literals: FF off below 1500 RPM, stability reset on
+    // a >50 RPM target change, 1 ms minimum dt.
+    public static final double SHOOTER_FF_MIN_RPM = 1500.0;
+    public static final double SHOOTER_TARGET_RESET_RPM = 50.0;
+    public static final double SHOOTER_MIN_DT_S = 1e-3;
+    // Archive HardwareConstants.Shooter: left = right * followerScale; wheel = motor * 1.6.
+    public static final double SHOOTER_FOLLOWER_SCALE = 1.0;
+    public static final double SHOOTER_MOTOR_TO_WHEEL = 1.6;
+
     // Timing-only defaults for the phase-1.1 simulator mechanism stubs.
     public static final double STUB_SPINUP_S = 0.5;
     public static final double STUB_FEED_S = 0.2;
