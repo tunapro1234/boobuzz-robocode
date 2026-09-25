@@ -130,6 +130,24 @@ public final class RobotConstants {
     public static final double TURRET_SETTLE_RATE_DEG_S = 5.0;
     public static final long TURRET_SETTLE_MS = 100;
 
+    // Archive lvbelc5 RecoveryController.DEFAULT_TURRET_ANGLE/DEFAULT_HOOD_ANGLE/RECOVERY_RPM
+    // (RC:28-30): the fixed real-profile shot preset (spec B08.0), not a calibrated solution.
+    public static final double SHOT_PRESET_RPM = 4000.0;
+    public static final double SHOT_PRESET_HOOD_DEG = 45.0;
+    public static final double SHOT_PRESET_TURRET_DEG = 0.0;
+    // Archive lvbelc5 ShootingController.SHOOT_INTAKE_POWER (SC:38).
+    public static final double SHOOT_INTAKE_POWER = 0.8;
+    // Spec B08 values (not archive): max SHOOT count, prepare timeout after turret startup,
+    // and the Pinpoint stationary gate (200 ms window, 100 ms max sample gap,
+    // <= 2 in/s and <= 5 deg/s held for 150 ms).
+    public static final int SHOT_MAX_COUNT = 3;
+    public static final long SHOT_PREPARE_TIMEOUT_MS = 3000;
+    public static final long STATIONARY_WINDOW_MS = 200;
+    public static final long STATIONARY_MAX_SAMPLE_GAP_MS = 100;
+    public static final double STATIONARY_MAX_SPEED_IN_S = 2.0;
+    public static final double STATIONARY_MAX_YAW_DEG_S = 5.0;
+    public static final long STATIONARY_HOLD_MS = 150;
+
     // TeleOp BACK reset pose: the fixed blue-side field pose used last season.
     public static final double TELEOP_RESET_POSE_X = 24.0;
     public static final double TELEOP_RESET_POSE_Y = 96.0;
