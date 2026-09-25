@@ -15,7 +15,7 @@ public final class InventoryEstimate {
     /** How much the range is backed by an actual observation. */
     public enum Confidence { UNKNOWN, ESTIMATED, OBSERVED }
 
-    /** Archive HardwareConstants.Intake.maxBallCapacity. */
+    /** B02 fixture capacity (RobotConstants.INTAKE_CAPACITY, archive maxBallCapacity = 3). */
     public static final int CAPACITY = (int) RobotConstants.INTAKE_CAPACITY;
 
     private int min;
@@ -50,7 +50,20 @@ public final class InventoryEstimate {
         widen(Math.max(0, min - 1), max);
     }
 
-    /** A real observation of the stored count at HAL time {@code tMs}. */
+    /**
+     * Forward feeder power that is not one completed pulse: a pulse cut short by stop,
+     * continuous burst feeding or jam-clear forward power. Travel adds up across partial
+     * pulses, so any number of balls may have left.
+     */
+    public void onFeederForwardUnmetered() {
+        widen(0, max);
+    }
+
+    /**
+     * A real observation of the stored count at HAL time {@code tMs}. Phase 1.1-a has no
+     * production evidence source (no intake sensor), so OBSERVED only appears in tests;
+     * never feed it declared preloads.
+     */
     public void recordEvidence(int count, long tMs) {
         if (count < 0 || count > CAPACITY) {
             throw new IllegalArgumentException("observed count out of range: " + count);

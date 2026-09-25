@@ -15,7 +15,6 @@ import java.util.Map;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 
 public class PulseFeederTest {
 
@@ -193,13 +192,49 @@ public class PulseFeederTest {
     }
 
     @Test
-    public void negativeDelayIsRejected() {
-        try {
-            new PulseFeeder().requestPulseAndDelay(-1);
-            fail("negative delay must throw");
-        } catch (IllegalArgumentException expected) {
-            // expected
+    public void negativeDelayActsAsZeroGap() {
+        PulseFeeder feeder = new PulseFeeder();
+        feeder.requestPulseAndDelay(-1);
+        runUntil(feeder, 0, 360);
+        assertTrue(feeder.isInDelay());
+        assertEquals(0L, feeder.delayRemainingMs());
+        assertEquals(1.0, tick(feeder, 380), 0.0);
+    }
+
+    @Test
+    public void pulseEndsOnFirstTickAtOrAfterPulseLength() {
+        // 10 ms ticks land exactly on 350 ms, which pins >= rather than >.
+        PulseFeeder feeder = new PulseFeeder();
+        feeder.requestPulse();
+        tick(feeder, 0);
+        feeder.clearRequest();
+        assertEquals(1.0, tick(feeder, 340), 0.0);
+        assertEquals(0.0, tick(feeder, 350), 0.0);
+    }
+
+    @Test
+    public void stopClearsHeldPlainRequest() {
+        PulseFeeder feeder = new PulseFeeder();
+        feeder.requestPulse();
+        runUntil(feeder, 0, 100);
+        feeder.stop();
+        for (long t = 120; t <= 1000; t += TICK_MS) {
+            assertEquals(0.0, tick(feeder, t), 0.0);
         }
+    }
+
+    @Test
+    public void setPowerDuringPulseKeepsPhaseUntilTransition() {
+        PulseFeeder feeder = new PulseFeeder();
+        feeder.requestPulseAndDelay(DELAY_MS);
+        runUntil(feeder, 0, 100);
+        feeder.setPower(-1.0);
+        assertEquals(-1.0, tick(feeder, 120), 0.0);
+        assertEquals(PulseFeeder.Phase.PULSING, feeder.phase());
+        // The pulse still ends on schedule and the state machine writes 0 there.
+        runUntil(feeder, 140, 340);
+        assertEquals(0.0, tick(feeder, 360), 0.0);
+        assertEquals(PulseFeeder.Phase.GAP, feeder.phase());
     }
 
     @Test

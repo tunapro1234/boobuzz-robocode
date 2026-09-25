@@ -52,6 +52,26 @@ public class InventoryEstimateTest {
     }
 
     @Test
+    public void reverseAfterEvidenceWidensDownOnly() {
+        InventoryEstimate estimate = new InventoryEstimate();
+        estimate.recordEvidence(2, 100L);
+        estimate.onIntakeOutward();
+        assertRange(estimate, 0, 2, InventoryEstimate.Confidence.ESTIMATED);
+        estimate.onIntakeInward();
+        assertRange(estimate, 0, 3, InventoryEstimate.Confidence.UNKNOWN);
+    }
+
+    @Test
+    public void cancelledPulsesDropCertainty() {
+        // Two cancelled 200 ms pulses can move one ball in the sim (.35 s travel threshold).
+        InventoryEstimate estimate = new InventoryEstimate();
+        estimate.recordEvidence(2, 100L);
+        estimate.onFeederForwardUnmetered();
+        assertRange(estimate, 0, 2, InventoryEstimate.Confidence.ESTIMATED);
+        assertFalse(estimate.isKnown());
+    }
+
+    @Test
     public void countsNeverGoNegative() {
         InventoryEstimate estimate = new InventoryEstimate();
         estimate.recordEvidence(0, 10L);

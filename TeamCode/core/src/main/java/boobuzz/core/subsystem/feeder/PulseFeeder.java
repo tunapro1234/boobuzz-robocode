@@ -46,11 +46,10 @@ public final class PulseFeeder implements ISubsystem {
      * never the pulse duration.
      */
     public void requestPulseAndDelay(long delayMs) {
-        if (delayMs < 0) {
-            throw new IllegalArgumentException("post-pulse delay must be >= 0 ms: " + delayMs);
-        }
+        // A negative delay ends the gap on the next tick in the archive too; clamping keeps
+        // that behavior without an exception inside the robot loop.
         pulseAndDelayEnabled = true;
-        postPulseDelayMs = delayMs;
+        postPulseDelayMs = Math.max(0L, delayMs);
     }
 
     /** Stop starting new pulses; a pulse already running finishes normally. */
@@ -70,6 +69,7 @@ public final class PulseFeeder implements ISubsystem {
     /**
      * Manual power, as the archive jam-clear/burst paths use it. Like the archive this
      * does not change the pulse state; callers stop the feeder first when they need that.
+     * Unlike the archive the value is clamped to [-1, 1] and a non-finite value becomes 0.
      */
     public void setPower(double power) {
         this.power = Double.isFinite(power) ? Math.max(-1.0, Math.min(1.0, power)) : 0.0;
