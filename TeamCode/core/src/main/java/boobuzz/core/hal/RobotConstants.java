@@ -143,6 +143,10 @@ public final class RobotConstants {
     public static final int SIM_CONNECT_TIMEOUT_MS = 5000;
     public static final int SIM_READ_TIMEOUT_MS = 5000;
     public static final String DEFAULT_CONTROLLER = "gamepad";
+    // Simulator protocol requested for a typed device profile (docs ADR analog-seam-v3).
+    // 2 = no analog fields; 3 = state.analog + ready.analogs for ANALOG_INPUTS. Stays 2
+    // until re-cock-nize serves proto3: its server rejects any other reset.proto.
+    public static final int SIM_PROTOCOL_VERSION = 2;
 
     // Protocol wheel keys stay stable; FTC HardwareMap names are declared below.
     // free_rpm = 73.63 in/s * 60 / (pi * 4 in).
@@ -276,7 +280,20 @@ public final class RobotConstants {
                 Arrays.asList(DC_DEVICES),
                 Arrays.asList(CR_SERVOS),
                 Arrays.asList(SERVOS),
-                Arrays.asList(ENCODERS));
+                Arrays.asList(ENCODERS),
+                analogInputs());
+    }
+
+    private static List<Mechanism.AnalogInput> analogInputs() {
+        List<Mechanism.AnalogInput> inputs = new java.util.ArrayList<>();
+        for (String name : ANALOG_INPUTS) {
+            if (!TURRET_ANALOG_NAME.equals(name)) {
+                // Every analog input needs a sourced voltage range; do not guess one.
+                throw new IllegalStateException("no declared voltage range for analog input " + name);
+            }
+            inputs.add(new Mechanism.AnalogInput(name, TURRET_ANALOG_MIN_V, TURRET_ANALOG_MAX_V));
+        }
+        return inputs;
     }
 
     /** Machine-readable motor configuration in protocol order. */

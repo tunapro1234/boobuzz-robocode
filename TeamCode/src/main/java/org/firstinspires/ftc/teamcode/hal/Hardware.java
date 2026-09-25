@@ -5,6 +5,7 @@ import boobuzz.core.hal.RobotConstants;
 
 import com.pedropathing.math.Pose;
 import com.qualcomm.hardware.gobilda.GoBildaPinpointDriver;
+import com.qualcomm.robotcore.hardware.AnalogInput;
 import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
@@ -32,6 +33,7 @@ public final class Hardware {
     final Map<String, Servo> servos;
     final GoBildaPinpointDriver pinpoint;
     final List<VoltageSensor> voltageSensors;
+    final Map<String, AnalogInput> analogInputs;
 
     public Hardware(HardwareMap hardwareMap, Mechanism mechanism, Pose startPose) {
         Map<String, DcMotorEx> foundMotors = new LinkedHashMap<>();
@@ -74,6 +76,14 @@ public final class Hardware {
         }
         motors = immutable(foundMotors);
         encoders = immutable(foundEncoders);
+        if (mechanism.analogInputNames().contains(RobotConstants.TURRET_ANALOG_NAME)
+                && !encoders.containsKey(RobotConstants.TURRET_ENCODER_NAME)) {
+            // The turret reads the shooterLeft port's encoder as a read-only alias. Its
+            // direction, FLOAT mode, run mode and single central reset above belong to the
+            // shooter declaration; the turret configures nothing on it.
+            throw new IllegalStateException("turret encoder '"
+                    + RobotConstants.TURRET_ENCODER_NAME + "' is not a declared encoder");
+        }
 
         Map<String, CRServo> foundCrServos = new LinkedHashMap<>();
         for (RobotConstants.CrServo device : mechanism.crServos()) {
@@ -85,6 +95,15 @@ public final class Hardware {
             foundCrServos.put(device.name(), servo);
         }
         crServos = immutable(foundCrServos);
+
+        Map<String, AnalogInput> foundAnalogs = new LinkedHashMap<>();
+        for (String name : mechanism.analogInputNames()) {
+            if (foundAnalogs.containsKey(name)) {
+                throw new IllegalStateException("duplicate analog input declaration: " + name);
+            }
+            foundAnalogs.put(name, hardwareMap.get(AnalogInput.class, name));
+        }
+        analogInputs = immutable(foundAnalogs);
 
         Map<String, Servo> foundServos = new LinkedHashMap<>();
         for (RobotConstants.PosServo device : mechanism.positionalServos()) {

@@ -164,6 +164,143 @@ public class SimHalTest {
         }
     }
 
+    // ---- proto3 analog seam (docs ADR analog-seam-v3) ----
+
+    /** Spec 03 B07 seed-1 turret_analog reading for 0 degrees. */
+    private static final double TURRET_ANALOG_ZERO_DEG_V = 1.1458333333;
+
+    private static SimHal connect3(FakeSimServer server, Mechanism m) throws Exception {
+        return new SimHal(m, "127.0.0.1", server.port(), 20, 0L, new Pose(0, 0, 0), 2000,
+                boobuzz.core.hal.RobotConstants.SIM_READ_TIMEOUT_MS, 3);
+    }
+
+    private static FakeSimServer v3Server(Mechanism m, String stateFixture) throws Exception {
+        FakeSimServer server = new FakeSimServer(m, 3);
+        server.setAnalog(Json.obj(fixture("protocol-v3", stateFixture), "analog"));
+        return server;
+    }
+
+    @Test
+    public void defaultSessionStillRequestsProto2AndHasNoAnalog() throws Exception {
+        Mechanism m = mechanism();
+        try (FakeSimServer server = new FakeSimServer(m);
+             SimHal hal = connect(server, m, 20)) {
+            assertEquals(2, server.requestedProto());
+            assertTrue(hal.read().analogVolts().isEmpty());
+            hal.write(RobotAction.zero());
+            assertTrue(hal.read().analogVolts().isEmpty());
+        }
+    }
+
+    @Test
+    public void proto2SessionRejectsAnalogFields() throws Exception {
+        Mechanism m = mechanism();
+        try (FakeSimServer server = new FakeSimServer(m)) {
+            server.setAnalog(Map.of("turret_analog", TURRET_ANALOG_ZERO_DEG_V));
+            SimProtocolException e = assertThrows(SimProtocolException.class,
+                    () -> connect(server, m, 20).close());
+            assertTrue(e.getMessage().contains("proto3"));
+        }
+        try (FakeSimServer server = new FakeSimServer(m)) {
+            server.setReadyAnalogs(m.analogInputNames());
+            SimProtocolException e = assertThrows(SimProtocolException.class,
+                    () -> connect(server, m, 20).close());
+            assertTrue(e.getMessage().contains("ready.analogs"));
+        }
+    }
+
+    @Test
+    public void proto3PassesVoltsThroughUnchangedEveryTick() throws Exception {
+        Mechanism m = mechanism();
+        try (FakeSimServer server = v3Server(m, "state.json");
+             SimHal hal = connect3(server, m)) {
+            assertEquals(3, server.requestedProto());
+            assertEquals(Map.of("turret_analog", TURRET_ANALOG_ZERO_DEG_V),
+                    hal.read().analogVolts());
+            hal.write(RobotAction.zero());
+            assertEquals(20L, hal.read().t());
+            assertEquals(TURRET_ANALOG_ZERO_DEG_V,
+                    hal.read().analogVolts().get("turret_analog"), 0.0);
+        }
+    }
+
+    @Test
+    public void proto3MissingAnalogValueIsAnErrorNotZero() throws Exception {
+        Mechanism m = mechanism();
+        try (FakeSimServer server = v3Server(m, "state-analog-missing.json")) {
+            SimProtocolException e = assertThrows(SimProtocolException.class,
+                    () -> connect3(server, m).close());
+            assertTrue(e.getMessage().contains("missing required input 'turret_analog'"));
+        }
+        try (FakeSimServer server = new FakeSimServer(m, 3)) {
+            server.setAnalog(null);
+            SimProtocolException e = assertThrows(SimProtocolException.class,
+                    () -> connect3(server, m).close());
+            assertTrue(e.getMessage().contains("no 'analog' object"));
+        }
+        try (FakeSimServer server = v3Server(m, "state-analog-null.json")) {
+            assertThrows(SimProtocolException.class, () -> connect3(server, m).close());
+        }
+    }
+
+    @Test
+    public void proto3OutOfRangeAndMillivoltValuesAreRejected() throws Exception {
+        Mechanism m = mechanism();
+        for (String fixture : List.of("state-analog-millivolts.json",
+                "state-analog-negative.json")) {
+            try (FakeSimServer server = v3Server(m, fixture)) {
+                SimProtocolException e = assertThrows(SimProtocolException.class,
+                        () -> connect3(server, m).close());
+                assertTrue(fixture + ": " + e.getMessage(),
+                        e.getMessage().contains("is outside [0.0, 3.3] V"));
+            }
+        }
+    }
+
+    @Test
+    public void proto3UndeclaredAnalogInputIsRejected() throws Exception {
+        Mechanism m = mechanism();
+        try (FakeSimServer server = new FakeSimServer(m, 3)) {
+            Map<String, Object> values = new java.util.LinkedHashMap<>();
+            values.put("turret_analog", TURRET_ANALOG_ZERO_DEG_V);
+            values.put("extra_analog", TURRET_ANALOG_ZERO_DEG_V);
+            server.setAnalog(values);
+            SimProtocolException e = assertThrows(SimProtocolException.class,
+                    () -> connect3(server, m).close());
+            assertTrue(e.getMessage().contains("undeclared"));
+        }
+    }
+
+    @Test
+    public void proto3ReadyAnalogsMismatchFails() throws Exception {
+        Mechanism m = mechanism();
+        try (FakeSimServer server = v3Server(m, "state.json")) {
+            server.setReadyAnalogs(Json.strings(
+                    fixture("protocol-v3", "ready-analogs-mismatch.json"), "analogs"));
+            assertThrows(Mechanism.MechanismException.class, () -> connect3(server, m).close());
+        }
+        try (FakeSimServer server = v3Server(m, "state.json")) {
+            server.setReadyAnalogs(null);
+            SimProtocolException e = assertThrows(SimProtocolException.class,
+                    () -> connect3(server, m).close());
+            assertTrue(e.getMessage().contains("no 'analogs'"));
+        }
+    }
+
+    @Test
+    public void protocolV3FixturesExtendV2WithAnalog() throws Exception {
+        Map<String, Object> ready = fixture("protocol-v3", "ready.json");
+        assertEquals(3.0, Json.num(ready, "proto", -1), 0.0);
+        assertEquals(mechanism().analogInputNames(), Json.strings(ready, "analogs"));
+        assertEquals(TURRET_ANALOG_ZERO_DEG_V, Json.num(
+                Json.obj(Json.obj(ready, "state"), "analog"), "turret_analog", -1), 0.0);
+        Map<String, Object> v2State = fixture("state.json");
+        Map<String, Object> v3State = new java.util.LinkedHashMap<>(
+                fixture("protocol-v3", "state.json"));
+        v3State.remove("analog");
+        assertEquals(v2State, v3State);
+    }
+
     private static Mechanism legacyMechanism() {
         Mechanism current = Mechanism.DEFAULT;
         return new Mechanism(
@@ -175,7 +312,11 @@ public class SimHalTest {
     }
 
     private static Map<String, Object> fixture(String name) throws Exception {
-        try (var stream = SimHalTest.class.getResourceAsStream("/protocol-v2/" + name)) {
+        return fixture("protocol-v2", name);
+    }
+
+    private static Map<String, Object> fixture(String dir, String name) throws Exception {
+        try (var stream = SimHalTest.class.getResourceAsStream("/" + dir + "/" + name)) {
             if (stream == null) throw new AssertionError("missing protocol fixture: " + name);
             return Json.parseObject(new String(stream.readAllBytes(), StandardCharsets.UTF_8));
         }

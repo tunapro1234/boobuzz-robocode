@@ -35,6 +35,10 @@ final class FakeSimServer implements Closeable {
     private final List<String> encoderNames;
     private final int protocol;
     private volatile boolean running = true;
+    // Proto3 only. null readyAnalogs omits ready.analogs; null analog omits state.analog.
+    private volatile List<String> readyAnalogs;
+    private volatile Map<String, Object> analog;
+    private volatile int requestedProto = -1;
     private volatile boolean omitReadyState = false;
     private volatile long readyDelayMs;
     private volatile List<Map<String, Double>> motorFrames = Collections.emptyList();
@@ -54,10 +58,19 @@ final class FakeSimServer implements Closeable {
                 mechanism.usesProto2() ? 2 : 1);
     }
 
+    /**
+     * Proto3 typed profile: ready.analogs lists the declared analog inputs. Each state
+     * carries no analog value until {@link #setAnalog} provides one.
+     */
+    FakeSimServer(Mechanism mechanism, int protocol) throws IOException {
+        this(mechanism.motorNames(), mechanism.servoNames(), mechanism.encoderNames(), protocol);
+        this.readyAnalogs = mechanism.analogInputNames();
+    }
+
     /** Explicit fixture used by mismatch and protocol-negative tests. */
     FakeSimServer(List<String> motorNames, List<String> servoNames,
                   List<String> encoderNames, int protocol) throws IOException {
-        if (protocol != 1 && protocol != 2) {
+        if (protocol != 1 && protocol != 2 && protocol != 3) {
             throw new IllegalArgumentException("unsupported fake protocol " + protocol);
         }
         this.motorNames = List.copyOf(motorNames);
@@ -81,6 +94,25 @@ final class FakeSimServer implements Closeable {
     /** Protocol violation simulation: omit the 'ready' state. */
     void setOmitReadyState(boolean omit) {
         this.omitReadyState = omit;
+    }
+
+    /** ready.analogs sent on reset; null omits the field. */
+    void setReadyAnalogs(List<String> names) {
+        this.readyAnalogs = names == null ? null : List.copyOf(names);
+    }
+
+    /**
+     * state.analog object sent with every state (ready and step). Values may be any
+     * JSON number or null, so tests can inject invalid readings; null omits the field.
+     */
+    void setAnalog(Map<String, Object> values) {
+        this.analog = values == null ? null
+                : Collections.unmodifiableMap(new LinkedHashMap<>(values));
+    }
+
+    /** reset.proto of the last reset; 0 when the field was absent, -1 before any reset. */
+    int requestedProto() {
+        return requestedProto;
     }
 
     void setReadyDelayMs(long delayMs) {
@@ -116,6 +148,7 @@ final class FakeSimServer implements Closeable {
                 String type = Json.str(msg, "type");
 
                 if ("reset".equals(type)) {
+                    requestedProto = (int) Json.num(msg, "proto", 0);
                     if (readyDelayMs > 0) {
                         try {
                             Thread.sleep(readyDelayMs);
@@ -139,6 +172,12 @@ final class FakeSimServer implements Closeable {
                     sb.append("],\"servos\":[");
                     appendStrings(sb, servoNames);
                     sb.append("],\"proto\":").append(protocol);
+                    List<String> analogNames = readyAnalogs;
+                    if (analogNames != null) {
+                        sb.append(",\"analogs\":[");
+                        appendStrings(sb, analogNames);
+                        sb.append(']');
+                    }
                     if (!omitReadyState) {
                         sb.append(",\"state\":")
                                 .append(state(0, ticks, Collections.emptyMap(), x, y, h));
@@ -231,12 +270,31 @@ final class FakeSimServer implements Closeable {
                 .append("},\"pinpoint\":{\"x\":").append(String.format(Locale.US, "%.6f", x))
                 .append(",\"y\":").append(String.format(Locale.US, "%.6f", y))
                 .append(",\"h\":").append(String.format(Locale.US, "%.6f", h))
-                .append("},\"voltage\":12.6,\"gamepad\":").append(gamepadJson)
+                .append("},\"voltage\":12.6,\"gamepad\":").append(gamepadJson);
+        Map<String, Object> analogValues = analog;
+        if (analogValues != null) {
+            sb.append(",\"analog\":{");
+            int i = 0;
+            for (Map.Entry<String, Object> e : analogValues.entrySet()) {
+                if (i++ > 0) sb.append(',');
+                sb.append('"').append(Json.escape(e.getKey())).append("\":")
+                        .append(e.getValue() == null ? "null" : jsonNumber(e.getValue()));
+            }
+            sb.append('}');
+        }
+        sb
                 .append(",\"truth\":{\"x\":").append(String.format(Locale.US, "%.6f", x))
                 .append(",\"y\":").append(String.format(Locale.US, "%.6f", y))
                 .append(",\"h\":").append(String.format(Locale.US, "%.6f", h))
                 .append("}}");
         return sb.toString();
+    }
+
+    private static String jsonNumber(Object value) {
+        if (!(value instanceof Number n)) {
+            throw new IllegalArgumentException("analog value must be a number: " + value);
+        }
+        return Double.toString(n.doubleValue());
     }
 
     private void publishServoFrames(List<Map<String, Double>> frames) {

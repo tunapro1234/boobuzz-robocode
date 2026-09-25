@@ -47,6 +47,7 @@ public final class SimHal implements IHal, Closeable {
     public static final int DEFAULT_PORT = 5555;
     private static final int PROTO1 = 1;
     private static final int PROTO2 = 2;
+    private static final int PROTO3 = 3;
 
     private final Mechanism mechanism;
     private final Socket socket;
@@ -71,6 +72,14 @@ public final class SimHal implements IHal, Closeable {
     public SimHal(Mechanism mechanism, String host, int port, int dtMs,
                   long seed, Pose startPose, int connectTimeoutMs,
                   int readTimeoutMs) throws IOException {
+        this(mechanism, host, port, dtMs, seed, startPose, connectTimeoutMs, readTimeoutMs,
+                mechanism.usesProto2() ? RobotConstants.SIM_PROTOCOL_VERSION : PROTO1);
+    }
+
+    /** Test constructor that requests an explicit protocol version. */
+    SimHal(Mechanism mechanism, String host, int port, int dtMs,
+           long seed, Pose startPose, int connectTimeoutMs,
+           int readTimeoutMs, int protocol) throws IOException {
         if (connectTimeoutMs <= 0) {
             throw new IllegalArgumentException("simulator connect timeout must be positive");
         }
@@ -80,7 +89,12 @@ public final class SimHal implements IHal, Closeable {
         this.mechanism = mechanism;
         this.dtMs = dtMs;
         this.readTimeoutMs = readTimeoutMs;
-        this.protocol = mechanism.usesProto2() ? PROTO2 : PROTO1;
+        if (mechanism.usesProto2() ? protocol != PROTO2 && protocol != PROTO3
+                : protocol != PROTO1) {
+            throw new IllegalArgumentException("protocol " + protocol
+                    + " does not fit this mechanism profile");
+        }
+        this.protocol = protocol;
         this.socket = new Socket();
         try {
             this.socket.connect(new InetSocketAddress(host, port), connectTimeoutMs);
@@ -107,8 +121,8 @@ public final class SimHal implements IHal, Closeable {
         Pose p = (startPose == null) ? new Pose(0, 0, 0) : startPose;
         StringBuilder sb = new StringBuilder();
         sb.append("{\"type\":\"reset\",\"seed\":").append(seed);
-        if (protocol == PROTO2) {
-            sb.append(",\"proto\":2");
+        if (protocol >= PROTO2) {
+            sb.append(",\"proto\":").append(protocol);
         }
         sb.append(",\"pose\":{\"x\":").append(fmt(p.x()))
                 .append(",\"y\":").append(fmt(p.y()))
@@ -129,10 +143,19 @@ public final class SimHal implements IHal, Closeable {
         List<String> motors = Json.strings(ready, "motors");
         List<String> servos = Json.strings(ready, "servos");
         // A mismatch fails immediately. Powering the wrong motor may go unnoticed on the field.
-        if (protocol == PROTO2) {
+        if (protocol >= PROTO2) {
             mechanism.requireExactNames(motors, servos);
         } else {
             mechanism.requireNames(motors, servos);
+        }
+        if (protocol == PROTO3) {
+            if (!ready.containsKey("analogs")) {
+                throw new SimProtocolException("proto3 'ready' has no 'analogs' list");
+            }
+            mechanism.requireExactAnalogNames(Json.strings(ready, "analogs"));
+        } else if (ready.containsKey("analogs")) {
+            throw new SimProtocolException(
+                    "'ready.analogs' is a proto3 field; session is proto " + protocol);
         }
 
         // 'ready' carries the initial state (t_ms = 0, reset pose).
@@ -195,7 +218,7 @@ public final class SimHal implements IHal, Closeable {
         sb.append("{\"type\":\"step\",\"dt_ms\":").append(stepMs).append(",\"motors\":");
         Json.writeNumberMap(sb, fill(action.motors(), mechanism.motorNames()));
         sb.append(",\"servos\":");
-        Json.writeNumberMap(sb, protocol == PROTO2
+        Json.writeNumberMap(sb, protocol >= PROTO2
                 ? action.servos() : fill(action.servos(), mechanism.servoNames()));
         sb.append(",\"events\":[");
         for (int i = 0; i < action.events().size(); i++) {
@@ -257,7 +280,7 @@ public final class SimHal implements IHal, Closeable {
 
         double voltage = Json.num(msg, "voltage", 12.6);
 
-        this.state = new RobotState(t, enc, vel, yaw, pinpoint, voltage);
+        this.state = new RobotState(t, enc, vel, yaw, pinpoint, voltage, readAnalog(msg));
         this.gamepad = readGamepad(Json.obj(msg, "gamepad"));
 
         Map<String, Object> truthNode = Json.obj(msg, "truth");
@@ -265,6 +288,43 @@ public final class SimHal implements IHal, Closeable {
                 Json.num(truthNode, "x", 0.0),
                 Json.num(truthNode, "y", 0.0),
                 Json.num(truthNode, "h", 0.0));
+    }
+
+    /**
+     * Proto3 {@code state.analog}: every declared input, in volts sampled at this
+     * state's t_ms. A missing, extra, non-numeric or out-of-range value is a protocol
+     * error, never 0 V. Proto1/2 carry no analog field and yield an empty map.
+     */
+    private Map<String, Double> readAnalog(Map<String, Object> msg) {
+        if (protocol != PROTO3) {
+            if (msg.containsKey("analog")) {
+                throw new SimProtocolException(
+                        "'state.analog' is a proto3 field; session is proto " + protocol);
+            }
+            return Map.of();
+        }
+        if (!msg.containsKey("analog")) {
+            throw new SimProtocolException("proto3 state has no 'analog' object");
+        }
+        Map<String, Object> node = Json.obj(msg, "analog");
+        Map<String, Double> volts = new LinkedHashMap<>();
+        for (Mechanism.AnalogInput input : mechanism.analogInputs()) {
+            if (!node.containsKey(input.name())) {
+                throw new SimProtocolException(
+                        "state.analog is missing required input '" + input.name() + "'");
+            }
+            double value = Json.num(node, input.name(), Double.NaN);
+            if (!input.isValid(value)) {
+                throw new SimProtocolException("state.analog." + input.name() + "=" + value
+                        + " V is outside [" + input.minVolts() + ", " + input.maxVolts() + "] V");
+            }
+            volts.put(input.name(), value);
+        }
+        if (node.size() != volts.size()) {
+            throw new SimProtocolException("state.analog has undeclared inputs: "
+                    + node.keySet() + " vs " + volts.keySet());
+        }
+        return volts;
     }
 
     private static GamepadState readGamepad(Map<String, Object> g) {

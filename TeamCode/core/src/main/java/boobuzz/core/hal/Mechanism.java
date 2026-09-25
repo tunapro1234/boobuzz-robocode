@@ -16,7 +16,8 @@ public record Mechanism(
         List<RobotConstants.DcDevice> dcDevices,
         List<RobotConstants.CrServo> crServos,
         List<RobotConstants.PosServo> positionalServos,
-        List<String> encoderNames) {
+        List<String> encoderNames,
+        List<AnalogInput> analogInputs) {
 
     /** Shared mechanism built once from {@link RobotConstants}. */
     public static final Mechanism DEFAULT = RobotConstants.buildMechanism();
@@ -29,6 +30,7 @@ public record Mechanism(
         crServos = Collections.unmodifiableList(new ArrayList<>(crServos));
         positionalServos = Collections.unmodifiableList(new ArrayList<>(positionalServos));
         encoderNames = Collections.unmodifiableList(new ArrayList<>(encoderNames));
+        analogInputs = Collections.unmodifiableList(new ArrayList<>(analogInputs));
     }
 
     /** Legacy six-field constructor for proto1/test-only wheel mechanisms. */
@@ -37,7 +39,7 @@ public record Mechanism(
                      Pinpoint pinpoint, Physics physics) {
         this(motorNames, servoNames, motors, drivetrain, pinpoint, physics,
                 Collections.emptyList(), Collections.emptyList(), Collections.emptyList(),
-                motorNames);
+                motorNames, Collections.emptyList());
     }
 
     /** Validates the mechanism schema against names reported by the server. */
@@ -113,6 +115,23 @@ public record Mechanism(
         return encoderNames;
     }
 
+    /** Declared analog input names in ready.analogs / state.analog order. */
+    public List<String> analogInputNames() {
+        List<String> names = new ArrayList<>(analogInputs.size());
+        for (AnalogInput input : analogInputs) names.add(input.name());
+        return Collections.unmodifiableList(names);
+    }
+
+    /** Validates the ordered proto3 ready.analogs list against the declaration. */
+    public void requireExactAnalogNames(List<String> actual) {
+        List<String> got = actual == null ? Collections.emptyList() : actual;
+        if (!analogInputNames().equals(got)) {
+            throw new MechanismException(
+                    "RobotConstants analog input list does not match exactly.\n"
+                            + "  analogs expected=" + analogInputNames() + " actual=" + got);
+        }
+    }
+
     public boolean usesProto2() {
         return !dcDevices.isEmpty() || !crServos.isEmpty() || !positionalServos.isEmpty();
     }
@@ -159,6 +178,16 @@ public record Mechanism(
     public record Motor(String drives, double forward, double left, double freeRpm) {}
 
     public record Drivetrain(double wheelDiameter) {}
+
+    /**
+     * Analog input and its valid voltage range. A reading outside the range, or a
+     * missing reading, is invalid; it is never replaced by 0 V.
+     */
+    public record AnalogInput(String name, double minVolts, double maxVolts) {
+        public boolean isValid(double volts) {
+            return Double.isFinite(volts) && volts >= minVolts && volts <= maxVolts;
+        }
+    }
 
     public record Pinpoint(double xPodOffsetMm, double yPodOffsetMm,
                            String xPodDirection, String yPodDirection, String podType) {}

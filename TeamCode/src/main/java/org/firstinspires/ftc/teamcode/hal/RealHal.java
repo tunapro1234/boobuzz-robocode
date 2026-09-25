@@ -8,6 +8,7 @@ import boobuzz.core.hal.IHal;
 import boobuzz.core.hal.Mechanism;
 
 import com.pedropathing.math.Pose;
+import com.qualcomm.robotcore.hardware.AnalogInput;
 import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.Gamepad;
@@ -62,7 +63,27 @@ public final class RealHal implements IHal {
                 hardware.pinpoint.getPosX(DistanceUnit.INCH),
                 hardware.pinpoint.getPosY(DistanceUnit.INCH),
                 heading);
-        return new RobotState(now(), encoders, velocities, heading, pinpoint, voltage());
+        return new RobotState(now(), encoders, velocities, heading, pinpoint, voltage(),
+                analogVolts());
+    }
+
+    /**
+     * Declared analog inputs in volts. A reading outside the declared range (or not
+     * finite) is omitted, so consumers see it as invalid; it is never replaced by 0 V.
+     */
+    private Map<String, Double> analogVolts() {
+        Map<String, Double> volts = new LinkedHashMap<>();
+        for (Mechanism.AnalogInput input : mechanism.analogInputs()) {
+            AnalogInput sensor = hardware.analogInputs.get(input.name());
+            if (sensor == null) {
+                throw new IllegalStateException("missing declared analog input: " + input.name());
+            }
+            double reading = sensor.getVoltage();
+            if (input.isValid(reading)) {
+                volts.put(input.name(), reading);
+            }
+        }
+        return volts;
     }
 
     @Override
