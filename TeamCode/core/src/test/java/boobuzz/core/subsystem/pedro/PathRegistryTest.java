@@ -21,7 +21,7 @@ public class PathRegistryTest {
         Mechanism mechanism = Mechanism.DEFAULT;
         HalLocalizer localizer = new HalLocalizer();
         HalDrivetrain drivetrain = new HalDrivetrain(PedroDrive.wheelNames(mechanism));
-        follower = PedroConstants.createFollower(mechanism, localizer, drivetrain);
+        follower = PedroConstants.createFollower(mechanism, localizer, drivetrain, () -> 0L);
         registry = new PathRegistry();
     }
 

@@ -2,12 +2,13 @@ package boobuzz.core.subsystem.pedro;
 
 import boobuzz.core.hal.Mechanism;
 
-import com.pedropathing.algorithm.Foresight;
 import com.pedropathing.algorithm.ForesightConfig;
 import com.pedropathing.controllers.Controller;
 import com.pedropathing.follower.Follower;
 import com.pedropathing.math.Matrix;
 import com.pedropathing.math.Vector2D;
+
+import java.util.function.LongSupplier;
 
 /** Single source of Pedro follower settings. */
 public final class PedroConstants {
@@ -53,10 +54,14 @@ public final class PedroConstants {
         });
     }
 
+    /**
+     * Creates the follower. {@code halTimeMs} is the HAL timestamp of the current
+     * tick; Pedro's hold timeout runs on it instead of the wall clock.
+     */
     public static Follower createFollower(Mechanism mechanism, HalLocalizer localizer,
-                                          HalDrivetrain drivetrain) {
+                                          HalDrivetrain drivetrain, LongSupplier halTimeMs) {
         return new Follower(localizer, drivetrain,
-                new Foresight(createForesightConfig(mechanism)));
+                new HalTimeForesight(createForesightConfig(mechanism), halTimeMs));
     }
 
     private static double maxForwardVelocity(Mechanism mechanism) {

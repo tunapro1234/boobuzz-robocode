@@ -51,7 +51,9 @@ public final class PedroDrive implements boobuzz.core.subsystem.IDrive {
         this.paths = Objects.requireNonNull(paths, "paths");
         localizer = new HalLocalizer();
         drivetrain = new HalDrivetrain(motorNames);
-        follower = PedroConstants.createFollower(mechanism, localizer, drivetrain);
+        // Pedro's hold timeout reads this HAL tick time, never System.nanoTime.
+        follower = PedroConstants.createFollower(
+                mechanism, localizer, drivetrain, () -> previousStateTimeMs);
     }
 
     @Override
