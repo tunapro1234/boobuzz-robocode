@@ -3,7 +3,8 @@
 
 The runner owns only the headless simulator children it starts.  Java owns the
 TCP clock and the RobotLoop scenario; this file discovers the sibling simulator,
-chooses ports, collects the Java JSONL records, and applies the small A03 gate.
+lets each simulator bind a free port, collects the Java JSONL records, and
+applies the small A03 gate.
 It intentionally never uses the debug SocketController.
 """
 
@@ -14,10 +15,9 @@ import json
 import os
 from pathlib import Path
 import shutil
-import socket
 import subprocess
 import sys
-import time
+import threading
 import re
 from typing import Any, Iterable
 
@@ -37,7 +37,10 @@ REQUIRED_FIELDS = {
 }
 SCENARIOS = ("A-drive", "A-cancel")
 DEFAULT_TIMEOUT_SECONDS = 30.0
-PORT_MINIMUM = 5580
+SERVER_START_TIMEOUT_SECONDS = 10.0
+# sim.server logs this to stderr once its listener is bound
+# (re-cock-nize sim/server.py: getsockname() after bind, then the listening log).
+SERVER_LISTENING = re.compile(r"^sim: \S+:(\d+) listening\b")
 
 
 class RunnerError(RuntimeError):
@@ -146,32 +149,6 @@ def discover_classpath(root: Path, explicit_dist: str | None,
     return str(lib / "*")
 
 
-def free_port(minimum: int = PORT_MINIMUM) -> int:
-    for port in range(minimum, 65536):
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
-            probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            try:
-                probe.bind(("127.0.0.1", port))
-            except OSError:
-                continue
-            return port
-    raise RunnerError("no free localhost port")
-
-
-def wait_for_port(process: subprocess.Popen[str], port: int,
-                  timeout: float = 10.0) -> None:
-    deadline = time.monotonic() + timeout
-    while time.monotonic() < deadline:
-        if process.poll() is not None:
-            raise RunnerError(f"simulator exited before listening on {port}")
-        try:
-            with socket.create_connection(("127.0.0.1", port), timeout=0.15):
-                return
-        except OSError:
-            time.sleep(0.025)
-    raise RunnerError(f"simulator did not listen on {port} within {timeout:.1f}s")
-
-
 def stop_owned_process(process: subprocess.Popen[str] | None) -> None:
     """Stop exactly one process started by this runner; never use a process glob."""
     if process is None or process.poll() is not None:
@@ -185,33 +162,57 @@ def stop_owned_process(process: subprocess.Popen[str] | None) -> None:
 
 
 def start_server(simulator: Path, python: Path, mechanism: Path, physics: str,
-                 port: int, log_path: Path) -> subprocess.Popen[str]:
+                 log_path: Path) -> tuple[subprocess.Popen[str], int]:
+    """Start sim.server on port 0 and return it with the port it reports.
+
+    Probing for a free port and passing it to the child raced any concurrent run
+    that probed the same port ("Address already in use"). The OS assigns the port
+    at bind time instead; the server's log line reports it.
+    """
     log_path.parent.mkdir(parents=True, exist_ok=True)
-    log = log_path.open("w", encoding="utf-8")
     command = [
         str(python), "-m", "sim.server",
         "--mechanism", str(mechanism),
         "--physics", physics,
-        "--headless", "--port", str(port),
+        "--headless", "--port", "0",
     ]
-    try:
-        process = subprocess.Popen(
-            command,
-            cwd=simulator,
-            stdout=log,
-            stderr=subprocess.STDOUT,
-            text=True,
-        )
-    finally:
-        # The child has its own file descriptor; closing the runner's copy avoids
-        # retaining a descriptor across the many fresh-process repetitions.
-        log.close()
-    try:
-        wait_for_port(process, port)
-    except Exception:
+    process = subprocess.Popen(
+        command,
+        cwd=simulator,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
+    reported: list[int] = []
+    settled = threading.Event()
+
+    def pump() -> None:
+        # Copies the server output to its log for the server's lifetime, so the
+        # pipe never fills, and publishes the port from the listening line.
+        with log_path.open("w", encoding="utf-8") as log:
+            assert process.stdout is not None
+            for line in process.stdout:
+                log.write(line)
+                log.flush()
+                if not reported:
+                    match = SERVER_LISTENING.match(line)
+                    if match:
+                        reported.append(int(match.group(1)))
+                        settled.set()
+        settled.set()  # output ended: the server exited before listening
+
+    threading.Thread(target=pump, name=f"sim-server-log-{log_path.name}",
+                     daemon=True).start()
+    # The wait ends on the listening line or on server exit; the timeout only
+    # bounds a hung server.
+    settled.wait(SERVER_START_TIMEOUT_SECONDS)
+    if not reported:
+        exited = process.poll() is not None
         stop_owned_process(process)
-        raise
-    return process
+        reason = ("simulator exited before listening" if exited else
+                  f"simulator did not listen within {SERVER_START_TIMEOUT_SECONDS:.1f}s")
+        raise RunnerError(f"{reason}; log: {log_path}")
+    return process, reported[0]
 
 
 def java_records(command: list[str], timeout: float) -> tuple[list[dict[str, Any]], dict[str, Any]]:
@@ -323,13 +324,12 @@ def run_one(root: Path, simulator: Path, python: Path, java: Path, classpath: st
             seed: int, ticks: int, dt_ms: int, physics: str,
             run_number: int, path_id: str, start_pose: dict[str, Any],
             target_pose: dict[str, Any]) -> list[dict[str, Any]]:
-    port = free_port()
     server: subprocess.Popen[str] | None = None
     log_path = output_dir / "server-logs" / (
-        f"{scenario}-{engine}-seed{seed}-run{run_number}-port{port}.log"
+        f"{scenario}-{engine}-seed{seed}-run{run_number}.log"
     )
     try:
-        server = start_server(simulator, python, mechanism, physics, port, log_path)
+        server, port = start_server(simulator, python, mechanism, physics, log_path)
         command = [
             str(java), "-cp", classpath, "boobuzz.sim.AcceptanceMain",
             "--scenario", scenario,
