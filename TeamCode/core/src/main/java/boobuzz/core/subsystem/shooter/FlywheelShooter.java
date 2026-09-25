@@ -23,9 +23,10 @@ import java.util.function.Supplier;
  *
  * <p>Explicit differences from the archive, all on the safe side:
  * <ul>
- *   <li>Time is HAL ms. After a reset (enable, >50 RPM target change, tuning change,
- *       invalid sensor) the first closed-loop tick has no derivative and no integral
- *       step; the archive used a stale wall-clock dt and an error of 0 there.</li>
+ *   <li>Time is HAL ms. After a reset (enable, tuning change, invalid sensor) the first
+ *       closed-loop tick has no derivative and no integral step; the archive used a
+ *       stale wall-clock dt and an error of 0 there. A >50 RPM target change resets
+ *       only readiness, exactly like the archive.</li>
  *   <li>A missing or non-finite velocity zeroes both outputs and clears the
  *       controller and readiness until the sensor returns.</li>
  *   <li>Spin-down also stops the feeder, so nothing is fed with the flywheel off.</li>
@@ -96,8 +97,13 @@ public final class FlywheelShooter implements IShooter {
             spinDown();
             return;
         }
-        if (!enabled || Math.abs(rpm - targetRpm) > RobotConstants.SHOOTER_TARGET_RESET_RPM) {
+        if (!enabled) {
             resetController();
+        } else if (Math.abs(rpm - targetRpm) > RobotConstants.SHOOTER_TARGET_RESET_RPM) {
+            // Archive: a target change resets only the readiness dwell; the integral and
+            // previous error carry over so a moving aim target does not erase them.
+            stable = false;
+            previouslyWithinTolerance = false;
         }
         enabled = true;
         targetRpm = rpm;

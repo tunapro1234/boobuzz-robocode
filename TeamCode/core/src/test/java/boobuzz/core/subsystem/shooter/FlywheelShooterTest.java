@@ -212,6 +212,26 @@ public class FlywheelShooterTest {
     }
 
     @Test
+    public void targetChangeKeepsIntegralAndPreviousError() {
+        FlywheelShooter shooter = new FlywheelShooter();
+        shooter.spinUp(4000.0);
+        tick(shooter, 0, rpm(3900.0));
+        tick(shooter, 20, rpm(3900.0));
+        double integral = shooter.integralAccum();
+        assertTrue(integral > 0.0);
+        shooter.spinUp(4100.0);
+        RobotAction action = tick(shooter, 40, rpm(3900.0));
+        // Error 200 stays in the zone: integral grows from the carried value, and the
+        // derivative sees the 100 RPM step from the carried previous error.
+        assertEquals(integral + 200.0 * 0.02, shooter.integralAccum(), 1e-6);
+        double ff = RobotConstants.SHOOTER_KS + RobotConstants.SHOOTER_KV * 4100.0;
+        double pid = RobotConstants.SHOOTER_KP * 200.0
+                + RobotConstants.SHOOTER_KI * shooter.integralAccum()
+                + RobotConstants.SHOOTER_KD * 100.0 / 0.02;
+        assertEquals(pid + ff, action.motor(RIGHT), 1e-6);
+    }
+
+    @Test
     public void targetChangeAbove50RpmResetsDwellOnly() {
         FlywheelShooter shooter = new FlywheelShooter();
         shooter.spinUp(4000.0);
