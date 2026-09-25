@@ -19,6 +19,7 @@ public final class StubTurret implements ITurret {
     private boolean scanning;
     private boolean lockedEventPending;
     private boolean scanEventPending;
+    private AimResult aimStatus = AimResult.ACCEPTED;
 
     @Override
     public void observe(RobotState state) {
@@ -28,12 +29,19 @@ public final class StubTurret implements ITurret {
         }
     }
 
+    /** The timing stub aims from the field origin; the pose is not used. */
+    @Override
+    public void setRobotPose(com.pedropathing.math.Pose pose) {
+    }
+
     @Override
     public void aimAt(double fieldX, double fieldY) {
         if (!Double.isFinite(fieldX) || !Double.isFinite(fieldY)) {
+            aimStatus = AimResult.INVALID_INPUT;
             scan();
             return;
         }
+        aimStatus = AimResult.ACCEPTED;
         if (!aiming || scanning || Double.doubleToLongBits(targetX)
                 != Double.doubleToLongBits(fieldX)
                 || Double.doubleToLongBits(targetY) != Double.doubleToLongBits(fieldY)) {
@@ -45,6 +53,40 @@ public final class StubTurret implements ITurret {
             scanning = false;
             lockedEventPending = false;
         }
+    }
+
+    /** Timing stub: accepts +-90 deg like the real turret and settles after the stub delay. */
+    @Override
+    public AimResult aimRelative(double angleRad) {
+        if (!Double.isFinite(angleRad)) {
+            aimStatus = AimResult.INVALID_INPUT;
+            return aimStatus;
+        }
+        double deg = Math.toDegrees(angleRad);
+        if (deg < RobotConstants.TURRET_MIN_DEG || deg > RobotConstants.TURRET_MAX_DEG) {
+            aimStatus = AimResult.OUT_OF_RANGE;
+            return aimStatus;
+        }
+        if (!aiming || scanning || Double.doubleToLongBits(this.angleRad)
+                != Double.doubleToLongBits(angleRad)) {
+            this.angleRad = angleRad;
+            aimStartedMs = nowMs;
+            aiming = true;
+            scanning = false;
+            lockedEventPending = false;
+        }
+        aimStatus = AimResult.ACCEPTED;
+        return aimStatus;
+    }
+
+    @Override
+    public AimResult aimStatus() {
+        return aimStatus;
+    }
+
+    @Override
+    public void disable() {
+        hold();
     }
 
     @Override

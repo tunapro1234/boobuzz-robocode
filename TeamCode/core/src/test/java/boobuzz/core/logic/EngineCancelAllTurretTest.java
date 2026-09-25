@@ -18,12 +18,13 @@ import org.junit.Test;
 
 import java.util.Map;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 public class EngineCancelAllTurretTest {
 
     @Test
-    public void cplxAutomaticAimIsHeldByCancelAll() {
+    public void cplxCancelAllDisablesTurretUntilFreshRequest() {
         RecordingTurret turret = new RecordingTurret();
         CplxEngine1 engine = new CplxEngine1(
                 new Subsystems(new RecordingDrive(), new RecordingShooter(),
@@ -32,12 +33,20 @@ public class EngineCancelAllTurretTest {
         assertTrue(turret.aimCalls > 0);
 
         engine.act(RequestBatch.cancelAll());
+        assertTrue(turret.disableCalls > 0);
 
-        assertTrue(turret.holdCalls > 0);
+        int aimsAfterCancel = turret.aimCalls;
+        engine.sense(state());
+        engine.act(RequestBatch.idle());
+        assertEquals("idle sense must not re-arm a cancelled target", aimsAfterCancel, turret.aimCalls);
+
+        engine.act(RequestBatch.of(boobuzz.core.contract.Request.turretAim(9, 48.0, 96.0)));
+        engine.sense(state());
+        assertTrue(turret.aimCalls > aimsAfterCancel);
     }
 
     @Test
-    public void directCancelAllAlsoHoldsTurret() {
+    public void directCancelAllAlsoDisablesTurret() {
         RecordingTurret turret = new RecordingTurret();
         DirectEngine engine = new DirectEngine(
                 new Subsystems(new RecordingDrive(), new RecordingShooter(),
@@ -45,7 +54,7 @@ public class EngineCancelAllTurretTest {
 
         engine.act(RequestBatch.cancelAll());
 
-        assertTrue(turret.holdCalls > 0);
+        assertTrue(turret.disableCalls > 0);
     }
 
     private static RobotState state() {
@@ -73,18 +82,26 @@ public class EngineCancelAllTurretTest {
         @Override public boolean isFeeding() { return false; }
         @Override public void setHoodAngleDeg(double angleDeg) {}
         @Override public boolean hoodSettled() { return false; }
+        @Override public void runOpenLoop(double power) {}
+        @Override public void setFeederPower(double power) {}
+        @Override public boolean isStopped() { return true; }
     }
 
     private static final class RecordingTurret implements ITurret {
         int aimCalls;
         int holdCalls;
+        int disableCalls;
 
         @Override public void observe(RobotState state) {}
         @Override public void update(RobotAction.Builder out) {}
+        @Override public void setRobotPose(com.pedropathing.math.Pose pose) {}
         @Override public void aimAt(double fieldX, double fieldY) { aimCalls++; }
         @Override public void scan() {}
         @Override public void hold() { holdCalls++; }
         @Override public boolean onTarget() { return true; }
         @Override public double angleRad() { return 0.0; }
+        @Override public AimResult aimRelative(double angleRad) { return AimResult.ACCEPTED; }
+        @Override public AimResult aimStatus() { return AimResult.ACCEPTED; }
+        @Override public void disable() { disableCalls++; }
     }
 }

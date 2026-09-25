@@ -2,54 +2,99 @@ package boobuzz.core.logic.cplx1;
 
 import boobuzz.core.contract.RequestStatus;
 import boobuzz.core.hal.RobotConstants;
+import boobuzz.core.logic.MechanismProfile;
 import boobuzz.core.logic.ShooterCalibration;
+import boobuzz.core.logic.shot.ShotPreset;
 import boobuzz.core.subsystem.IShooter;
+import boobuzz.core.subsystem.ITurret;
 
 import com.pedropathing.math.Pose;
 
 import java.util.List;
 import java.util.Objects;
 
-/** Owns shot sequencing, while the shooter stub remains a small mechanism. */
+/**
+ * Shared shot coordinator: owns flywheel/hood/feeder sequencing and the intake while a
+ * shot is active. Every pulse requires measured shooter readiness, estimated hood
+ * settling, a valid settled turret aim and a stationary chassis; targets are latched per
+ * pulse and rechecked before the next one.
+ */
 public final class ShooterLogic {
 
-    public enum State { IDLE, SPINNING, FEEDING, DONE }
+    public enum State { IDLE, PREPARE, FEED, RECOVER, COMPLETE, FAULT }
 
     private final IShooter shooter;
     private final TurretLogic turret;
+    private final MechanismProfile profile;
+    private final PoseMotionEstimator motion = new PoseMotionEstimator();
+    private ShotPreset preset = ShotPreset.DEFAULT;
+    private boolean presetExplicit;
+    private boolean presetPending;
     private State state = State.IDLE;
+    private long nowMs;
     private Pose lastPose;
     private int requestId = -1;
+    private int count;
     private int remaining;
     private boolean shot;
+    private boolean stopping;
+    private double explicitRpm = Double.NaN;
     private double rpm;
     private double hood;
+    private boolean hoodCommanded;
+    private boolean turretOwned;
+    private long prepareSinceMs = -1;
+    private long pulseEndedMs = -1;
+    private long beganMs;
+    private boolean recoveryHold;
+    /** A finished SHOOT/SPIN_UP left the flywheel at speed; STOP_SHOOTING spins it down. */
+    private boolean warm;
 
     public ShooterLogic(IShooter shooter, TurretLogic turret) {
+        this(shooter, turret, MechanismProfile.STUB);
+    }
+
+    public ShooterLogic(IShooter shooter, TurretLogic turret, MechanismProfile profile) {
         this.shooter = Objects.requireNonNull(shooter, "shooter");
         this.turret = Objects.requireNonNull(turret, "turret");
+        this.profile = Objects.requireNonNull(profile, "profile");
     }
 
-    public void observe(Pose pose) {
+    /** One Pinpoint sample per tick; drives the stationary gate. */
+    public void observe(long tMs, Pose pose) {
+        nowMs = tMs;
         lastPose = pose;
+        motion.observe(tMs, pose);
     }
 
+    /** Explicit localization reset: the motion window restarts. */
+    public void localizationReset() {
+        motion.reset();
+    }
+
+    /** Count-only SHOOT: RPM comes from the profile (preset, or legacy stub calibration). */
     public RequestStatus requestShot(int id, int count) {
-        return requestShot(id, count, calibratedRpm(lastPose));
+        return beginShot(id, count, Double.NaN);
     }
 
+    /** SHOOT with an explicit RPM. */
     public RequestStatus requestShot(int id, int count, double targetRpm) {
-        if (busy()) {
-            return RequestStatus.rejected(id, "shooter already has a request");
-        }
-        if (count <= 0) {
-            return RequestStatus.rejected(id, "SHOOT requires a positive count");
-        }
         if (!Double.isFinite(targetRpm) || targetRpm <= 0.0) {
             return RequestStatus.rejected(id, "SHOOT requires a positive finite rpm");
         }
+        return beginShot(id, count, targetRpm);
+    }
+
+    private RequestStatus beginShot(int id, int count, double targetRpm) {
+        if (busy()) {
+            return RequestStatus.rejected(id, "shooter already has a request");
+        }
+        if (count <= 0 || count > RobotConstants.SHOT_MAX_COUNT) {
+            return RequestStatus.rejected(id,
+                    "SHOOT count must be 1.." + RobotConstants.SHOT_MAX_COUNT);
+        }
         begin(id, count, true, targetRpm);
-        return active(id, 0.0, "spinning up and aiming");
+        return active(id, 0.0, "preparing");
     }
 
     public RequestStatus requestSpinUp(int id, double targetRpm) {
@@ -63,36 +108,78 @@ public final class ShooterLogic {
         return active(id, 0.0, "spinning up");
     }
 
+    /** SET_SHOT_PRESET: validated, never clamped; an in-flight pulse keeps its latched values. */
+    public RequestStatus setPreset(int id, double presetRpm, double hoodDeg, double turretRad) {
+        String problem = ShotPreset.validate(presetRpm, hoodDeg, turretRad);
+        if (problem != null) {
+            return RequestStatus.rejected(id, problem);
+        }
+        preset = new ShotPreset(presetRpm, hoodDeg, turretRad);
+        presetExplicit = true;
+        if (shot && busy()) {
+            if (state == State.FEED) {
+                presetPending = true;
+            } else {
+                latchTargets();
+            }
+        }
+        return RequestStatus.done(id);
+    }
+
+    /**
+     * MECHANISM_RECOVERY owns the feeder: an active shot starts no pulse and its prepare
+     * timeout is suspended. Set before {@link #update} every tick.
+     */
+    public void setRecoveryHold(boolean hold) {
+        recoveryHold = hold;
+    }
+
+    /**
+     * STOP_SHOOTING: finish the current pulse, start no new ones, then spin down (archive
+     * ShootingController: releasing RT returns to IDLE and calls shooter.disable()). A
+     * completed shot or spin-up kept the flywheel warm; that is spun down here too.
+     * Always accepted.
+     */
+    public RequestStatus stopShooting(int id, List<RequestStatus> statuses) {
+        if (shot && busy()) {
+            stopping = true;
+        } else if (busy()) {
+            shooter.spinDown();
+            finishWith(State.COMPLETE, statuses,
+                    new RequestStatus(requestId, RequestStatus.State.DONE, 0.0, "stopped"));
+            warm = false;
+        } else if (warm) {
+            shooter.spinDown();
+            warm = false;
+        }
+        return RequestStatus.done(id);
+    }
+
     public void update(List<RequestStatus> statuses) {
-        if (state == State.IDLE) {
-            return;
+        switch (state) {
+            case IDLE -> { }
+            case COMPLETE, FAULT -> state = State.IDLE;
+            case FEED -> updateFeed(statuses);
+            case PREPARE, RECOVER -> updatePrepare(statuses);
         }
-        if (state == State.DONE) {
-            state = State.IDLE;
-            return;
-        }
-        shooter.spinUp(rpm);
-        if (state == State.SPINNING) {
-            if (!shooter.isReady() || (shot && !turret.locked())) {
-                statuses.add(active(requestId, shooter.isReady() ? 0.5 : 0.0,
-                        shot ? "aiming" : "spinning up"));
-                return;
-            }
-            if (!shot) {
-                state = State.DONE;
-                statuses.add(RequestStatus.done(requestId));
-                return;
-            }
-            turret.holdForShot(true);
-            state = State.FEEDING;
-            feed(statuses);
-            return;
-        }
-        feed(statuses);
     }
 
     public State state() {
         return state;
+    }
+
+    public ShotPreset preset() {
+        return preset;
+    }
+
+    /** True while a SHOOT request owns the intake output. */
+    public boolean ownsIntake() {
+        return shot && busy();
+    }
+
+    /** True while an active shot latched its own turret target (preset relative angle). */
+    public boolean ownsTurretTarget() {
+        return shot && busy() && turretOwned;
     }
 
     public double lastRpm() {
@@ -103,31 +190,28 @@ public final class ShooterLogic {
         return hood;
     }
 
-    public double rpmFor(double distanceInches) {
-        return RobotConstants.SHOOTER_RPM_BASE
-                + RobotConstants.SHOOTER_RPM_PER_IN * distanceInches;
+    public PoseMotionEstimator motion() {
+        return motion;
     }
 
-    /** Calibrated count-only shot speed shared by both engines. */
+    /** Legacy count-only shot speed (STUB profile only). */
     public static double calibratedRpm(Pose pose) {
         return ShooterCalibration.calibratedRpm(pose);
-    }
-
-    public double hoodFor(double distanceInches) {
-        return RobotConstants.SHOOTER_HOOD_BASE
-                + RobotConstants.SHOOTER_HOOD_PER_IN * distanceInches;
     }
 
     public void cancelAll(List<RequestStatus> statuses) {
         if (busy()) {
             statuses.add(RequestStatus.rejected(requestId, "engine switch"));
         }
-        shooter.spinDown();
-        turret.holdForShot(false);
-        state = State.IDLE;
-        requestId = -1;
-        remaining = 0;
-        shot = false;
+        stop();
+    }
+
+    /** Cancels whatever request is active (e.g. an incompatible turret retarget). */
+    public void cancelActive(String note, List<RequestStatus> statuses) {
+        if (busy()) {
+            statuses.add(RequestStatus.rejected(requestId, note));
+        }
+        stop();
     }
 
     /** Cancels one request owned by this shooter, if it is currently active. */
@@ -135,48 +219,194 @@ public final class ShooterLogic {
         if (!busy() || requestId != id) {
             return false;
         }
+        stop();
+        statuses.add(RequestStatus.rejected(id, "cancelled"));
+        return true;
+    }
+
+    private void stop() {
         shooter.spinDown();
+        warm = false;
         turret.holdForShot(false);
         state = State.IDLE;
         requestId = -1;
         remaining = 0;
         shot = false;
-        statuses.add(RequestStatus.rejected(id, "cancelled"));
-        return true;
+        stopping = false;
+        presetPending = false;
+        turretOwned = false;
     }
 
-    private void begin(int id, int count, boolean isShot, double targetRpm) {
-        state = State.SPINNING;
+    private void begin(int id, int shots, boolean isShot, double targetRpm) {
+        state = State.PREPARE;
         requestId = id;
-        remaining = count;
+        count = shots;
+        remaining = shots;
         shot = isShot;
-        rpm = targetRpm;
-        hood = hoodFor(turret.distanceFrom(lastPose));
-        shooter.spinUp(rpm);
+        stopping = false;
+        presetPending = false;
+        explicitRpm = targetRpm;
+        prepareSinceMs = -1;
+        beganMs = nowMs;
+        warm = false;
+        latchTargets();
+        if (shot && !turretOwned) {
+            turret.enable();
+        }
     }
 
-    private void feed(List<RequestStatus> statuses) {
-        if (shooter.isFeeding()) {
-            statuses.add(active(requestId, 0.5, "feeding"));
-            return;
+    /** Targets for the next pulse; never called while a pulse is in flight. */
+    private void latchTargets() {
+        boolean usePreset = profile == MechanismProfile.REAL || presetExplicit;
+        if (!shot) {
+            rpm = explicitRpm;
+            hoodCommanded = false;
+            turretOwned = false;
+        } else if (usePreset) {
+            rpm = Double.isNaN(explicitRpm) ? preset.rpm() : explicitRpm;
+            hood = preset.hoodDeg();
+            hoodCommanded = true;
+            turretOwned = true;
+            turret.setRelativeTarget(preset.turretRad());
+        } else {
+            rpm = Double.isNaN(explicitRpm) ? calibratedRpm(lastPose) : explicitRpm;
+            hood = RobotConstants.SHOOTER_HOOD_BASE
+                    + RobotConstants.SHOOTER_HOOD_PER_IN * turret.distanceFrom(lastPose);
+            hoodCommanded = false;
+            turretOwned = false;
         }
-        if (remaining > 0) {
-            shooter.feed();
-            if (shooter.isFeeding()) {
-                remaining--;
-                statuses.add(active(requestId, 0.5, "feeding"));
+        commandTargets();
+    }
+
+    private void commandTargets() {
+        shooter.spinUp(rpm);
+        if (hoodCommanded) {
+            shooter.setHoodAngleDeg(hood);
+        }
+    }
+
+    private void updatePrepare(List<RequestStatus> statuses) {
+        commandTargets();
+        if (!shot) {
+            if (shooter.isReady()) {
+                finish(statuses, RequestStatus.done(requestId));
+                warm = true;
             } else {
-                statuses.add(active(requestId, 0.0, "feed not accepted"));
+                statuses.add(active(requestId, 0.0, "spinning up"));
             }
             return;
         }
+        if (stopping) {
+            // Archive: releasing RT (FINISHING_PULSE -> IDLE) disables the shooter.
+            shooter.spinDown();
+            finish(statuses, remaining == 0 ? RequestStatus.done(requestId)
+                    : new RequestStatus(requestId, RequestStatus.State.DONE, progress(), "stopped"));
+            return;
+        }
+        if (remaining == 0) {
+            // Archive: RT held keeps AUTO_SHOOT spinning between pulses; the flywheel
+            // stays warm for the next one-at-a-time SHOOT until STOP_SHOOTING or a cancel.
+            finish(statuses, RequestStatus.done(requestId));
+            warm = true;
+            return;
+        }
+        if (recoveryHold) {
+            prepareSinceMs = -1;
+            statuses.add(active(requestId, progress(), "mechanism recovery"));
+            return;
+        }
+        if (state == State.RECOVER
+                && nowMs - pulseEndedMs < RobotConstants.FEEDER_POST_PULSE_DELAY_MS) {
+            // Archive ShootingController FEEDER_DELAY_MS: stopped feeder between pulses.
+            statuses.add(active(requestId, progress(), "post-pulse delay"));
+            return;
+        }
+        String blocked = blockReason();
+        if (blocked != null) {
+            if (prepareSinceMs < 0 && (turret.startupDone()
+                    || nowMs - beganMs >= RobotConstants.SHOT_TURRET_STARTUP_BOUND_MS)) {
+                prepareSinceMs = nowMs;
+            }
+            if (prepareSinceMs >= 0 && nowMs - prepareSinceMs > RobotConstants.SHOT_PREPARE_TIMEOUT_MS) {
+                RequestStatus failed = new RequestStatus(requestId, RequestStatus.State.FAILED,
+                        progress(), "prepare timeout: " + blocked);
+                shooter.spinDown();
+                turret.holdForShot(false);
+                finishWith(State.FAULT, statuses, failed);
+                return;
+            }
+            statuses.add(active(requestId, progress(), blocked));
+            return;
+        }
+        turret.holdForShot(true);
+        shooter.feed();
+        if (shooter.isFeeding()) {
+            remaining--;
+            state = State.FEED;
+            statuses.add(active(requestId, progress(), "feeding"));
+        } else {
+            turret.holdForShot(false);
+            statuses.add(active(requestId, progress(), "feed not accepted"));
+        }
+    }
+
+    private void updateFeed(List<RequestStatus> statuses) {
+        commandTargets();
+        if (shooter.isFeeding()) {
+            statuses.add(active(requestId, progress(), "feeding"));
+            return;
+        }
         turret.holdForShot(false);
-        state = State.DONE;
-        statuses.add(RequestStatus.done(requestId));
+        state = State.RECOVER;
+        prepareSinceMs = -1;
+        pulseEndedMs = nowMs;
+        if (presetPending) {
+            presetPending = false;
+            latchTargets();
+        }
+        updatePrepare(statuses);
+    }
+
+    /** Null when every feed gate passes, otherwise the first blocking reason. */
+    private String blockReason() {
+        if (!shooter.isReady()) {
+            return "spinning up";
+        }
+        if (hoodCommanded && !shooter.hoodSettled()) {
+            return "hood settling";
+        }
+        if (!turret.locked()) {
+            ITurret.AimResult aim = turret.aimStatus();
+            return aim == ITurret.AimResult.ACCEPTED ? "aiming" : "aiming: " + aim;
+        }
+        if (!motion.stationary(nowMs)) {
+            return "chassis moving";
+        }
+        return null;
+    }
+
+    private void finish(List<RequestStatus> statuses, RequestStatus terminal) {
+        turret.holdForShot(false);
+        finishWith(State.COMPLETE, statuses, terminal);
+    }
+
+    private void finishWith(State next, List<RequestStatus> statuses, RequestStatus terminal) {
+        statuses.add(terminal);
+        state = next;
+        requestId = -1;
+        remaining = 0;
+        shot = false;
+        stopping = false;
+        presetPending = false;
+        turretOwned = false;
+    }
+
+    private double progress() {
+        return count <= 0 ? 0.0 : (double) (count - remaining) / count;
     }
 
     private boolean busy() {
-        return state != State.IDLE && state != State.DONE;
+        return state == State.PREPARE || state == State.FEED || state == State.RECOVER;
     }
 
     private static RequestStatus active(int id, double progress, String note) {

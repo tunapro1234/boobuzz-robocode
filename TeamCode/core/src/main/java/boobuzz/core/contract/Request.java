@@ -65,6 +65,18 @@ public record Request(int id, RequestType type, double[] params, PathRequest pat
         return of(id, RequestType.INTAKE_OFF);
     }
 
+    public static Request setShotPreset(int id, double rpm, double hoodDeg, double turretRad) {
+        return of(id, RequestType.SET_SHOT_PRESET, rpm, hoodDeg, turretRad);
+    }
+
+    public static Request stopShooting(int id) {
+        return of(id, RequestType.STOP_SHOOTING);
+    }
+
+    public static Request mechanismRecovery(int id, int mode) {
+        return of(id, RequestType.MECHANISM_RECOVERY, mode);
+    }
+
     public static Request turretAim(int id, double fieldX, double fieldY) {
         return of(id, RequestType.TURRET_AIM, fieldX, fieldY);
     }

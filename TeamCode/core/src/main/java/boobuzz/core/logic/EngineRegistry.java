@@ -28,8 +28,14 @@ public final class EngineRegistry {
 
     /** Creates the implemented engines over one shared subsystem set. */
     public static List<IRobotEngine> create(Subsystems subsystems) {
+        return create(subsystems, MechanismProfile.STUB);
+    }
+
+    /** Both engines share one subsystem set and one mechanism profile. */
+    public static List<IRobotEngine> create(Subsystems subsystems, MechanismProfile profile) {
         Objects.requireNonNull(subsystems, "subsystems");
-        return List.of(new DirectEngine(subsystems), new CplxEngine1(subsystems));
+        Objects.requireNonNull(profile, "profile");
+        return List.of(new DirectEngine(subsystems, profile), new CplxEngine1(subsystems, profile));
     }
 
     /** Returns the stable index for a factory/replay selector. */

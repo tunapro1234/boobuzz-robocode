@@ -65,7 +65,7 @@ public class RobotLoopSafetyIntegrationTest {
         assertTrue(drive.stopCalls > 0);
         assertTrue(shooter.spinDownCalls > 0);
         assertTrue(intake.stopCalls > 0);
-        assertTrue(turret.holdCalls > 0);
+        assertTrue(turret.disableCalls > 0);
         assertTrue(feedbackStatuses.stream().anyMatch(status -> status.id() == 1
                 && status.state() == RequestStatus.State.REJECTED));
         assertTrue(feedbackStatuses.stream().anyMatch(status -> status.id() == 2
@@ -132,6 +132,9 @@ public class RobotLoopSafetyIntegrationTest {
         @Override public boolean isFeeding() { return false; }
         @Override public void setHoodAngleDeg(double angleDeg) {}
         @Override public boolean hoodSettled() { return false; }
+        @Override public void runOpenLoop(double power) {}
+        @Override public void setFeederPower(double power) {}
+        @Override public boolean isStopped() { return true; }
     }
 
     private static final class RecordingIntake implements IIntake {
@@ -146,13 +149,18 @@ public class RobotLoopSafetyIntegrationTest {
 
     private static final class RecordingTurret implements ITurret {
         int holdCalls;
+        int disableCalls;
 
         @Override public void observe(RobotState state) {}
         @Override public void update(RobotAction.Builder out) {}
+        @Override public void setRobotPose(com.pedropathing.math.Pose pose) {}
         @Override public void aimAt(double fieldX, double fieldY) {}
         @Override public void scan() {}
         @Override public void hold() { holdCalls++; }
         @Override public boolean onTarget() { return true; }
         @Override public double angleRad() { return 0.0; }
+        @Override public AimResult aimRelative(double angleRad) { return AimResult.ACCEPTED; }
+        @Override public AimResult aimStatus() { return AimResult.ACCEPTED; }
+        @Override public void disable() { disableCalls++; }
     }
 }

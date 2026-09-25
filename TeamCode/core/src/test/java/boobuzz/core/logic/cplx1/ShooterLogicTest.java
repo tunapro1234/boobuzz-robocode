@@ -22,7 +22,10 @@ public class ShooterLogicTest {
         RecordingShooter shooter = new RecordingShooter();
         RecordingTurret turret = new RecordingTurret();
         ShooterLogic logic = new ShooterLogic(shooter, turretLogic(turret));
-        logic.observe(new Pose(24.0, 48.0, 0.0));
+        // Stationary gate: a full 200 ms window plus the 150 ms hold.
+        for (long t = 0; t <= 360; t += 20) {
+            logic.observe(t, new Pose(24.0, 48.0, 0.0));
+        }
         RequestStatus accepted = logic.requestShot(4, 1);
         assertEquals(RequestStatus.State.ACTIVE, accepted.state());
         assertEquals(RequestStatus.State.REJECTED, logic.requestShot(5, 1).state());
@@ -61,6 +64,9 @@ public class ShooterLogicTest {
         @Override public boolean isFeeding() { return feeding; }
         @Override public void setHoodAngleDeg(double angleDeg) {}
         @Override public boolean hoodSettled() { return false; }
+        @Override public void runOpenLoop(double power) {}
+        @Override public void setFeederPower(double power) {}
+        @Override public boolean isStopped() { return true; }
     }
 
     private static final class RecordingTurret implements ITurret {
@@ -68,10 +74,14 @@ public class ShooterLogicTest {
 
         @Override public void observe(RobotState state) {}
         @Override public void update(RobotAction.Builder out) {}
+        @Override public void setRobotPose(com.pedropathing.math.Pose pose) {}
         @Override public void aimAt(double fieldX, double fieldY) {}
         @Override public void scan() {}
         @Override public void hold() { holdCalls++; }
         @Override public boolean onTarget() { return true; }
         @Override public double angleRad() { return 0.0; }
+        @Override public AimResult aimRelative(double angleRad) { return AimResult.ACCEPTED; }
+        @Override public AimResult aimStatus() { return AimResult.ACCEPTED; }
+        @Override public void disable() {}
     }
 }

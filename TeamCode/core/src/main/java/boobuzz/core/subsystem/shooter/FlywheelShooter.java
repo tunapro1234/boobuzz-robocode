@@ -26,10 +26,24 @@ import java.util.function.Supplier;
  *   <li>Time is HAL ms. After a reset (enable, tuning change, invalid sensor) the first
  *       closed-loop tick has no derivative and no integral step; the archive used a
  *       stale wall-clock dt and an error of 0 there. A >50 RPM target change resets
- *       only readiness, exactly like the archive.</li>
- *   <li>A missing or non-finite velocity zeroes both outputs and clears the
- *       controller and readiness until the sensor returns.</li>
+ *       only readiness, exactly like the archive (ShooterPidfPowerSubsystem:64-68);
+ *       integral and previous error are otherwise cleared only on disable (:79-86).</li>
+ *   <li>Deliberate non-archive addition: an accepted tuning change clears the
+ *       controller and readiness (the archive's tuning was static).</li>
+ *   <li>Deliberate non-archive addition: a missing or non-finite velocity zeroes both
+ *       outputs and clears the controller and readiness until the sensor returns (the
+ *       archive had no sensor-loss concept).</li>
  *   <li>Spin-down also stops the feeder, so nothing is fed with the flywheel off.</li>
+ *   <li>A zero, negative or non-finite target spins down (outputs 0); the archive kept
+ *       the loop closed at 0 RPM and accepted negative targets.</li>
+ *   <li>Readiness also requires the CURRENT observation to be valid and within
+ *       tolerance. Logic calls {@link #feed()} after observe but before update, so the
+ *       dwell flag alone would be one tick stale; the archive ran periodic() first.</li>
+ *   <li>Spin-down before reverse (spec B08 safety correction to the archive's instant
+ *       +-1 jam toggle): power is never applied against a measured rotation outside the
+ *       readiness tolerance. Open loop coasts until stopped; the closed loop never drives
+ *       a backwards-spinning wheel forward. Closed-loop braking of a forward wheel stays
+ *       archive behavior.</li>
  * </ul>
  * Anti-windup is the archive's only: integral zone reset plus accumulator clamp; the
  * output clip does not stop integration.
@@ -51,6 +65,8 @@ public final class FlywheelShooter implements IShooter {
     private double measuredRpm = Double.NaN;
 
     private boolean enabled;
+    private boolean openLoop;
+    private double openLoopPower;
     private double targetRpm;
     private boolean fresh = true;
     private long lastLoopMs;
@@ -106,12 +122,16 @@ public final class FlywheelShooter implements IShooter {
             previouslyWithinTolerance = false;
         }
         enabled = true;
+        openLoop = false;
+        openLoopPower = 0.0;
         targetRpm = rpm;
     }
 
     @Override
     public void spinDown() {
         enabled = false;
+        openLoop = false;
+        openLoopPower = 0.0;
         targetRpm = 0.0;
         resetController();
         appliedPower = 0.0;
@@ -121,7 +141,8 @@ public final class FlywheelShooter implements IShooter {
 
     @Override
     public boolean isReady() {
-        return enabled && stable;
+        return enabled && stable && sensorValid
+                && Math.abs(targetRpm - measuredRpm) <= activeTuning().toleranceRpm();
     }
 
     /** One archive pulse, only when ready and the feeder is idle; never queued. */
@@ -136,6 +157,30 @@ public final class FlywheelShooter implements IShooter {
     @Override
     public boolean isFeeding() {
         return feedPending || feeder.isPulsing();
+    }
+
+    @Override
+    public void runOpenLoop(double power) {
+        if (enabled) {
+            enabled = false;
+            targetRpm = 0.0;
+            resetController();
+        }
+        feedPending = false;
+        openLoop = true;
+        openLoopPower = Double.isFinite(power) ? RobotAction.clamp(power, -1.0, 1.0) : 0.0;
+    }
+
+    @Override
+    public void setFeederPower(double power) {
+        feedPending = false;
+        feeder.stop();
+        feeder.setPower(power);
+    }
+
+    @Override
+    public boolean isStopped() {
+        return sensorValid && Math.abs(measuredRpm) <= activeTuning().toleranceRpm();
     }
 
     @Override
@@ -163,20 +208,39 @@ public final class FlywheelShooter implements IShooter {
             feedPending = false;
         }
 
-        if (!enabled) {
+        if (openLoop) {
+            stable = false;
+            appliedPower = againstRotation(openLoopPower) ? 0.0 : openLoopPower;
+        } else if (!enabled) {
             stable = false;
             appliedPower = 0.0;
         } else if (!sensorValid) {
+            // Deliberate non-archive addition: the archive had no sensor-loss concept.
             resetController();
             appliedPower = 0.0;
         } else {
             closedLoop();
+            if (appliedPower > 0.0 && measuredRpm < -activeTuning().toleranceRpm()) {
+                appliedPower = 0.0;
+            }
         }
         out.motor(RobotConstants.SHOOTER_RIGHT_MOTOR_NAME, appliedPower);
         out.motor(RobotConstants.SHOOTER_LEFT_MOTOR_NAME,
                 appliedPower * RobotConstants.SHOOTER_FOLLOWER_SCALE);
 
         emitEvents(out);
+    }
+
+    /** Open-loop power that would oppose the measured rotation (or runs blind). */
+    private boolean againstRotation(double power) {
+        if (power == 0.0) {
+            return false;
+        }
+        if (!sensorValid) {
+            return true;
+        }
+        return Math.abs(measuredRpm) > activeTuning().toleranceRpm()
+                && Math.signum(power) != Math.signum(measuredRpm);
     }
 
     private void closedLoop() {
@@ -239,6 +303,10 @@ public final class FlywheelShooter implements IShooter {
         previouslyWithinTolerance = false;
     }
 
+    private ShooterTuning activeTuning() {
+        return tuning != null ? tuning : ShooterTuning.DEFAULTS;
+    }
+
     private void readTuning() {
         ShooterTuning next = tuningSupplier.get();
         if (next == null || !next.isValid()) {
@@ -263,7 +331,8 @@ public final class FlywheelShooter implements IShooter {
         tuning = next;
         tuningEventPending = true;
         if (change) {
-            // Documented policy: an accepted change clears integral and readiness.
+            // Deliberate non-archive addition: an accepted change clears integral and
+            // readiness; the archive's tuning was static.
             resetController();
         }
     }
@@ -308,6 +377,10 @@ public final class FlywheelShooter implements IShooter {
     /** Wheel RPM from shooterRight, or NaN when the sensor is missing. */
     public double measuredRpm() {
         return measuredRpm;
+    }
+
+    public boolean isOpenLoop() {
+        return openLoop;
     }
 
     public double appliedPower() {

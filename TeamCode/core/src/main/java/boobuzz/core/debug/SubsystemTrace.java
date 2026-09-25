@@ -117,6 +117,15 @@ public final class SubsystemTrace {
             delegate.setHoodAngleDeg(angleDeg);
         }
         @Override public boolean hoodSettled() { return delegate.hoodSettled(); }
+        @Override public void runOpenLoop(double power) {
+            trace.call("shooter", "runOpenLoop", power);
+            delegate.runOpenLoop(power);
+        }
+        @Override public void setFeederPower(double power) {
+            trace.call("shooter", "setFeederPower", power);
+            delegate.setFeederPower(power);
+        }
+        @Override public boolean isStopped() { return delegate.isStopped(); }
     }
 
     private static final class RecordingIntake
@@ -140,6 +149,11 @@ public final class SubsystemTrace {
             extends RecordingSubsystem<ITurret> implements ITurret {
         RecordingTurret(ITurret delegate, SubsystemTrace trace) { super(delegate, trace); }
 
+        // A per-tick observation like observe(); forwarded untraced.
+        @Override public void setRobotPose(com.pedropathing.math.Pose pose) {
+            delegate.setRobotPose(pose);
+        }
+
         @Override public void aimAt(double fieldX, double fieldY) {
             trace.call("turret", "aimAt", fieldX, fieldY);
             delegate.aimAt(fieldX, fieldY);
@@ -155,6 +169,17 @@ public final class SubsystemTrace {
             delegate.hold();
         }
 
+        @Override public AimResult aimRelative(double angleRad) {
+            trace.call("turret", "aimRelative", angleRad);
+            return delegate.aimRelative(angleRad);
+        }
+
+        @Override public void disable() {
+            trace.call("turret", "disable");
+            delegate.disable();
+        }
+
+        @Override public AimResult aimStatus() { return delegate.aimStatus(); }
         @Override public boolean onTarget() { return delegate.onTarget(); }
         @Override public double angleRad() { return delegate.angleRad(); }
     }

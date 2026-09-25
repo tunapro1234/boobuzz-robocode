@@ -34,6 +34,30 @@ public record RequestBatch(RequestStream stream, List<Request> requests, int[] c
                 new int[] {CANCEL_ALL});
     }
 
+    /**
+     * The requests an engine should start: a request whose own id is cancelled in the same
+     * batch is rejected "cancelled" here and never started (review B08 minor 1).
+     */
+    public static List<Request> withoutCancelled(RequestBatch batch,
+                                                 List<RequestStatus> statuses) {
+        List<Request> kept = new ArrayList<>();
+        for (Request request : batch.requests) {
+            boolean cancelled = false;
+            for (int id : batch.cancels) {
+                if (id != CANCEL_ALL && id == request.id()) {
+                    cancelled = true;
+                    break;
+                }
+            }
+            if (cancelled) {
+                statuses.add(RequestStatus.rejected(request.id(), "cancelled"));
+            } else {
+                kept.add(request);
+            }
+        }
+        return kept;
+    }
+
     @Override
     public int[] cancels() {
         return cancels.clone();

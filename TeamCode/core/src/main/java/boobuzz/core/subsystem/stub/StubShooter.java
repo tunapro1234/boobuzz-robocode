@@ -21,6 +21,8 @@ public final class StubShooter implements IShooter {
     private long nowMs;
     private long feedEndMs;
     private boolean spinning;
+    private double openLoopPower;
+    private double feederPower;
     private boolean feeding;
     private boolean feedStartPending;
     private boolean feedEndPending;
@@ -38,6 +40,7 @@ public final class StubShooter implements IShooter {
             spinDown();
             return;
         }
+        openLoopPower = 0.0;
         if (!spinning || Double.doubleToLongBits(targetRpm) != Double.doubleToLongBits(rpm)) {
             targetRpm = rpm;
             spinUpStartedMs = nowMs;
@@ -48,6 +51,7 @@ public final class StubShooter implements IShooter {
     @Override
     public void spinDown() {
         targetRpm = 0.0;
+        openLoopPower = 0.0;
         spinning = false;
         if (feeding) {
             feeding = false;
@@ -74,6 +78,37 @@ public final class StubShooter implements IShooter {
     public boolean isFeeding() {
         finishFeedIfDue();
         return feeding;
+    }
+
+    /** Timing-only stub: records the power; there is no flywheel speed to guard. */
+    @Override
+    public void runOpenLoop(double power) {
+        spinDown();
+        openLoopPower = Double.isFinite(power) ? power : 0.0;
+    }
+
+    @Override
+    public void setFeederPower(double power) {
+        if (feeding) {
+            feeding = false;
+            feedEndPending = true;
+        }
+        feedStartPending = false;
+        feederPower = Double.isFinite(power) ? power : 0.0;
+    }
+
+    /** No speed sensor: stopped whenever nothing is commanded to spin. */
+    @Override
+    public boolean isStopped() {
+        return !spinning && openLoopPower == 0.0;
+    }
+
+    public double openLoopPower() {
+        return openLoopPower;
+    }
+
+    public double feederPower() {
+        return feederPower;
     }
 
     @Override

@@ -130,6 +130,39 @@ public final class RobotConstants {
     public static final double TURRET_SETTLE_RATE_DEG_S = 5.0;
     public static final long TURRET_SETTLE_MS = 100;
 
+    // Archive lvbelc5 RecoveryController.DEFAULT_TURRET_ANGLE/DEFAULT_HOOD_ANGLE/RECOVERY_RPM
+    // (RC:28-30): the fixed real-profile shot preset (spec B08.0), not a calibrated solution.
+    public static final double SHOT_PRESET_RPM = 4000.0;
+    public static final double SHOT_PRESET_HOOD_DEG = 45.0;
+    public static final double SHOT_PRESET_TURRET_DEG = 0.0;
+    // Archive lvbelc5 ShootingController.SHOOT_INTAKE_POWER (SC:38).
+    public static final double SHOOT_INTAKE_POWER = 0.8;
+    // Archive lvbelc5 ShootingController.executeJamClear (LB): intake and feeder at -1 while
+    // the flywheel is left alone.
+    public static final double RECOVERY_REVERSE_POWER = -1.0;
+    // Archive lvbelc5 ShootingController.executeShooterJamClear (Y): flywheel open loop and
+    // feeder at +-1, intake +1, sign toggled every SHOOTER_JAM_TOGGLE_MS (SC:40); the hood
+    // is forced to 25 deg by AimingController.update (AC:131-132).
+    public static final double JAM_CLEAR_POWER = 1.0;
+    public static final long JAM_CLEAR_TOGGLE_MS = 500;
+    public static final double JAM_CLEAR_HOOD_DEG = 25.0;
+    // Spec B08 values (not archive): max SHOOT count, prepare timeout after turret startup,
+    // and the Pinpoint stationary gate (200 ms window, 100 ms max sample gap,
+    // <= 2 in/s and <= 5 deg/s held for 150 ms).
+    public static final int SHOT_MAX_COUNT = 3;
+    public static final long SHOT_PREPARE_TIMEOUT_MS = 3000;
+    // Derived bound, not a new value: a shot waits at most one full archive turret
+    // calibration window (TURRET_FULL_TRUST_S + TURRET_FADE_OUT_S) for turret startup
+    // before its prepare timeout starts anyway (review B08 major 1: a turret that never
+    // initializes must fail the shot, not leave it active forever).
+    public static final long SHOT_TURRET_STARTUP_BOUND_MS =
+            Math.round((TURRET_FULL_TRUST_S + TURRET_FADE_OUT_S) * 1000.0);
+    public static final long STATIONARY_WINDOW_MS = 200;
+    public static final long STATIONARY_MAX_SAMPLE_GAP_MS = 100;
+    public static final double STATIONARY_MAX_SPEED_IN_S = 2.0;
+    public static final double STATIONARY_MAX_YAW_DEG_S = 5.0;
+    public static final long STATIONARY_HOLD_MS = 150;
+
     // TeleOp BACK reset pose: the fixed blue-side field pose used last season.
     public static final double TELEOP_RESET_POSE_X = 24.0;
     public static final double TELEOP_RESET_POSE_Y = 96.0;

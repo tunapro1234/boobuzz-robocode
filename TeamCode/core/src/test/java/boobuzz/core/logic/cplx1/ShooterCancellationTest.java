@@ -30,7 +30,7 @@ public class ShooterCancellationTest {
     public void cancelActiveShotStopsShooterAndEmitsTerminalStatus() {
         RecordingShooter shooter = new RecordingShooter();
         ShooterLogic logic = new ShooterLogic(shooter, turret());
-        logic.observe(new Pose(24.0, 48.0, 0.0));
+        logic.observe(0L, new Pose(24.0, 48.0, 0.0));
         logic.requestShot(41, 2);
         List<RequestStatus> statuses = new ArrayList<>();
 
@@ -77,11 +77,15 @@ public class ShooterCancellationTest {
         return new TurretLogic(new ITurret() {
             @Override public void observe(RobotState state) {}
             @Override public void update(RobotAction.Builder out) {}
+            @Override public void setRobotPose(com.pedropathing.math.Pose pose) {}
             @Override public void aimAt(double fieldX, double fieldY) {}
             @Override public void scan() {}
             @Override public void hold() {}
             @Override public boolean onTarget() { return true; }
             @Override public double angleRad() { return 0.0; }
+            @Override public AimResult aimRelative(double angleRad) { return AimResult.ACCEPTED; }
+            @Override public AimResult aimStatus() { return AimResult.ACCEPTED; }
+            @Override public void disable() {}
         });
     }
 
@@ -112,5 +116,8 @@ public class ShooterCancellationTest {
         @Override public boolean isFeeding() { return false; }
         @Override public void setHoodAngleDeg(double angleDeg) {}
         @Override public boolean hoodSettled() { return false; }
+        @Override public void runOpenLoop(double power) {}
+        @Override public void setFeederPower(double power) {}
+        @Override public boolean isStopped() { return true; }
     }
 }
