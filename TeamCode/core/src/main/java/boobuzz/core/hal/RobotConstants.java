@@ -95,6 +95,41 @@ public final class RobotConstants {
     public static final double HOOD_FIXTURE_RATE_DEG_S = 90.0;
     public static final long HOOD_SETTLE_MARGIN_MS = 100;
 
+    // Archive HardwareConstants.Turret: range, gearing (encoder 0.715 rev per turret rev),
+    // shared shooterLeft encoder reversed, max power.
+    public static final double TURRET_MIN_DEG = -90.0;
+    public static final double TURRET_MAX_DEG = 90.0;
+    public static final double TURRET_ENCODER_TICKS_PER_REV = 8192.0;
+    public static final double TURRET_ENCODER_GEAR_TEETH = 1.0;
+    public static final double TURRET_GEAR_TEETH = 0.715;
+    public static final boolean TURRET_ENCODER_REVERSED = true;
+    public static final double TURRET_MAX_POWER = 1.0;
+    // Archive HardwareConstants.TurretPidPazar PID (kS 0); FTCLib 2.1.1 totalError bound 1.
+    public static final double TURRET_KP = 0.0171;
+    public static final double TURRET_KI = 0.0401;
+    public static final double TURRET_KD = 0.002;
+    public static final double TURRET_INTEGRAL_MAX = 1.0;
+    // Archive TurretPidPazar absolute analog: 0..3.3 V over one shaft turn, shaft 125 deg = 0.
+    public static final double TURRET_ANALOG_MIN_V = 0.0;
+    public static final double TURRET_ANALOG_MAX_V = 3.3;
+    public static final double TURRET_ANALOG_SHAFT_OFFSET_DEG = 125.0;
+    // Archive TurretPidPazar estimator and startup calibration window.
+    public static final double TURRET_KALMAN_Q = 0.1;
+    public static final double TURRET_KALMAN_R = 50.0;
+    public static final double TURRET_ANALOG_LPF_ALPHA = 0.1;
+    public static final double TURRET_FULL_TRUST_S = 0.75;
+    public static final double TURRET_FADE_OUT_S = 1.25;
+    // Archive snapped estimates within 15 deg of 0 to 0; spec B07 disables it in v0 so a
+    // real offset is never concealed.
+    public static final boolean TURRET_SNAP_TO_ZERO_ENABLED = false;
+    public static final double TURRET_SNAP_TO_ZERO_THRESHOLD_DEG = 15.0;
+    // Spec B07 fixture values (not archive): soft margin inside each hard stop, and the
+    // settled criterion (error <= 2 deg and rate <= 5 deg/s for 100 ms).
+    public static final double TURRET_SOFT_MARGIN_DEG = 5.0;
+    public static final double TURRET_SETTLE_TOL_DEG = 2.0;
+    public static final double TURRET_SETTLE_RATE_DEG_S = 5.0;
+    public static final long TURRET_SETTLE_MS = 100;
+
     // TeleOp BACK reset pose: the fixed blue-side field pose used last season.
     public static final double TELEOP_RESET_POSE_X = 24.0;
     public static final double TELEOP_RESET_POSE_Y = 96.0;
@@ -143,6 +178,7 @@ public final class RobotConstants {
     public static final CrServo TURRET_PRIMARY = new CrServo(TURRET_PRIMARY_SERVO_NAME, "FORWARD");
     public static final CrServo TURRET_SECONDARY = new CrServo(TURRET_SECONDARY_SERVO_NAME, "FORWARD");
     public static final CrServo[] CR_SERVOS = {TURRET_PRIMARY, TURRET_SECONDARY};
+    public static final String[] ANALOG_INPUTS = {TURRET_ANALOG_NAME};
     // Archive HoodSubsystem never set a servo direction: the left inversion is already the
     // complementary 1-u command (rightInverse=false). A HAL REVERSE here would invert twice.
     public static final PosServo HOOD_LEFT = new PosServo(HOOD_LEFT_SERVO_NAME, "FORWARD", 1.0);

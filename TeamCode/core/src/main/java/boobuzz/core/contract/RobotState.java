@@ -21,17 +21,27 @@ import java.util.Map;
  * @param yaw     IMU yaw, RADIANS
  * @param pinpoint odometry pose (inches, radians)
  * @param voltage bus voltage
+ * @param analogVolts analog input name -> volts sampled at {@code t}; a missing name is
+ *                    an invalid reading, never 0 V
  */
 public record RobotState(long t,
                          Map<String, Integer> enc,
                          Map<String, Double> vel,
                          double yaw,
                          Pose pinpoint,
-                         double voltage) {
+                         double voltage,
+                         Map<String, Double> analogVolts) {
 
     public RobotState {
         enc = Collections.unmodifiableMap(new LinkedHashMap<>(enc));
         vel = Collections.unmodifiableMap(new LinkedHashMap<>(vel));
+        analogVolts = Collections.unmodifiableMap(new LinkedHashMap<>(analogVolts));
+    }
+
+    /** Compatibility constructor for states without analog inputs (tests, protocol v2). */
+    public RobotState(long t, Map<String, Integer> enc, Map<String, Double> vel, double yaw,
+                      Pose pinpoint, double voltage) {
+        this(t, enc, vel, yaw, pinpoint, voltage, Collections.emptyMap());
     }
 
 }
