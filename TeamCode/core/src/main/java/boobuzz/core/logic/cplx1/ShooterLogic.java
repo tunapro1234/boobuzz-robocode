@@ -45,6 +45,7 @@ public final class ShooterLogic {
     private boolean turretOwned;
     private long prepareSinceMs = -1;
     private long pulseEndedMs = -1;
+    private boolean recoveryHold;
 
     public ShooterLogic(IShooter shooter, TurretLogic turret) {
         this(shooter, turret, MechanismProfile.STUB);
@@ -120,6 +121,14 @@ public final class ShooterLogic {
             }
         }
         return RequestStatus.done(id);
+    }
+
+    /**
+     * MECHANISM_RECOVERY owns the feeder: an active shot starts no pulse and its prepare
+     * timeout is suspended. Set before {@link #update} every tick.
+     */
+    public void setRecoveryHold(boolean hold) {
+        recoveryHold = hold;
     }
 
     /** STOP_SHOOTING: finish the current pulse, start no new ones. Always accepted. */
@@ -270,6 +279,11 @@ public final class ShooterLogic {
         if (remaining == 0 || stopping) {
             finish(statuses, remaining == 0 ? RequestStatus.done(requestId)
                     : new RequestStatus(requestId, RequestStatus.State.DONE, progress(), "stopped"));
+            return;
+        }
+        if (recoveryHold) {
+            prepareSinceMs = -1;
+            statuses.add(active(requestId, progress(), "mechanism recovery"));
             return;
         }
         if (state == State.RECOVER

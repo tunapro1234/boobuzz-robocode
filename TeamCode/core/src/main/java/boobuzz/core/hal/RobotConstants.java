@@ -137,6 +137,15 @@ public final class RobotConstants {
     public static final double SHOT_PRESET_TURRET_DEG = 0.0;
     // Archive lvbelc5 ShootingController.SHOOT_INTAKE_POWER (SC:38).
     public static final double SHOOT_INTAKE_POWER = 0.8;
+    // Archive lvbelc5 ShootingController.executeJamClear (LB): intake and feeder at -1 while
+    // the flywheel is left alone.
+    public static final double RECOVERY_REVERSE_POWER = -1.0;
+    // Archive lvbelc5 ShootingController.executeShooterJamClear (Y): flywheel open loop and
+    // feeder at +-1, intake +1, sign toggled every SHOOTER_JAM_TOGGLE_MS (SC:40); the hood
+    // is forced to 25 deg by AimingController.update (AC:131-132).
+    public static final double JAM_CLEAR_POWER = 1.0;
+    public static final long JAM_CLEAR_TOGGLE_MS = 500;
+    public static final double JAM_CLEAR_HOOD_DEG = 25.0;
     // Spec B08 values (not archive): max SHOOT count, prepare timeout after turret startup,
     // and the Pinpoint stationary gate (200 ms window, 100 ms max sample gap,
     // <= 2 in/s and <= 5 deg/s held for 150 ms).

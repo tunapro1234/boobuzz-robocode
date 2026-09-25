@@ -24,6 +24,7 @@ public final class DirectMap {
     private final MechanismProfile profile;
     private ShotPreset preset = ShotPreset.DEFAULT;
     private boolean presetExplicit;
+    private boolean feedHeld;
 
     public DirectMap(Subsystems subsystems) {
         this(subsystems, MechanismProfile.STUB);
@@ -32,6 +33,11 @@ public final class DirectMap {
     public DirectMap(Subsystems subsystems, MechanismProfile profile) {
         this.subsystems = subsystems;
         this.profile = profile;
+    }
+
+    /** MECHANISM_RECOVERY owns the feeder: an active shot starts no new pulse. */
+    public void holdFeed(boolean hold) {
+        feedHeld = hold;
     }
 
     /** STOP_SHOOTING: the active shot finishes its current pulse and starts no new ones. */
@@ -262,6 +268,8 @@ public final class DirectMap {
             statuses.add(active(shoot.id(), 0.5, "feeding"));
         } else if (!shooter.isReady()) {
             statuses.add(active(shoot.id(), 0.0, "spinning up"));
+        } else if (shoot.remaining > 0 && feedHeld) {
+            statuses.add(active(shoot.id(), 0.0, "mechanism recovery"));
         } else if (shoot.remaining > 0) {
             shooter.feed();
             if (shooter.isFeeding()) {

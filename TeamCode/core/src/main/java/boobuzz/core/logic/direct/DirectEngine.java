@@ -9,6 +9,7 @@ import boobuzz.core.contract.RobotState;
 import boobuzz.core.contract.WorldSnapshot;
 import boobuzz.core.logic.IRobotEngine;
 import boobuzz.core.logic.MechanismProfile;
+import boobuzz.core.logic.shot.MechanismRecovery;
 import boobuzz.core.subsystem.Subsystems;
 
 import java.util.ArrayList;
@@ -21,12 +22,16 @@ public final class DirectEngine implements IRobotEngine {
 
     private final Subsystems subsystems;
     private final DirectMap map;
+    private final MechanismRecovery recovery;
     private DirectMap.Job driveJob;
     private DirectMap.Job shooterJob;
     private List<RequestStatus> pendingStatuses = Collections.emptyList();
     private RobotAction action = RobotAction.zero();
     /** Actuator owner, separate from terminal request IDs. */
     private Integer intakeOwnerId;
+    /** Current manual intake demand; restored when mechanism recovery releases the intake. */
+    private double manualIntakePower;
+    private boolean recoveryOwnedIntake;
 
     public DirectEngine(Subsystems subsystems) {
         this(subsystems, MechanismProfile.STUB);
@@ -35,6 +40,7 @@ public final class DirectEngine implements IRobotEngine {
     public DirectEngine(Subsystems subsystems, MechanismProfile profile) {
         this.subsystems = Objects.requireNonNull(subsystems, "subsystems");
         this.map = new DirectMap(subsystems, profile);
+        this.recovery = new MechanismRecovery(subsystems.shooter());
     }
 
     @Override
@@ -46,6 +52,7 @@ public final class DirectEngine implements IRobotEngine {
     public WorldSnapshot sense(RobotState state) {
         subsystems.observe(state);
         subsystems.turret().setRobotPose(subsystems.drive().pose());
+        recovery.observe(state.t());
         return new WorldSnapshot(
                 state.t(), subsystems.drive().pose(), state.yaw(), state.voltage());
     }
@@ -74,9 +81,11 @@ public final class DirectEngine implements IRobotEngine {
                 continue;
             }
             cancel(id, statuses);
+            recovery.cancel(id, statuses);
             if (intakeOwnerId != null && intakeOwnerId == id) {
                 subsystems.intake().stop();
                 intakeOwnerId = null;
+                manualIntakePower = 0.0;
             }
         }
 
@@ -95,6 +104,15 @@ public final class DirectEngine implements IRobotEngine {
                 statuses.add(RequestStatus.done(request.id()));
                 continue;
             }
+            if (request.type() == RequestType.MECHANISM_RECOVERY) {
+                handleRecovery(request, statuses);
+                continue;
+            }
+            if (isShooter(request) && recovery.blocksShooter()) {
+                statuses.add(RequestStatus.rejected(request.id(),
+                        "mechanism recovery owns the flywheel"));
+                continue;
+            }
             DirectMap.Job job = map.start(request, driveJob != null, shooterJob != null, statuses);
             if (job == null) {
                 if (isIntake(request)) {
@@ -102,8 +120,11 @@ public final class DirectEngine implements IRobotEngine {
                             || (request.type() == boobuzz.core.contract.RequestType.INTAKE
                             && request.param(0, 0.0) == 0.0)) {
                         intakeOwnerId = null;
+                        manualIntakePower = 0.0;
                     } else {
                         intakeOwnerId = request.id();
+                        double power = request.param(0, 1.0);
+                        manualIntakePower = Double.isFinite(power) ? power : 0.0;
                     }
                 }
                 continue;
@@ -122,9 +143,12 @@ public final class DirectEngine implements IRobotEngine {
         if (driveJob != null && map.advance(driveJob, statuses)) {
             driveJob = null;
         }
+        map.holdFeed(recovery.holdsFeed());
         if (shooterJob != null && map.advance(shooterJob, statuses)) {
             shooterJob = null;
         }
+        recovery.update(statuses);
+        applyRecoveryIntake();
 
         pendingStatuses = Collections.unmodifiableList(new ArrayList<>(statuses));
         action = subsystems.update();
@@ -176,7 +200,40 @@ public final class DirectEngine implements IRobotEngine {
         subsystems.shooter().spinDown();
         subsystems.intake().stop();
         intakeOwnerId = null;
+        manualIntakePower = 0.0;
+        recovery.cancelAll(statuses);
+        recoveryOwnedIntake = false;
         subsystems.turret().disable();
+    }
+
+    private void handleRecovery(Request request, List<RequestStatus> statuses) {
+        int mode = MechanismRecovery.mode(request);
+        if (mode < 0) {
+            statuses.add(RequestStatus.rejected(request.id(),
+                    "MECHANISM_RECOVERY requires mode 0, 1 or 2"));
+            return;
+        }
+        if (mode == 2 && shooterJob != null) {
+            // The jam clear drives the flywheel open loop: no shooter request survives it.
+            map.cancel(shooterJob, "jam clear", statuses);
+            shooterJob = null;
+        }
+        recovery.request(request.id(), mode, statuses);
+    }
+
+    /** Recovery overrides the intake while it owns it; release restores the manual demand. */
+    private void applyRecoveryIntake() {
+        if (recovery.ownsIntake()) {
+            subsystems.intake().run(recovery.intakePower());
+            recoveryOwnedIntake = true;
+        } else if (recoveryOwnedIntake) {
+            recoveryOwnedIntake = false;
+            if (manualIntakePower == 0.0) {
+                subsystems.intake().stop();
+            } else {
+                subsystems.intake().run(manualIntakePower);
+            }
+        }
     }
 
     private static boolean containsCancelAll(int[] cancels) {

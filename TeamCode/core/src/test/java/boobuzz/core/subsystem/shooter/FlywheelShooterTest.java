@@ -402,6 +402,68 @@ public class FlywheelShooterTest {
         assertEquals(250.0 * 0.1, shooter.integralAccum(), 1e-6);
     }
 
+    @Test
+    public void openLoopNeverDrivesAgainstMeasuredRotation() {
+        FlywheelShooter shooter = new FlywheelShooter();
+        shooter.runOpenLoop(1.0);
+        RobotAction forward = tick(shooter, 0, rpm(0.0));
+        assertEquals(1.0, forward.motor(RIGHT), 0.0);
+        assertEquals(1.0, forward.motor(LEFT), 0.0);
+        assertTrue(shooter.isOpenLoop());
+
+        shooter.runOpenLoop(-1.0);
+        assertEquals("coasts while spinning forward", 0.0,
+                tick(shooter, 20, rpm(3000.0)).motor(RIGHT), 0.0);
+        assertFalse(shooter.isStopped());
+        assertEquals("inside the readiness tolerance counts as stopped", -1.0,
+                tick(shooter, 40, rpm(50.0)).motor(RIGHT), 0.0);
+        assertTrue(shooter.isStopped());
+        assertEquals("no speed reading: never drive", 0.0,
+                tick(shooter, 60, Map.of()).motor(RIGHT), 0.0);
+        assertFalse(shooter.isStopped());
+
+        shooter.spinUp(4000.0);
+        assertFalse(shooter.isOpenLoop());
+    }
+
+    @Test
+    public void closedLoopNeverDrivesABackwardWheelForward() {
+        FlywheelShooter shooter = new FlywheelShooter();
+        shooter.spinUp(4000.0);
+        assertEquals(0.0, tick(shooter, 0, rpm(-2000.0)).motor(RIGHT), 0.0);
+        assertTrue("forward drive resumes once stopped",
+                tick(shooter, 20, rpm(-50.0)).motor(RIGHT) > 0.0);
+    }
+
+    @Test
+    public void openLoopFromClosedLoopDropsTheSpeedTarget() {
+        FlywheelShooter shooter = new FlywheelShooter();
+        shooter.spinUp(4000.0);
+        tick(shooter, 0, rpm(4000.0));
+        shooter.runOpenLoop(0.0);
+        assertEquals(0.0, shooter.targetRpm(), 0.0);
+        assertEquals(0.0, tick(shooter, 20, rpm(4000.0)).motor(RIGHT), 0.0);
+        assertFalse(shooter.isReady());
+    }
+
+    @Test
+    public void feederPowerIsHeldAndCancelsAPulse() {
+        FlywheelShooter shooter = new FlywheelShooter();
+        shooter.spinUp(4000.0);
+        tick(shooter, 0, rpm(4000.0));
+        tick(shooter, 160, rpm(4000.0));
+        shooter.feed();
+        assertEquals(1.0, tick(shooter, 180, rpm(4000.0)).motor(FEEDER), 0.0);
+
+        shooter.setFeederPower(-1.0);
+        assertFalse(shooter.isFeeding());
+        assertEquals(-1.0, tick(shooter, 200, rpm(4000.0)).motor(FEEDER), 0.0);
+        assertEquals("held, not a pulse", -1.0,
+                tick(shooter, 1000, rpm(4000.0)).motor(FEEDER), 0.0);
+        shooter.setFeederPower(0.0);
+        assertEquals(0.0, tick(shooter, 1020, rpm(4000.0)).motor(FEEDER), 0.0);
+    }
+
     private static List<Double> scriptedRun() {
         List<Double> out = new ArrayList<>();
         AtomicReference<ShooterTuning> live = new AtomicReference<>(ShooterTuning.DEFAULTS);

@@ -10,6 +10,7 @@ import boobuzz.core.contract.WorldSnapshot;
 import boobuzz.core.hal.RobotConstants;
 import boobuzz.core.logic.IRobotEngine;
 import boobuzz.core.logic.MechanismProfile;
+import boobuzz.core.logic.shot.MechanismRecovery;
 import boobuzz.core.subsystem.Subsystems;
 
 import java.util.ArrayList;
@@ -26,6 +27,7 @@ public final class CplxEngine1 implements IRobotEngine {
     private final MotionLogic motion;
     private final TurretLogic turret;
     private final ShooterLogic shooter;
+    private final MechanismRecovery recovery;
     private WorldSnapshot latestWorld;
     private List<RequestStatus> pendingStatuses = Collections.emptyList();
     private RobotAction action = RobotAction.zero();
@@ -44,6 +46,7 @@ public final class CplxEngine1 implements IRobotEngine {
         this.turret = new TurretLogic(subsystems.turret());
         this.motion = new MotionLogic(subsystems.drive());
         this.shooter = new ShooterLogic(subsystems.shooter(), turret, profile);
+        this.recovery = new MechanismRecovery(subsystems.shooter());
     }
 
     @Override
@@ -59,6 +62,7 @@ public final class CplxEngine1 implements IRobotEngine {
         subsystems.turret().setRobotPose(latestWorld.pose());
         turret.update(latestWorld.pose());
         shooter.observe(state.t(), latestWorld.pose());
+        recovery.observe(state.t());
         return latestWorld;
     }
 
@@ -71,6 +75,7 @@ public final class CplxEngine1 implements IRobotEngine {
         if (containsCancelAll(batch.cancels())) {
             motion.cancelAll(statuses);
             shooter.cancelAll(statuses);
+            recovery.cancelAll(statuses);
             manualIntakePower = 0.0;
             commandedIntakePower = 0.0;
             subsystems.intake().stop();
@@ -81,6 +86,7 @@ public final class CplxEngine1 implements IRobotEngine {
         for (int id : batch.cancels()) {
             if (id != RequestBatch.CANCEL_ALL) {
                 shooter.cancel(id, statuses);
+                recovery.cancel(id, statuses);
                 if (intakeOwnerId != null && intakeOwnerId == id) {
                     manualIntakePower = 0.0;
                     intakeOwnerId = null;
@@ -91,19 +97,28 @@ public final class CplxEngine1 implements IRobotEngine {
         for (Request request : batch.requests()) {
             switch (request.type()) {
                 case RESET_POSE -> handleResetPose(request, statuses);
-                case SHOOT -> handleShoot(request, statuses);
-                case SPIN_UP -> addIfRejected(statuses,
-                        shooter.requestSpinUp(request.id(), request.param(0, 1.0)));
+                case SHOOT -> {
+                    if (!rejectIfRecovering(request, statuses)) {
+                        handleShoot(request, statuses);
+                    }
+                }
+                case SPIN_UP -> {
+                    if (!rejectIfRecovering(request, statuses)) {
+                        addIfRejected(statuses,
+                                shooter.requestSpinUp(request.id(), request.param(0, 1.0)));
+                    }
+                }
                 case INTAKE, INTAKE_ON, INTAKE_OFF -> handleIntake(request, statuses);
                 case TURRET_AIM -> handleTurretAim(request, statuses);
                 case SET_SHOT_PRESET -> handleShotPreset(request, statuses);
                 case STOP_SHOOTING -> statuses.add(shooter.stopShooting(request.id()));
-                case MECHANISM_RECOVERY -> statuses.add(RequestStatus.rejected(
-                        request.id(), "mechanism recovery is not implemented in cplx1 yet"));
+                case MECHANISM_RECOVERY -> handleRecovery(request, statuses);
                 default -> { }
             }
         }
+        shooter.setRecoveryHold(recovery.holdsFeed());
         shooter.update(statuses);
+        recovery.update(statuses);
         applyIntake();
 
         pendingStatuses = Collections.unmodifiableList(new ArrayList<>(statuses));
@@ -138,6 +153,10 @@ public final class CplxEngine1 implements IRobotEngine {
         return shooter;
     }
 
+    public MechanismRecovery recovery() {
+        return recovery;
+    }
+
     private void handleIntake(Request request, List<RequestStatus> statuses) {
         if (request.type() == RequestType.INTAKE_OFF
                 || (request.type() == RequestType.INTAKE
@@ -152,9 +171,13 @@ public final class CplxEngine1 implements IRobotEngine {
         statuses.add(RequestStatus.done(request.id()));
     }
 
-    /** One intake owner: an active shot commands the archive shoot power, else manual demand. */
+    /**
+     * One intake owner, in precedence order: mechanism recovery, an active shot (archive
+     * shoot power), else the current manual demand.
+     */
     private void applyIntake() {
-        double desired = shooter.ownsIntake() ? RobotConstants.SHOOT_INTAKE_POWER : manualIntakePower;
+        double desired = recovery.ownsIntake() ? recovery.intakePower()
+                : shooter.ownsIntake() ? RobotConstants.SHOOT_INTAKE_POWER : manualIntakePower;
         if (Double.doubleToLongBits(desired) == Double.doubleToLongBits(commandedIntakePower)) {
             return;
         }
@@ -164,6 +187,28 @@ public final class CplxEngine1 implements IRobotEngine {
         } else {
             subsystems.intake().run(desired);
         }
+    }
+
+    private void handleRecovery(Request request, List<RequestStatus> statuses) {
+        int mode = MechanismRecovery.mode(request);
+        if (mode < 0) {
+            statuses.add(RequestStatus.rejected(request.id(),
+                    "MECHANISM_RECOVERY requires mode 0, 1 or 2"));
+            return;
+        }
+        if (mode == 2) {
+            // The jam clear drives the flywheel open loop: no shooter request survives it.
+            shooter.cancelActive("jam clear", statuses);
+        }
+        recovery.request(request.id(), mode, statuses);
+    }
+
+    private boolean rejectIfRecovering(Request request, List<RequestStatus> statuses) {
+        if (!recovery.blocksShooter()) {
+            return false;
+        }
+        statuses.add(RequestStatus.rejected(request.id(), "mechanism recovery owns the flywheel"));
+        return true;
     }
 
     private void handleTurretAim(Request request, List<RequestStatus> statuses) {

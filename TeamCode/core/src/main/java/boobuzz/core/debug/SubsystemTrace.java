@@ -117,6 +117,15 @@ public final class SubsystemTrace {
             delegate.setHoodAngleDeg(angleDeg);
         }
         @Override public boolean hoodSettled() { return delegate.hoodSettled(); }
+        @Override public void runOpenLoop(double power) {
+            trace.call("shooter", "runOpenLoop", power);
+            delegate.runOpenLoop(power);
+        }
+        @Override public void setFeederPower(double power) {
+            trace.call("shooter", "setFeederPower", power);
+            delegate.setFeederPower(power);
+        }
+        @Override public boolean isStopped() { return delegate.isStopped(); }
     }
 
     private static final class RecordingIntake

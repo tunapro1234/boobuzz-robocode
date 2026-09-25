@@ -35,6 +35,11 @@ import java.util.function.Supplier;
  *   <li>Readiness also requires the CURRENT observation to be valid and within
  *       tolerance. Logic calls {@link #feed()} after observe but before update, so the
  *       dwell flag alone would be one tick stale; the archive ran periodic() first.</li>
+ *   <li>Spin-down before reverse (spec B08 safety correction to the archive's instant
+ *       +-1 jam toggle): power is never applied against a measured rotation outside the
+ *       readiness tolerance. Open loop coasts until stopped; the closed loop never drives
+ *       a backwards-spinning wheel forward. Closed-loop braking of a forward wheel stays
+ *       archive behavior.</li>
  * </ul>
  * Anti-windup is the archive's only: integral zone reset plus accumulator clamp; the
  * output clip does not stop integration.
@@ -56,6 +61,8 @@ public final class FlywheelShooter implements IShooter {
     private double measuredRpm = Double.NaN;
 
     private boolean enabled;
+    private boolean openLoop;
+    private double openLoopPower;
     private double targetRpm;
     private boolean fresh = true;
     private long lastLoopMs;
@@ -111,12 +118,16 @@ public final class FlywheelShooter implements IShooter {
             previouslyWithinTolerance = false;
         }
         enabled = true;
+        openLoop = false;
+        openLoopPower = 0.0;
         targetRpm = rpm;
     }
 
     @Override
     public void spinDown() {
         enabled = false;
+        openLoop = false;
+        openLoopPower = 0.0;
         targetRpm = 0.0;
         resetController();
         appliedPower = 0.0;
@@ -145,6 +156,30 @@ public final class FlywheelShooter implements IShooter {
     }
 
     @Override
+    public void runOpenLoop(double power) {
+        if (enabled) {
+            enabled = false;
+            targetRpm = 0.0;
+            resetController();
+        }
+        feedPending = false;
+        openLoop = true;
+        openLoopPower = Double.isFinite(power) ? RobotAction.clamp(power, -1.0, 1.0) : 0.0;
+    }
+
+    @Override
+    public void setFeederPower(double power) {
+        feedPending = false;
+        feeder.stop();
+        feeder.setPower(power);
+    }
+
+    @Override
+    public boolean isStopped() {
+        return sensorValid && Math.abs(measuredRpm) <= activeTuning().toleranceRpm();
+    }
+
+    @Override
     public void setHoodAngleDeg(double angleDeg) {
         hood.setAngleDeg(angleDeg);
     }
@@ -169,7 +204,10 @@ public final class FlywheelShooter implements IShooter {
             feedPending = false;
         }
 
-        if (!enabled) {
+        if (openLoop) {
+            stable = false;
+            appliedPower = againstRotation(openLoopPower) ? 0.0 : openLoopPower;
+        } else if (!enabled) {
             stable = false;
             appliedPower = 0.0;
         } else if (!sensorValid) {
@@ -177,12 +215,27 @@ public final class FlywheelShooter implements IShooter {
             appliedPower = 0.0;
         } else {
             closedLoop();
+            if (appliedPower > 0.0 && measuredRpm < -activeTuning().toleranceRpm()) {
+                appliedPower = 0.0;
+            }
         }
         out.motor(RobotConstants.SHOOTER_RIGHT_MOTOR_NAME, appliedPower);
         out.motor(RobotConstants.SHOOTER_LEFT_MOTOR_NAME,
                 appliedPower * RobotConstants.SHOOTER_FOLLOWER_SCALE);
 
         emitEvents(out);
+    }
+
+    /** Open-loop power that would oppose the measured rotation (or runs blind). */
+    private boolean againstRotation(double power) {
+        if (power == 0.0) {
+            return false;
+        }
+        if (!sensorValid) {
+            return true;
+        }
+        return Math.abs(measuredRpm) > activeTuning().toleranceRpm()
+                && Math.signum(power) != Math.signum(measuredRpm);
     }
 
     private void closedLoop() {
@@ -318,6 +371,10 @@ public final class FlywheelShooter implements IShooter {
     /** Wheel RPM from shooterRight, or NaN when the sensor is missing. */
     public double measuredRpm() {
         return measuredRpm;
+    }
+
+    public boolean isOpenLoop() {
+        return openLoop;
     }
 
     public double appliedPower() {

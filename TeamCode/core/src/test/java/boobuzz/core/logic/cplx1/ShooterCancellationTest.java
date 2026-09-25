@@ -116,5 +116,8 @@ public class ShooterCancellationTest {
         @Override public boolean isFeeding() { return false; }
         @Override public void setHoodAngleDeg(double angleDeg) {}
         @Override public boolean hoodSettled() { return false; }
+        @Override public void runOpenLoop(double power) {}
+        @Override public void setFeederPower(double power) {}
+        @Override public boolean isStopped() { return true; }
     }
 }
