@@ -56,6 +56,42 @@ public class SeamJsonTest {
         assertFalse(decoded.stream().manualDrive());
     }
 
+    @Test
+    public void phase11aAddendumRequestsRoundTrip() {
+        List<Request> originals = List.of(
+                Request.setShotPreset(1, 4000.0, 45.0, -0.25),
+                Request.stopShooting(2),
+                Request.mechanismRecovery(3, 2));
+        RequestBatch decoded = SeamJson.batchFrom(JsonCodec.parseObject(JsonCodec.stringify(
+                SeamJson.batchMap(new RequestBatch(RequestStream.idle(), originals, new int[0])))));
+        assertEquals(originals.size(), decoded.requests().size());
+        for (int i = 0; i < originals.size(); i++) {
+            Request original = originals.get(i);
+            Request result = decoded.requests().get(i);
+            assertEquals(original.id(), result.id());
+            assertEquals(original.type(), result.type());
+            assertEquals(original.params().length, result.params().length);
+            for (int p = 0; p < original.params().length; p++) {
+                assertEquals(original.params()[p], result.params()[p], 0.0);
+            }
+        }
+        assertEquals(RequestType.SET_SHOT_PRESET, decoded.requests().get(0).type());
+        assertEquals(RequestType.STOP_SHOOTING, decoded.requests().get(1).type());
+        assertEquals(RequestType.MECHANISM_RECOVERY, decoded.requests().get(2).type());
+    }
+
+    @Test
+    public void everyRequestTypeNameDecodes() {
+        for (RequestType type : RequestType.values()) {
+            if (type == RequestType.PATH) {
+                continue;
+            }
+            RequestBatch decoded = SeamJson.batchFrom(JsonCodec.parseObject(JsonCodec.stringify(
+                    SeamJson.batchMap(RequestBatch.of(Request.of(5, type, 1.0))))));
+            assertEquals(type, decoded.requests().get(0).type());
+        }
+    }
+
     @Test(expected = IllegalArgumentException.class)
     public void rejectsMissingBatchFields() {
         SeamJson.batchFrom(Map.of());

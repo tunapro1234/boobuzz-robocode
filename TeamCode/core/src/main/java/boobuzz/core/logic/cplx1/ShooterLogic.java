@@ -44,6 +44,7 @@ public final class ShooterLogic {
     private boolean hoodCommanded;
     private boolean turretOwned;
     private long prepareSinceMs = -1;
+    private long pulseEndedMs = -1;
 
     public ShooterLogic(IShooter shooter, TurretLogic turret) {
         this(shooter, turret, MechanismProfile.STUB);
@@ -271,6 +272,12 @@ public final class ShooterLogic {
                     : new RequestStatus(requestId, RequestStatus.State.DONE, progress(), "stopped"));
             return;
         }
+        if (state == State.RECOVER
+                && nowMs - pulseEndedMs < RobotConstants.FEEDER_POST_PULSE_DELAY_MS) {
+            // Archive ShootingController FEEDER_DELAY_MS: stopped feeder between pulses.
+            statuses.add(active(requestId, progress(), "post-pulse delay"));
+            return;
+        }
         String blocked = blockReason();
         if (blocked != null) {
             if (turret.startupDone() && prepareSinceMs < 0) {
@@ -308,6 +315,7 @@ public final class ShooterLogic {
         turret.holdForShot(false);
         state = State.RECOVER;
         prepareSinceMs = -1;
+        pulseEndedMs = nowMs;
         if (presetPending) {
             presetPending = false;
             latchTargets();
